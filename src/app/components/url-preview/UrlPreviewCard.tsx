@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { IPreviewUrlResponse } from 'matrix-js-sdk';
 import {
   Box,
@@ -17,6 +17,7 @@ import {
   Button,
 } from 'folds';
 import FocusTrap from 'focus-trap-react';
+import { RenderViewerProps, ImageOverlay } from '../ImageOverlay';
 import { AsyncStatus, useAsyncCallback } from '../../hooks/useAsyncCallback';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { UrlPreview, UrlPreviewContent, UrlPreviewDescription, UrlPreviewImg, UrlPreviewImgInside } from './UrlPreview';
@@ -60,284 +61,309 @@ function getTwitterEmbedId(url: string): string | null {
   return match ? match[3] : null;
 }
 
-export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
-  ({ url, ts, ...props }, ref) => {
-    const mx = useMatrixClient();
-    const useAuthentication = useMediaAuthentication();
-    const [useFxTwitter] = useSetting(settingsAtom, 'useFxTwitter');
+export const UrlPreviewCard = as<
+  'div',
+  { url: string; ts: number; renderViewer?: (props: RenderViewerProps) => ReactNode }
+>(({ url, ts, renderViewer, ...props }, ref) => {
+  const mx = useMatrixClient();
+  const useAuthentication = useMediaAuthentication();
+  const [useFxTwitter] = useSetting(settingsAtom, 'useFxTwitter');
 
-    const embedUrl = rewriteEmbedUrl(url, useFxTwitter);
+  const embedUrl = rewriteEmbedUrl(url, useFxTwitter);
 
-    const [previewStatus, loadPreview] = useAsyncCallback(
-      useCallback(() => mx.getUrlPreview(embedUrl, ts), [embedUrl, ts, mx])
+  const [previewStatus, loadPreview] = useAsyncCallback(
+    useCallback(() => mx.getUrlPreview(embedUrl, ts), [embedUrl, ts, mx])
+  );
+  const [viewerSrc, setViewerSrc] = useState<string>();
+  const [expanded, setExpanded] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  const isYt = isYoutubeUrl(url);
+  const ytVideoId = isYt ? getYoutubeVideoId(url) : null;
+  const twitterId = getTwitterEmbedId(url);
+
+  useEffect(() => {
+    loadPreview();
+  }, [loadPreview]);
+
+  const effectivePreview = previewStatus.status === AsyncStatus.Success
+    ? previewStatus.data
+    : null;
+
+  if (!effectivePreview && previewStatus.status !== AsyncStatus.Loading) return null;
+
+  if (dismissed) return null;
+
+  const renderContent = (prev: IPreviewUrlResponse) => {
+    const thumbUrl = mxcUrlToHttp(
+      mx,
+      prev['og:image'] || '',
+      useAuthentication,
+      256,
+      256,
+      'scale',
+      false
     );
-    const [viewerSrc, setViewerSrc] = useState<string>();
-    const [expanded, setExpanded] = useState(false);
-    const [dismissed, setDismissed] = useState(false);
 
-    const isYt = isYoutubeUrl(url);
-    const ytVideoId = isYt ? getYoutubeVideoId(url) : null;
-    const twitterId = getTwitterEmbedId(url);
+    const imgUrl = mxcUrlToHttp(
+      mx,
+      prev['og:image'] || '',
+      useAuthentication,
+      512,
+      512,
+      'scale',
+      false
+    );
 
-    useEffect(() => {
-      loadPreview();
-    }, [loadPreview]);
+    const title = prev['og:title'] as string | undefined;
+    const description = prev['og:description'] as string | undefined;
+    const siteName = prev['og:site_name'] as string | undefined;
+    const isVideo = isVideoUrl(url) || (prev['og:type'] as string)?.startsWith('video');
+    const isAudio = isAudioUrl(url) || (prev['og:type'] as string)?.startsWith('music');
 
-    const effectivePreview = previewStatus.status === AsyncStatus.Success
-      ? previewStatus.data
-      : null;
+    // og:video data (fxtwitter etc.)
+    const ogVideoUrl = (prev['og:video'] || prev['og:video:url']) as string | undefined;
+    const hasOgVideo = !!ogVideoUrl;
 
-    if (!effectivePreview && previewStatus.status !== AsyncStatus.Loading) return null;
+    const allKeys = Object.keys(prev).filter(k => k.startsWith('og:'));
 
-    if (dismissed) return null;
+    return (
+      <Box direction="Column" style={{ position: 'relative' }}>
+        {/* Dismiss button */}
+        <IconButton
+          size="200"
+          radii="300"
+          variant="SurfaceVariant"
+          onClick={(e) => { e.stopPropagation(); setDismissed(true); }}
+          aria-label="Dismiss embed"
+          style={{ position: 'absolute', top: 4, right: 4, zIndex: 1 }}
+        >
+          <Icon size="50" src={Icons.Cross} />
+        </IconButton>
 
-    const renderContent = (prev: IPreviewUrlResponse) => {
-      const imgUrl = mxcUrlToHttp(
-        mx,
-        prev['og:image'] || '',
-        useAuthentication,
-        512,
-        512,
-        'scale',
-        false
-      );
-
-      const title = prev['og:title'] as string | undefined;
-      const description = prev['og:description'] as string | undefined;
-      const siteName = prev['og:site_name'] as string | undefined;
-      const isVideo = isVideoUrl(url) || (prev['og:type'] as string)?.startsWith('video');
-      const isAudio = isAudioUrl(url) || (prev['og:type'] as string)?.startsWith('music');
-
-      // og:video data (fxtwitter etc.)
-      const ogVideoUrl = (prev['og:video'] || prev['og:video:url']) as string | undefined;
-      const hasOgVideo = !!ogVideoUrl;
-
-      const allKeys = Object.keys(prev).filter(k => k.startsWith('og:'));
-
-      return (
-        <Box direction="Column" style={{ position: 'relative' }}>
-          {/* Dismiss button */}
-          <IconButton
-            size="200"
-            radii="300"
-            variant="SurfaceVariant"
-            onClick={(e) => { e.stopPropagation(); setDismissed(true); }}
-            aria-label="Dismiss embed"
-            style={{ position: 'absolute', top: 4, right: 4, zIndex: 1 }}
+        {/* YouTube iframe embed */}
+        {isYt && ytVideoId && (
+          <Box
+            style={{
+              position: 'relative',
+              paddingBottom: '56.25%',
+              height: 0,
+              overflow: 'hidden',
+              backgroundColor: color.SurfaceVariant.Container,
+            }}
           >
-            <Icon size="50" src={Icons.Cross} />
-          </IconButton>
-
-          {/* YouTube iframe embed */}
-          {isYt && ytVideoId && (
-            <Box
+            <iframe
               style={{
-                position: 'relative',
-                paddingBottom: '56.25%',
-                height: 0,
-                overflow: 'hidden',
-                backgroundColor: color.SurfaceVariant.Container,
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                border: 'none',
               }}
-            >
-              <iframe
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  border: 'none',
-                }}
-                src={`https://www.youtube.com/embed/${ytVideoId}`}
-                title={title || 'YouTube video'}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </Box>
-          )}
-
-          {/* Twitter/X embed — always shown; useFxTwitter toggle controls URL rewriting for og:data */}
-          {twitterId && (
-            <Box
-              style={{
-                position: 'relative',
-                overflow: 'hidden',
-                backgroundColor: color.SurfaceVariant.Container,
-              }}
-            >
-              <iframe
-                style={{
-                  width: '100%',
-                  minHeight: '250px',
-                  border: 'none',
-                }}
-                src={`https://platform.twitter.com/embed/Tweet.html?id=${twitterId}`}
-                title={title || 'Tweet'}
-                allowFullScreen
-              />
-            </Box>
-          )}
-
-          {/* og:video embed (fxtwitter etc.) for non-Twitter or when fxtwitter returns video */}
-          {!isYt && !twitterId && hasOgVideo && (
-            <video
-              className={urlPreviewCss.UrlPreviewVideo}
-              src={ogVideoUrl}
-              controls
-              preload="metadata"
-              poster={imgUrl || undefined}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <a href={ogVideoUrl} target="_blank" rel="noreferrer">
-                {title || 'Video'}
-              </a>
-            </video>
-          )}
-
-          {/* Direct video URL */}
-          {!isYt && !twitterId && !hasOgVideo && isVideo && imgUrl && (
-            <video
-              className={urlPreviewCss.UrlPreviewVideo}
-              src={imgUrl}
-              controls
-              preload="metadata"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <a href={imgUrl} target="_blank" rel="noreferrer">
-                {title || 'Video'}
-              </a>
-            </video>
-          )}
-
-          {/* Audio embed */}
-          {isAudio && imgUrl && (
-            <audio
-              className={urlPreviewCss.UrlPreviewVideo}
-              src={imgUrl}
-              controls
-              preload="metadata"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <a href={imgUrl} target="_blank" rel="noreferrer">
-                {title || 'Audio'}
-              </a>
-            </audio>
-          )}
-
-          {/* Preview image (only if no video/audio player showing) */}
-          {!isYt && !twitterId && !hasOgVideo && !isVideo && !isAudio && imgUrl && (
-            <img
-              className={urlPreviewCss.UrlPreviewImg}
-              src={imgUrl}
-              alt={title || ''}
-              title={title}
-              onClick={() => setViewerSrc(imgUrl)}
+              src={`https://www.youtube.com/embed/${ytVideoId}`}
+              title={title || 'YouTube video'}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
             />
-          )}
+          </Box>
+        )}
 
-          <UrlPreviewContent>
+        {/* Twitter/X embed — always shown; useFxTwitter toggle controls URL rewriting for og:data */}
+        {twitterId && (
+          <Box
+            style={{
+              position: 'relative',
+              overflow: 'hidden',
+              backgroundColor: color.SurfaceVariant.Container,
+            }}
+          >
+            <iframe
+              style={{
+                width: '100%',
+                minHeight: '250px',
+                border: 'none',
+              }}
+              src={`https://platform.twitter.com/embed/Tweet.html?id=${twitterId}`}
+              title={title || 'Tweet'}
+              allowFullScreen
+            />
+          </Box>
+        )}
+
+        {/* og:video embed (fxtwitter etc.) for non-Twitter or when fxtwitter returns video */}
+        {!isYt && !twitterId && hasOgVideo && (
+          <video
+            className={urlPreviewCss.UrlPreviewVideo}
+            src={ogVideoUrl}
+            controls
+            preload="metadata"
+            poster={imgUrl || undefined}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <a href={ogVideoUrl} target="_blank" rel="noreferrer">
+              {title || 'Video'}
+            </a>
+          </video>
+        )}
+
+        {/* Direct video URL */}
+        {!isYt && !twitterId && !hasOgVideo && isVideo && imgUrl && (
+          <video
+            className={urlPreviewCss.UrlPreviewVideo}
+            src={imgUrl}
+            controls
+            preload="metadata"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <a href={imgUrl} target="_blank" rel="noreferrer">
+              {title || 'Video'}
+            </a>
+          </video>
+        )}
+
+        {/* Audio embed */}
+        {isAudio && imgUrl && (
+          <audio
+            className={urlPreviewCss.UrlPreviewVideo}
+            src={imgUrl}
+            controls
+            preload="metadata"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <a href={imgUrl} target="_blank" rel="noreferrer">
+              {title || 'Audio'}
+            </a>
+          </audio>
+        )}
+
+        {/* Preview image (only if no video/audio player showing) */}
+        {!isYt && !twitterId && !hasOgVideo && !isVideo && !isAudio && thumbUrl && (
+          <img
+            className={urlPreviewCss.UrlPreviewImg}
+            src={thumbUrl}
+            alt={title || ''}
+            title={title}
+            onClick={() => {
+              if (renderViewer) {
+                setViewerSrc(imgUrl);
+              }
+            }}
+          />
+        )}
+
+        <UrlPreviewContent>
+          <Text
+            style={linkStyles}
+            truncate
+            as="a"
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            size="T200"
+            priority="300"
+          >
+            {siteName ? `${siteName} | ` : ''}
+            {tryDecodeURIComponent(url)}
+          </Text>
+          {title && (
             <Text
-              style={linkStyles}
-              truncate
+              style={{ fontWeight: '600' }}
               as="a"
               href={url}
               target="_blank"
               rel="noreferrer"
-              size="T200"
-              priority="300"
+              size="T300"
+              truncate={!expanded}
             >
-              {siteName ? `${siteName} | ` : ''}
-              {tryDecodeURIComponent(url)}
+              {title}
             </Text>
-            {title && (
-              <Text
-                style={{ fontWeight: '600' }}
-                as="a"
-                href={url}
-                target="_blank"
-                rel="noreferrer"
-                size="T300"
-                truncate={!expanded}
-              >
-                {title}
-              </Text>
-            )}
-            {description && (
-              <Text size="T200" priority="300">
-                <UrlPreviewDescription>{description}</UrlPreviewDescription>
-              </Text>
-            )}
-
-            {/* Expand/collapse extra embed data */}
-            {allKeys.length > 4 && (
-              <Button
-                variant="Secondary"
-                fill="Soft"
-                size="300"
-                radii="300"
-                onClick={() => setExpanded(!expanded)}
-              >
-                <Text size="B300">
-                  {expanded ? 'Show Less' : `Show All (${allKeys.length - 4} more)`}
-                </Text>
-              </Button>
-            )}
-
-            {expanded && (
-              <Box direction="Column" gap="100" style={{ padding: `${config.space.S100} 0` }}>
-                {allKeys.map((key) => {
-                  const val = prev[key];
-                  if (!val || key === 'og:title' || key === 'og:description' || key === 'og:image' || key === 'og:site_name') return null;
-                  return (
-                    <Text key={key} size="T200" priority="400">
-                      <b>{key.replace('og:', '')}:</b>{' '}
-                      {typeof val === 'string' && val.length > 120
-                        ? `${val.slice(0, 120)}...`
-                        : String(val)}
-                    </Text>
-                  );
-                })}
-              </Box>
-            )}
-          </UrlPreviewContent>
-
-          {viewerSrc && (
-            <Overlay open backdrop={<OverlayBackdrop />}>
-              <OverlayCenter>
-                <FocusTrap
-                  focusTrapOptions={{
-                    initialFocus: false,
-                    onDeactivate: () => setViewerSrc(undefined),
-                    clickOutsideDeactivates: true,
-                    escapeDeactivates: stopPropagation,
-                  }}
-                >
-                  <ImageViewer
-                    src={viewerSrc}
-                    alt={title || 'Image'}
-                    requestClose={() => setViewerSrc(undefined)}
-                  />
-                </FocusTrap>
-              </OverlayCenter>
-            </Overlay>
           )}
-        </Box>
-      );
-    };
+          {description && (
+            <Text size="T200" priority="300">
+              <UrlPreviewDescription>{description}</UrlPreviewDescription>
+            </Text>
+          )}
 
-    return (
-      <UrlPreview {...props} ref={ref}>
-        {effectivePreview ? (
-          renderContent(effectivePreview as IPreviewUrlResponse)
-        ) : (
-          <Box grow="Yes" alignItems="Center" justifyContent="Center" style={{ padding: config.space.S400 }}>
-            <Spinner variant="Secondary" size="400" />
-          </Box>
+          {/* Expand/collapse extra embed data */}
+          {allKeys.length > 4 && (
+            <Button
+              variant="Secondary"
+              fill="Soft"
+              size="300"
+              radii="300"
+              onClick={() => setExpanded(!expanded)}
+            >
+              <Text size="B300">
+                {expanded ? 'Show Less' : `Show All (${allKeys.length - 4} more)`}
+              </Text>
+            </Button>
+          )}
+
+          {expanded && (
+            <Box direction="Column" gap="100" style={{ padding: `${config.space.S100} 0` }}>
+              {allKeys.map((key) => {
+                const val = prev[key];
+                if (!val || key === 'og:title' || key === 'og:description' || key === 'og:image' || key === 'og:site_name') return null;
+                return (
+                  <Text key={key} size="T200" priority="400">
+                    <b>{key.replace('og:', '')}:</b>{' '}
+                    {typeof val === 'string' && val.length > 120
+                      ? `${val.slice(0, 120)}...`
+                      : String(val)}
+                  </Text>
+                );
+              })}
+            </Box>
+          )}
+        </UrlPreviewContent>
+
+        {/* Image viewer — use renderViewer if provided, fall back to FocusTrap */}
+        {viewerSrc && renderViewer && (
+          <ImageOverlay
+            src={viewerSrc}
+            alt={title || 'Image'}
+            viewer={!!viewerSrc}
+            requestClose={() => setViewerSrc(undefined)}
+            renderViewer={renderViewer}
+          />
         )}
-      </UrlPreview>
+        {viewerSrc && !renderViewer && (
+          <Overlay open backdrop={<OverlayBackdrop />}>
+            <OverlayCenter>
+              <FocusTrap
+                focusTrapOptions={{
+                  initialFocus: false,
+                  onDeactivate: () => setViewerSrc(undefined),
+                  clickOutsideDeactivates: true,
+                  escapeDeactivates: stopPropagation,
+                }}
+              >
+                <ImageViewer
+                  src={viewerSrc}
+                  alt={title || 'Image'}
+                  requestClose={() => setViewerSrc(undefined)}
+                />
+              </FocusTrap>
+            </OverlayCenter>
+          </Overlay>
+        )}
+      </Box>
     );
-  }
-);
+  };
+
+  return (
+    <UrlPreview {...props} ref={ref}>
+      {effectivePreview ? (
+        renderContent(effectivePreview as IPreviewUrlResponse)
+      ) : (
+        <Box grow="Yes" alignItems="Center" justifyContent="Center" style={{ padding: config.space.S400 }}>
+          <Spinner variant="Secondary" size="400" />
+        </Box>
+      )}
+    </UrlPreview>
+  );
+});
 
 export const UrlPreviewHolder = as<'div'>(({ children, ...props }, ref) => {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -374,7 +400,7 @@ export const UrlPreviewHolder = as<'div'>(({ children, ...props }, ref) => {
     if (backAnchor) intersectionObserver?.observe(backAnchor);
     if (frontAnchor) intersectionObserver?.unobserve(frontAnchor);
     return () => {
-      if (backAnchor) intersectionObserver?.unobserve(backAnchor);
+      if (backAnchor) intersectionObserver?.observe(backAnchor);
       if (frontAnchor) intersectionObserver?.unobserve(frontAnchor);
     };
   }, [intersectionObserver]);
