@@ -11,6 +11,11 @@ export const UrlPreview = style([
     borderLeft: `4px solid ${color.Success.Main}`,
     borderRadius: config.radii.R200,
     overflow: 'hidden',
+    cursor: 'pointer',
+
+    ':hover': {
+      filter: 'brightness(0.8)',
+    },
   },
 ]);
 

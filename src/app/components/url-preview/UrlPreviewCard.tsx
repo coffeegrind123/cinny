@@ -31,7 +31,7 @@ import { tryDecodeURIComponent } from '../../utils/dom';
 import { mxcUrlToHttp } from '../../utils/matrix';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
 import { ImageViewer } from '../image-viewer';
-import { stopPropagation } from '../../utils/keyboard';
+import { stopPropagation, onEnterOrSpace } from '../../utils/keyboard';
 import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
 import { isYoutubeUrl, getYoutubeVideoId } from '../../utils/youtube';
@@ -61,6 +61,7 @@ function getTwitterEmbedId(url: string): string | null {
   return match ? match[3] : null;
 }
 
+<<<<<<< HEAD
 export const UrlPreviewCard = as<
   'div',
   { url: string; ts: number; renderViewer?: (props: RenderViewerProps) => ReactNode }
@@ -239,16 +240,13 @@ export const UrlPreviewCard = as<
 
         {/* Preview image (only if no video/audio player showing) */}
         {!isYt && !twitterId && !hasOgVideo && !isVideo && !isAudio && thumbUrl && (
-          <img
-            className={urlPreviewCss.UrlPreviewImg}
+          <UrlPreviewImg
             src={thumbUrl}
             alt={title || ''}
             title={title}
-            onClick={() => {
-              if (renderViewer) {
-                setViewerSrc(imgUrl);
-              }
-            }}
+            tabIndex={0}
+            onKeyDown={(evt) => onEnterOrSpace(() => setViewerSrc(imgUrl))(evt)}
+            onClick={() => setViewerSrc(imgUrl)}
           />
         )}
 
