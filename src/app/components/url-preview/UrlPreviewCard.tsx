@@ -61,7 +61,6 @@ function getTwitterEmbedId(url: string): string | null {
   return match ? match[3] : null;
 }
 
-<<<<<<< HEAD
 export const UrlPreviewCard = as<
   'div',
   { url: string; ts: number; renderViewer?: (props: RenderViewerProps) => ReactNode }
