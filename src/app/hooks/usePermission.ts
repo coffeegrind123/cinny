@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
+import { isTauri } from '../utils/desktop-notifications';
 
-const isTauriRuntime = () => '__TAURI__' in window || '__TAURI_INTERNALS__' in window;
+const isTauriRuntime = () => isTauri();
 
 export const getNotificationState = (): PermissionState => {
   if ('Notification' in window) {
     // In Tauri, the notification plugin manages permission via IPC.
-    // WebView2 defaults window.Notification.permission to 'denied'
-    // and the plugin does NOT sync back to it. Map anything that
+    // WebView2/Android WebView defaults window.Notification.permission to
+    // 'denied' and the plugin does NOT sync back to it. Map anything that
     // isn't 'granted' to 'prompt' so the Enable button always shows.
     if (isTauriRuntime()) {
       return window.Notification.permission === 'granted' ? 'granted' : 'prompt';
@@ -43,14 +44,24 @@ export function usePermissionState(name: PermissionName, initialValue: Permissio
         // Silence error since FF doesn't support microphone permission
       });
 
-    const interval = setInterval(() => {
-      if (name === 'notifications' && 'Notification' in window) {
+    // For Tauri: poll via the plugin's isPermissionGranted() since
+    // window.Notification.permission doesn't reflect the real state
+    // on Android WebView or Windows WebView2.
+    const interval = setInterval(async () => {
+      if (name === 'notifications' && isTauriRuntime()) {
+        try {
+          const mod = await import('@tauri-apps/plugin-notification');
+          const granted = await mod.isPermissionGranted();
+          setPermissionState((prev) => {
+            const mapped: PermissionState = granted ? 'granted' : 'prompt';
+            return prev !== mapped ? mapped : prev;
+          });
+        } catch {
+          // plugin-notification not loaded yet, keep current state
+        }
+      } else if (name === 'notifications' && 'Notification' in window) {
         const current = window.Notification.permission as PermissionState;
-        // Same Tauri remapping as getNotificationState
-        const mapped = isTauriRuntime()
-          ? (current === 'granted' ? 'granted' : 'prompt')
-          : current;
-        setPermissionState((prev) => (prev !== mapped ? mapped : prev));
+        setPermissionState((prev) => (prev !== current ? current : prev));
       }
     }, 500);
 
