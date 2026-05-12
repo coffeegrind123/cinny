@@ -41,27 +41,20 @@
 html {
   height: 100%;
   overflow: hidden;
-  /* Safe area for device notches — must be on html when body has height:100%.
-     env(safe-area-inset-*) won't resolve on a non-scrolling body (WebKit bug). */
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
-  /* Prevent white safe-area bars in dark theme. The safe-area padding inherits
-     the html background, which defaults to white. Match system theme. */
   color-scheme: light dark;
-  background-color: Canvas;
-}
-
-@media (prefers-color-scheme: dark) {
-  html {
-    background-color: #1a1a1a;
-  }
 }
 
 body {
   margin: 0;
   padding: 0;
+  /* Safe area for device notches. On html, the padding area uses the html
+     background which isn't synced to Cinny's themes (folds uses React context,
+     not CSS variables). On body, the background is controlled by folds and
+     matches the active theme — so safe-area bars get the correct color. */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
   height: 100%;
   font-family: var(--font-secondary);
   font-size: 16px;
