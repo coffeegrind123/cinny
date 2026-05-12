@@ -1,14 +1,18 @@
 import { useAtomValue } from 'jotai';
 import React, { ReactNode, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RoomEvent, RoomEventHandlerMap } from 'matrix-js-sdk';
+import { MatrixEventEvent, RoomEvent, RoomEventHandlerMap } from 'matrix-js-sdk';
 import { roomToUnreadAtom, unreadEqual, unreadInfoToUnread } from '../../state/room/roomToUnread';
 import LogoSVG from '../../../../public/res/svg/cinny.svg';
 import LogoUnreadSVG from '../../../../public/res/svg/cinny-unread.svg';
 import LogoHighlightSVG from '../../../../public/res/svg/cinny-highlight.svg';
 import NotificationSound from '../../../../public/sound/notification.ogg';
 import InviteSound from '../../../../public/sound/invite.ogg';
-import { notificationPermission, setFavicon } from '../../utils/dom';
+import { setFavicon } from '../../utils/dom';
+import {
+  isNotificationPermissionGrantedSync,
+  sendDesktopNotification,
+} from '../../utils/desktop-notifications';
 import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
 import { allInvitesAtom } from '../../state/room-list/inviteList';
@@ -88,17 +92,24 @@ function InviteNotifications() {
 
   const notify = useCallback(
     (count: number) => {
-      const noti = new window.Notification('Invitation', {
+      sendDesktopNotification('Invitation', {
         icon: LogoSVG,
-        badge: LogoSVG,
         body: `You have ${count} new invitation request.`,
-        silent: true,
       });
 
-      noti.onclick = () => {
-        if (!window.closed) navigate(getInboxInvitesPath());
-        noti.close();
-      };
+      // Browser fallback with click handler
+      if (!('__TAURI__' in window || '__TAURI_INTERNALS__' in window) && 'Notification' in window) {
+        const noti = new window.Notification('Invitation', {
+          icon: LogoSVG,
+          badge: LogoSVG,
+          body: `You have ${count} new invitation request.`,
+          silent: true,
+        });
+        noti.onclick = () => {
+          if (!window.closed) navigate(getInboxInvitesPath());
+          noti.close();
+        };
+      }
     },
     [navigate]
   );
@@ -110,7 +121,7 @@ function InviteNotifications() {
 
   useEffect(() => {
     if (invites.length > perviousInviteLen && mx.getSyncState() === 'SYNCING') {
-      if (showNotifications && notificationPermission('granted')) {
+      if (showNotifications && isNotificationPermissionGrantedSync()) {
         notify(invites.length - perviousInviteLen);
       }
 
@@ -145,29 +156,35 @@ function MessageNotifications() {
     ({
       roomName,
       roomAvatar,
-      username,
+      notificationBody,
     }: {
       roomName: string;
       roomAvatar?: string;
-      username: string;
+      notificationBody: string;
       roomId: string;
       eventId: string;
     }) => {
-      const noti = new window.Notification(roomName, {
+      sendDesktopNotification(roomName, {
         icon: roomAvatar,
-        badge: roomAvatar,
-        body: `New inbox notification from ${username}`,
-        silent: true,
+        body: notificationBody,
       });
 
-      noti.onclick = () => {
-        if (!window.closed) navigate(getInboxNotificationsPath());
-        noti.close();
-        notifRef.current = undefined;
-      };
-
-      notifRef.current?.close();
-      notifRef.current = noti;
+      // Browser fallback with click handler
+      if (!('__TAURI__' in window || '__TAURI_INTERNALS__' in window) && 'Notification' in window) {
+        notifRef.current?.close();
+        const noti = new window.Notification(roomName, {
+          icon: roomAvatar,
+          badge: roomAvatar,
+          body: notificationBody,
+          silent: true,
+        });
+        noti.onclick = () => {
+          if (!window.closed) navigate(getInboxNotificationsPath());
+          noti.close();
+          notifRef.current = undefined;
+        };
+        notifRef.current = noti;
+      }
     },
     [navigate]
   );
@@ -178,6 +195,61 @@ function MessageNotifications() {
   }, []);
 
   useEffect(() => {
+    const sendNotif = (mEvent: any, room: any) => {
+      if (!showNotifications || !isNotificationPermissionGrantedSync()) return;
+      const sender = mEvent.getSender();
+      const eventId = mEvent.getId();
+      if (!sender || !eventId || sender === mx.getUserId()) return;
+
+      const unreadInfo = getUnreadInfo(room);
+      const cachedUnreadInfo = unreadCacheRef.current.get(room.roomId);
+      unreadCacheRef.current.set(room.roomId, unreadInfo);
+      if (unreadInfo.total === 0) return;
+      if (
+        cachedUnreadInfo &&
+        unreadEqual(unreadInfoToUnread(cachedUnreadInfo), unreadInfoToUnread(unreadInfo))
+      ) {
+        return;
+      }
+
+      const avatarMxc =
+        room.getAvatarFallbackMember()?.getMxcAvatarUrl() ?? room.getMxcAvatarUrl();
+      const username = getMemberDisplayName(room, sender) ?? getMxIdLocalPart(sender) ?? sender;
+      const content = (mEvent as any).content ?? mEvent.getContent();
+      const msgtype: string | undefined = content?.msgtype;
+      let rawBody: string = typeof content?.body === 'string' ? content.body : '';
+      if (!rawBody && content?.['m.new_content']?.body) {
+        rawBody = content['m.new_content'].body;
+      }
+
+      let notificationBody: string;
+      if (!rawBody && !msgtype) {
+        notificationBody = `New message from ${username}`;
+      } else if (msgtype === 'm.image') {
+        notificationBody = `${username} sent an image${rawBody ? `: ${rawBody}` : ''}`;
+      } else if (msgtype === 'm.video') {
+        notificationBody = `${username} sent a video${rawBody ? `: ${rawBody}` : ''}`;
+      } else if (msgtype === 'm.audio') {
+        notificationBody = `${username} sent an audio clip${rawBody ? `: ${rawBody}` : ''}`;
+      } else if (msgtype === 'm.file') {
+        notificationBody = `${username} sent a file${rawBody ? `: ${rawBody}` : ''}`;
+      } else {
+        notificationBody = rawBody
+          ? `${username}: ${rawBody}`
+          : `New message from ${username}`;
+      }
+
+      notify({
+        roomName: room.name ?? 'Unknown',
+        roomAvatar: avatarMxc
+          ? mxcUrlToHttp(mx, avatarMxc, useAuthentication, 96, 96, 'crop') ?? undefined
+          : undefined,
+        notificationBody,
+        roomId: room.roomId,
+        eventId,
+      });
+    };
+
     const handleTimelineEvent: RoomEventHandlerMap[RoomEvent.Timeline] = (
       mEvent,
       room,
@@ -196,39 +268,22 @@ function MessageNotifications() {
       ) {
         return;
       }
+      if (mEvent.getSender() === mx.getUserId()) return;
 
-      const sender = mEvent.getSender();
-      const eventId = mEvent.getId();
-      if (!sender || !eventId || mEvent.getSender() === mx.getUserId()) return;
-      const unreadInfo = getUnreadInfo(room);
-      const cachedUnreadInfo = unreadCacheRef.current.get(room.roomId);
-      unreadCacheRef.current.set(room.roomId, unreadInfo);
-
-      if (unreadInfo.total === 0) return;
-      if (
-        cachedUnreadInfo &&
-        unreadEqual(unreadInfoToUnread(cachedUnreadInfo), unreadInfoToUnread(unreadInfo))
-      ) {
+      // For encrypted messages, the Timeline event fires before decryption
+      // completes. Wait for the Decrypted event to get the real content.
+      if ((mEvent as any).isEncrypted?.()) {
+        const onDecrypted = () => {
+          mEvent.off?.(MatrixEventEvent.Decrypted, onDecrypted);
+          sendNotif(mEvent, room);
+          if (notificationSound) playSound();
+        };
+        mEvent.on?.(MatrixEventEvent.Decrypted, onDecrypted);
         return;
       }
 
-      if (showNotifications && notificationPermission('granted')) {
-        const avatarMxc =
-          room.getAvatarFallbackMember()?.getMxcAvatarUrl() ?? room.getMxcAvatarUrl();
-        notify({
-          roomName: room.name ?? 'Unknown',
-          roomAvatar: avatarMxc
-            ? mxcUrlToHttp(mx, avatarMxc, useAuthentication, 96, 96, 'crop') ?? undefined
-            : undefined,
-          username: getMemberDisplayName(room, sender) ?? getMxIdLocalPart(sender) ?? sender,
-          roomId: room.roomId,
-          eventId,
-        });
-      }
-
-      if (notificationSound) {
-        playSound();
-      }
+      sendNotif(mEvent, room);
+      if (notificationSound) playSound();
     };
     mx.on(RoomEvent.Timeline, handleTimelineEvent);
     return () => {

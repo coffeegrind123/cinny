@@ -10,6 +10,7 @@ import { getNotificationState, usePermissionState } from '../../../hooks/usePerm
 import { useEmailNotifications } from '../../../hooks/useEmailNotifications';
 import { AsyncStatus, useAsyncCallback } from '../../../hooks/useAsyncCallback';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
+import { requestNotificationPermission } from '../../../utils/desktop-notifications';
 
 function EmailNotification() {
   const mx = useMatrixClient();
@@ -92,8 +93,8 @@ export function SystemNotification() {
     'isNotificationSounds'
   );
 
-  const requestNotificationPermission = () => {
-    window.Notification.requestPermission();
+  const handleRequestPermission = () => {
+    requestNotificationPermission();
   };
 
   return (
@@ -120,7 +121,7 @@ export function SystemNotification() {
           }
           after={
             notifPermission === 'prompt' ? (
-              <Button size="300" radii="300" onClick={requestNotificationPermission}>
+              <Button size="300" radii="300" onClick={handleRequestPermission}>
                 <Text size="B300">Enable</Text>
               </Button>
             ) : (
