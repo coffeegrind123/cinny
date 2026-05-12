@@ -1,6 +1,12 @@
 {
   "defaultHomeserver": 1,
-  "homeserverList": ["converser.eu", "matrix.org", "mozilla.org", "unredacted.org", "xmr.se"],
+  "homeserverList": [
+    "converser.eu",
+    "matrix.org",
+    "mozilla.org",
+    "unredacted.org",
+    "xmr.se"
+  ],
   "allowCustomHomeservers": true,
 
   "featuredCommunities": {
@@ -21,11 +27,11 @@
       "#PrivSec.dev:arcticfoxes.net",
       "#disroot:aria-net.org"
     ],
-    "servers": ["matrix.org", "mozilla.org", "unredacted.org"]
+    "servers": [ "matrixrooms.info", "matrix.org", "mozilla.org", "unredacted.org" ]
   },
 
   "hashRouter": {
-    "enabled": false,
+    "enabled": true,
     "basename": "/"
   }
 }
