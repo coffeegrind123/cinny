@@ -7,6 +7,8 @@ import {
   onEndpointReceived,
   onPushMessage,
   onUnregistered,
+  startForegroundService,
+  stopForegroundService,
 } from '../utils/mobile-push';
 
 const UP_APP_ID = 'in.cinny.app.unifiedpush';
@@ -60,6 +62,14 @@ export function useUnifiedPush(mx: MatrixClient | undefined) {
     let unsubUnregistered: (() => void) | undefined;
 
     async function setup() {
+      // 0. Start foreground service to keep Matrix WebSocket alive in background
+      try {
+        await startForegroundService();
+        console.log('[UnifiedPush] Foreground service started');
+      } catch (err) {
+        console.warn('[UnifiedPush] Foreground service failed to start:', err);
+      }
+
       // 1. Try existing endpoint first
       let endpoint = await getUnifiedPushEndpoint().catch(() => null);
 
@@ -99,6 +109,7 @@ export function useUnifiedPush(mx: MatrixClient | undefined) {
       unsubMessage?.();
       unsubEndpoint?.();
       unsubUnregistered?.();
+      stopForegroundService().catch(() => {});
     };
   }, [mx?.clientRunning]);
 }

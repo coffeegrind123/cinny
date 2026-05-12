@@ -70,3 +70,24 @@ export function onRegistrationFailed(callback: (reason: string) => void): Promis
     callback(event.payload.reason);
   });
 }
+
+/**
+ * Foreground service — keeps the Matrix WebSocket alive in the background
+ * on GrapheneOS and other de-Googled devices without FCM.
+ */
+
+/** Start the foreground service with a persistent notification. */
+export async function startForegroundService(): Promise<void> {
+  await invoke('plugin:foreground|start_foreground');
+}
+
+/** Stop the foreground service and remove the persistent notification. */
+export async function stopForegroundService(): Promise<void> {
+  await invoke('plugin:foreground|stop_foreground');
+}
+
+/** Check whether the foreground service is currently running. */
+export async function isForegroundServiceRunning(): Promise<boolean> {
+  const result = await invoke<{ running: boolean }>('plugin:foreground|is_foreground_running');
+  return result.running;
+}
