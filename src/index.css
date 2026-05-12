@@ -41,6 +41,12 @@
 html {
   height: 100%;
   overflow: hidden;
+  /* Safe area for device notches — must be on html when body has height:100%.
+     env(safe-area-inset-*) won't resolve on a non-scrolling body (WebKit bug). */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 body {
