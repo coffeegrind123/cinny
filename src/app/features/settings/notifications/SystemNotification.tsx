@@ -107,7 +107,7 @@ export function SystemNotification() {
         gap="400"
       >
         <SettingTile
-          title="Desktop Notifications"
+          title="Notifications"
           description={
             notifPermission === 'denied' ? (
               <Text as="span" style={{ color: color.Critical.Main }} size="T200">
@@ -116,7 +116,7 @@ export function SystemNotification() {
                   : 'Notifications are not supported by the system.'}
               </Text>
             ) : (
-              <span>Show desktop notifications when message arrive.</span>
+              <span>Show notifications when messages arrive.</span>
             )
           }
           after={
