@@ -117,20 +117,30 @@ export function UserMentionAutocomplete({
     requestClose();
   };
 
+  const handleAutocompleteFirst = () => {
+    if (query.text === 'room') {
+      handleAutocomplete(roomAliasOrId, '@room');
+      return;
+    }
+    if (autoCompleteMembers.length === 0) {
+      const userId = userIdFromQueryText(mx, query.text);
+      handleAutocomplete(userId, userId);
+      return;
+    }
+    const roomMember = autoCompleteMembers[0];
+    handleAutocomplete(roomMember.userId, roomMember.name);
+  };
+
   useKeyDown(window, (evt: KeyboardEvent) => {
-    onTabPress(evt, () => {
-      if (query.text === 'room') {
-        handleAutocomplete(roomAliasOrId, '@room');
-        return;
-      }
-      if (autoCompleteMembers.length === 0) {
-        const userId = userIdFromQueryText(mx, query.text);
-        handleAutocomplete(userId, userId);
-        return;
-      }
-      const roomMember = autoCompleteMembers[0];
-      handleAutocomplete(roomMember.userId, roomMember.name);
-    });
+    onTabPress(evt, () => handleAutocompleteFirst());
+  });
+
+  useKeyDown(window, (evt: KeyboardEvent) => {
+    if (evt.key === 'Enter') {
+      evt.preventDefault();
+      evt.stopPropagation();
+      handleAutocompleteFirst();
+    }
   });
 
   const getName = (member: RoomMember) =>

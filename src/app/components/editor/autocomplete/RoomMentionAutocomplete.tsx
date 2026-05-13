@@ -118,18 +118,28 @@ export function RoomMentionAutocomplete({
     requestClose();
   };
 
+  const handleAutocompleteFirst = () => {
+    if (autoCompleteRoomIds.length === 0) {
+      const alias = roomAliasFromQueryText(mx, query.text);
+      handleAutocomplete(alias, alias);
+      return;
+    }
+    const rId = autoCompleteRoomIds[0];
+    const r = mx.getRoom(rId);
+    const name = r?.name ?? rId;
+    handleAutocomplete(r?.getCanonicalAlias() ?? rId, name);
+  };
+
   useKeyDown(window, (evt: KeyboardEvent) => {
-    onTabPress(evt, () => {
-      if (autoCompleteRoomIds.length === 0) {
-        const alias = roomAliasFromQueryText(mx, query.text);
-        handleAutocomplete(alias, alias);
-        return;
-      }
-      const rId = autoCompleteRoomIds[0];
-      const r = mx.getRoom(rId);
-      const name = r?.name ?? rId;
-      handleAutocomplete(r?.getCanonicalAlias() ?? rId, name);
-    });
+    onTabPress(evt, () => handleAutocompleteFirst());
+  });
+
+  useKeyDown(window, (evt: KeyboardEvent) => {
+    if (evt.key === 'Enter') {
+      evt.preventDefault();
+      evt.stopPropagation();
+      handleAutocompleteFirst();
+    }
   });
 
   return (

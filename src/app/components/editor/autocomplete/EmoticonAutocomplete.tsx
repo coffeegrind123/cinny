@@ -83,6 +83,16 @@ export function EmoticonAutocomplete({
     });
   });
 
+  useKeyDown(window, (evt: KeyboardEvent) => {
+    if (evt.key === 'Enter' && autoCompleteEmoticon.length > 0) {
+      evt.preventDefault();
+      evt.stopPropagation();
+      const emoticon = autoCompleteEmoticon[0];
+      const key = 'url' in emoticon ? emoticon.url : emoticon.unicode;
+      handleAutocomplete(key, emoticon.shortcode);
+    }
+  });
+
   return autoCompleteEmoticon.length === 0 ? null : (
     <AutocompleteMenu headerContent={<Text size="L400">Emojis</Text>} requestClose={requestClose}>
       {autoCompleteEmoticon.map((emoticon) => {
