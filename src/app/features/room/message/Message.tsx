@@ -1206,9 +1206,7 @@ export const Event = as<'div', EventProps>(
 
     return (
       <MessageBase
-        className={classNames(css.MessageBase, className, {
-          [css.MessageReplyHighlight]: repliedToMe,
-        })}
+        className={classNames(css.MessageBase, className)}
         tabIndex={0}
         space={messageSpacing}
         autoCollapse
