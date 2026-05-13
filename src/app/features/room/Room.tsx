@@ -18,6 +18,7 @@ import { CallView } from '../call/CallView';
 import { RoomViewHeader } from './RoomViewHeader';
 import { callChatAtom } from '../../state/callEmbed';
 import { CallChatView } from './CallChatView';
+import { MobileSwipeBack } from './MobileSwipeBack';
 
 export function Room() {
   const { eventId } = useParams();
@@ -47,7 +48,8 @@ export function Room() {
 
   return (
     <PowerLevelsContextProvider value={powerLevels}>
-      <Box grow="Yes">
+      <MobileSwipeBack>
+        <Box grow="Yes">
         {callView && (screenSize === ScreenSize.Desktop || !chat) && (
           <Box grow="Yes" direction="Column">
             <RoomViewHeader callView />
@@ -80,6 +82,7 @@ export function Room() {
           </>
         )}
       </Box>
+      </MobileSwipeBack>
     </PowerLevelsContextProvider>
   );
 }

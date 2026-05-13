@@ -53,6 +53,7 @@ import { SidebarNav } from './client/SidebarNav';
 import { PageRoot } from '../components/page';
 import { ScreenSize } from '../hooks/useScreenSize';
 import { MobileFriendlyPageNav, MobileFriendlyClientNav } from './MobileFriendly';
+import { MobileSwipeOpen } from './MobileSwipeOpen';
 import { ClientInitStorageAtom } from './client/ClientInitStorageAtom';
 import { ClientNonUIFeatures } from './client/ClientNonUIFeatures';
 import { AuthRouteThemeManager, UnAuthRouteThemeManager } from './ThemeManager';
@@ -160,7 +161,9 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
             <PageRoot
               nav={
                 <MobileFriendlyPageNav path={HOME_PATH}>
-                  <Home />
+                  <MobileSwipeOpen>
+                    <Home />
+                  </MobileSwipeOpen>
                 </MobileFriendlyPageNav>
               }
             >
@@ -187,7 +190,9 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
             <PageRoot
               nav={
                 <MobileFriendlyPageNav path={DIRECT_PATH}>
-                  <Direct />
+                  <MobileSwipeOpen>
+                    <Direct />
+                  </MobileSwipeOpen>
                 </MobileFriendlyPageNav>
               }
             >
@@ -213,7 +218,9 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
               <PageRoot
                 nav={
                   <MobileFriendlyPageNav path={SPACE_PATH}>
-                    <Space />
+                    <MobileSwipeOpen>
+                      <Space />
+                    </MobileSwipeOpen>
                   </MobileFriendlyPageNav>
                 }
               >
