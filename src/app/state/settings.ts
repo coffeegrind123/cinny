@@ -46,6 +46,7 @@ export interface Settings {
 
   developerTools: boolean;
   keybinds: Record<string, string>;
+  readReceiptStyle: 'cinny' | 'element';
 }
 
 const defaultSettings: Settings = {
@@ -85,6 +86,7 @@ const defaultSettings: Settings = {
 
   developerTools: false,
   keybinds: {},
+  readReceiptStyle: 'cinny',
 };
 
 export const getSettings = () => {

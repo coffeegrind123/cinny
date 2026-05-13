@@ -712,6 +712,7 @@ function Editor() {
   const [enterForNewline, setEnterForNewline] = useSetting(settingsAtom, 'enterForNewline');
   const [isMarkdown, setIsMarkdown] = useSetting(settingsAtom, 'isMarkdown');
   const [hideActivity, setHideActivity] = useSetting(settingsAtom, 'hideActivity');
+  const [readReceiptStyle, setReadReceiptStyle] = useSetting(settingsAtom, 'readReceiptStyle');
   const [minimizeToTray, setMinimizeToTray] = useSetting(settingsAtom, 'minimizeToTray');
 
   return (
@@ -737,6 +738,34 @@ function Editor() {
           title="Hide Typing & Read Receipts"
           description="Turn off both typing status and read receipts to keep your activity private."
           after={<Switch variant="Primary" value={hideActivity} onChange={setHideActivity} />}
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Read Receipt Style"
+          description="Cinny shows who's following live. Element shows avatar dots at each person's last-read message."
+          after={
+            <Box gap="100">
+              <Button
+                size="300"
+                variant={readReceiptStyle === 'cinny' ? 'Primary' : 'SurfaceVariant'}
+                fill={readReceiptStyle === 'cinny' ? 'Solid' : 'None'}
+                radii="Pill"
+                onClick={() => setReadReceiptStyle('cinny')}
+              >
+                <Text size="T300">Cinny</Text>
+              </Button>
+              <Button
+                size="300"
+                variant={readReceiptStyle === 'element' ? 'Primary' : 'SurfaceVariant'}
+                fill={readReceiptStyle === 'element' ? 'Solid' : 'None'}
+                radii="Pill"
+                onClick={() => setReadReceiptStyle('element')}
+              >
+                <Text size="T300">Element</Text>
+              </Button>
+            </Box>
+          }
         />
       </SequenceCard>
       {isTauri() && (

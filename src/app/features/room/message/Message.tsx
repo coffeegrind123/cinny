@@ -59,6 +59,10 @@ import {
   mxcUrlToHttp,
 } from '../../../utils/matrix';
 import { markAsUnread } from '../../../utils/notifications';
+import { useElementReadReceipts } from '../../../hooks/useElementReadReceipts';
+import { ReadReceiptAvatars } from '../../../components/read-receipt-avatars/ReadReceiptAvatars';
+import { useSetting } from '../../../state/hooks/settings';
+import { settingsAtom } from '../../../state/settings';
 import { MessageLayout, MessageSpacing } from '../../../state/settings';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { useRecentEmoji } from '../../../hooks/useRecentEmoji';
@@ -724,6 +728,12 @@ export const Message = as<'div', MessageProps>(
     const mx = useMatrixClient();
     const useAuthentication = useMediaAuthentication();
     const senderId = mEvent.getSender() ?? '';
+    const [readReceiptStyle] = useSetting(settingsAtom, 'readReceiptStyle');
+    const elementReceipts = useElementReadReceipts(
+      room,
+      readReceiptStyle === 'element' && !hideReadReceipts
+    );
+    const receiptUserIds = elementReceipts.get(mEvent.getId() ?? '') ?? [];
 
     const [hover, setHover] = useState(false);
     const { hoverProps } = useHover({ onHoverChange: setHover });
@@ -832,6 +842,11 @@ export const Message = as<'div', MessageProps>(
           children
         )}
         {reactions}
+        {receiptUserIds.length > 0 && (
+          <Box justifyContent="End" style={{ marginTop: '2px' }}>
+            <ReadReceiptAvatars room={room} userIds={receiptUserIds} />
+          </Box>
+        )}
       </Box>
     );
 
