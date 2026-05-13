@@ -42,6 +42,11 @@ html {
   height: 100%;
   overflow: hidden;
   color-scheme: light dark;
+  /* Safe-area bars (notch, nav bar) show the html background, not body.
+     light-dark() follows the system color-scheme so the bars match the OS
+     theme. Falls back to #000 (dark) on browsers that don't support it. */
+  background-color: #000;
+  background-color: light-dark(#fff, #000);
 }
 
 body {
