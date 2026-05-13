@@ -83,6 +83,25 @@ function FaviconUpdater() {
   return null;
 }
 
+function TaskbarBadgeUpdater() {
+  const roomToUnread = useAtomValue(roomToUnreadAtom);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+
+    let totalUnread = 0;
+    roomToUnread.forEach((unread) => {
+      totalUnread += unread.total;
+    });
+
+    import('@tauri-apps/api/core').then(({ invoke }) => {
+      invoke('set_badge_count', { count: totalUnread }).catch(() => {});
+    });
+  }, [roomToUnread]);
+
+  return null;
+}
+
 function InviteNotifications() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const invites = useAtomValue(allInvitesAtom);
@@ -348,6 +367,7 @@ export function ClientNonUIFeatures({ children }: ClientNonUIFeaturesProps) {
       <SystemEmojiFeature />
       <PageZoomFeature />
       <FaviconUpdater />
+      <TaskbarBadgeUpdater />
       <InviteNotifications />
       <MessageNotifications />
       {children}
