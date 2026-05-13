@@ -58,6 +58,7 @@ import {
   isRoomAlias,
   mxcUrlToHttp,
 } from '../../../utils/matrix';
+import { markAsUnread } from '../../../utils/notifications';
 import { MessageLayout, MessageSpacing } from '../../../state/settings';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { useRecentEmoji } from '../../../hooks/useRecentEmoji';
@@ -1085,6 +1086,24 @@ export const Message = as<'div', MessageProps>(
                             />
                           )}
                           <MessageCopyLinkItem room={room} mEvent={mEvent} onClose={closeMenu} />
+                          <MenuItem
+                            size="300"
+                            after={<Icon size="100" src={Icons.MessageUnread} />}
+                            radii="300"
+                            onClick={() => {
+                              markAsUnread(mx, room.roomId, mEvent.getId()!);
+                              closeMenu();
+                            }}
+                          >
+                            <Text
+                              className={css.MessageMenuItemText}
+                              as="span"
+                              size="T300"
+                              truncate
+                            >
+                              Mark Unread
+                            </Text>
+                          </MenuItem>
                           {canPinEvent && (
                             <MessagePinItem room={room} mEvent={mEvent} onClose={closeMenu} />
                           )}

@@ -27,7 +27,7 @@ export function AutocompleteMenu({ headerContent, requestClose, children }: Auto
       <div className={css.AutocompleteMenuContainer}>
         <FocusTrap
           focusTrapOptions={{
-            initialFocus: false,
+            initialFocus: 'button',
             onPostDeactivate: handleDeactivate,
             returnFocusOnDeactivate: false,
             clickOutsideDeactivates: true,
