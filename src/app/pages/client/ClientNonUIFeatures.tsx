@@ -19,6 +19,7 @@ import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
 import { allInvitesAtom } from '../../state/room-list/inviteList';
 import { usePreviousValue } from '../../hooks/usePreviousValue';
+import { useSystemTray } from '../../hooks/useSystemTray';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { getInboxInvitesPath, getInboxNotificationsPath, getHomeRoomPath } from '../pathUtils';
 import {
@@ -55,6 +56,11 @@ function PageZoomFeature() {
     document.documentElement.style.setProperty('font-size', `calc(1em * ${pageZoom / 100})`);
   }
 
+  return null;
+}
+
+function SystemTray() {
+  useSystemTray();
   return null;
 }
 
@@ -368,6 +374,7 @@ export function ClientNonUIFeatures({ children }: ClientNonUIFeaturesProps) {
       <PageZoomFeature />
       <FaviconUpdater />
       <TaskbarBadgeUpdater />
+      <SystemTray />
       <InviteNotifications />
       <MessageNotifications />
       {children}

@@ -36,6 +36,7 @@ import { DateFormat, MessageLayout, MessageSpacing, settingsAtom } from '../../.
 import { SettingTile } from '../../../components/setting-tile';
 import { KeySymbol } from '../../../utils/key-symbol';
 import { isMacOS } from '../../../utils/user-agent';
+import { isTauri } from '../../../utils/desktop-notifications';
 import {
   DarkTheme,
   LightTheme,
@@ -711,6 +712,7 @@ function Editor() {
   const [enterForNewline, setEnterForNewline] = useSetting(settingsAtom, 'enterForNewline');
   const [isMarkdown, setIsMarkdown] = useSetting(settingsAtom, 'isMarkdown');
   const [hideActivity, setHideActivity] = useSetting(settingsAtom, 'hideActivity');
+  const [minimizeToTray, setMinimizeToTray] = useSetting(settingsAtom, 'minimizeToTray');
 
   return (
     <Box direction="Column" gap="100">
@@ -737,6 +739,15 @@ function Editor() {
           after={<Switch variant="Primary" value={hideActivity} onChange={setHideActivity} />}
         />
       </SequenceCard>
+      {isTauri() && (
+        <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+          <SettingTile
+            title="Minimize to Tray"
+            description="When closing the window, hide to system tray instead of quitting."
+            after={<Switch variant="Primary" value={minimizeToTray} onChange={setMinimizeToTray} />}
+          />
+        </SequenceCard>
+      )}
     </Box>
   );
 }

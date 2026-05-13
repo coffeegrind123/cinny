@@ -21,6 +21,8 @@ export interface Settings {
   pageZoom: number;
   hideActivity: boolean;
 
+  minimizeToTray: boolean;
+
   isPeopleDrawer: boolean;
   memberSortFilterIndex: number;
   enterForNewline: boolean;
@@ -54,6 +56,8 @@ const defaultSettings: Settings = {
   twitterEmoji: false,
   pageZoom: 100,
   hideActivity: false,
+
+  minimizeToTray: true,
 
   isPeopleDrawer: true,
   memberSortFilterIndex: 0,
