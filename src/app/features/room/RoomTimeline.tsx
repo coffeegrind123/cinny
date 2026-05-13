@@ -1693,11 +1693,12 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
     const newDividerJSX =
       newDivider && eventJSX && eventSender !== mx.getUserId() ? (
         <MessageBase space={messageSpacing}>
-          <TimelineDivider style={{ color: color.Success.Main }} variant="Inherit">
-            <Badge as="span" size="500" variant="Success" fill="Solid" radii="300">
-              <Text size="L400">New Messages</Text>
+          <Box gap="100" justifyContent="End" alignItems="Center">
+            <Line style={{ flexGrow: 1 }} variant="Success" size="300" />
+            <Badge as="span" size="400" variant="Success" fill="Solid" radii="200">
+              <Text size="L400">NEW</Text>
             </Badge>
-          </TimelineDivider>
+          </Box>
         </MessageBase>
       ) : null;
 
