@@ -23,6 +23,8 @@ export interface Settings {
 
   minimizeToTray: boolean;
 
+  unreadDirectsOnly: boolean;
+
   isPeopleDrawer: boolean;
   memberSortFilterIndex: number;
   enterForNewline: boolean;
@@ -59,6 +61,8 @@ const defaultSettings: Settings = {
   hideActivity: false,
 
   minimizeToTray: true,
+
+  unreadDirectsOnly: false,
 
   isPeopleDrawer: true,
   memberSortFilterIndex: 0,

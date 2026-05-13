@@ -58,6 +58,7 @@ type DirectMenuProps = {
 const DirectMenu = forwardRef<HTMLDivElement, DirectMenuProps>(({ requestClose }, ref) => {
   const mx = useMatrixClient();
   const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
+  const [unreadOnly, setUnreadOnly] = useSetting(settingsAtom, 'unreadDirectsOnly');
   const orphanRooms = useDirectRooms();
   const unread = useRoomsUnread(orphanRooms, roomToUnreadAtom);
 
@@ -68,8 +69,18 @@ const DirectMenu = forwardRef<HTMLDivElement, DirectMenuProps>(({ requestClose }
   };
 
   return (
-    <Menu ref={ref} style={{ maxWidth: toRem(160), width: '100vw' }}>
+    <Menu ref={ref} style={{ maxWidth: toRem(200), width: '100vw' }}>
       <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
+        <MenuItem
+          onClick={() => setUnreadOnly((v) => !v)}
+          size="300"
+          after={unreadOnly ? <Icon size="100" src={Icons.Check} /> : undefined}
+          radii="300"
+        >
+          <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+            Show unread only
+          </Text>
+        </MenuItem>
         <MenuItem
           onClick={handleMarkAsRead}
           size="300"
@@ -176,6 +187,7 @@ export function Direct() {
   const notificationPreferences = useRoomsNotificationPreferencesContext();
   const roomToUnread = useAtomValue(roomToUnreadAtom);
   const navigate = useNavigate();
+  const [unreadOnly] = useSetting(settingsAtom, 'unreadDirectsOnly');
 
   const createDirectSelected = useDirectCreateSelected();
 
@@ -185,11 +197,14 @@ export function Direct() {
 
   const sortedDirects = useMemo(() => {
     const items = Array.from(directs).sort(factoryRoomIdByActivity(mx));
+    if (unreadOnly) {
+      return items.filter((rId) => roomToUnread.has(rId) || rId === selectedRoomId);
+    }
     if (closedCategories.has(DEFAULT_CATEGORY_ID)) {
       return items.filter((rId) => roomToUnread.has(rId) || rId === selectedRoomId);
     }
     return items;
-  }, [mx, directs, closedCategories, roomToUnread, selectedRoomId]);
+  }, [mx, directs, closedCategories, roomToUnread, selectedRoomId, unreadOnly]);
 
   const virtualizer = useVirtualizer({
     count: sortedDirects.length,
