@@ -1,7 +1,7 @@
 import React, { useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSwipeGesture } from '../../hooks/useSwipeGesture';
-import { ScreenSize, useScreenSizeContext } from '../../hooks/useScreenSize';
+import { useSwipeGesture } from '../hooks/useSwipeGesture';
+import { ScreenSize, useScreenSizeContext } from '../hooks/useScreenSize';
 
 /**
  * Wraps a room/channel nav list with a right-edge swipe gesture.
