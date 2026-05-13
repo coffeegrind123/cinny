@@ -751,42 +751,39 @@ export const Message = as<'div', MessageProps>(
         alignItems="Baseline"
         grow="Yes"
       >
-        <Box alignItems="Center" gap="200">
-          <Username
-            as="button"
-            style={{ color: usernameColor }}
-            data-user-id={senderId}
-            onContextMenu={onUserClick}
-            onClick={onUsernameClick}
-          >
-            <Text
-              as="span"
-              size={messageLayout === MessageLayout.Bubble ? 'T300' : 'T400'}
-              truncate
+        <Box alignItems="Baseline" gap="200" grow="Yes">
+          <Box alignItems="Baseline" gap="100">
+            <Username
+              as="button"
+              style={{ color: usernameColor }}
+              data-user-id={senderId}
+              onContextMenu={onUserClick}
+              onClick={onUsernameClick}
             >
-              <UsernameBold>{senderDisplayName}</UsernameBold>
-            </Text>
-          </Username>
+              <Text
+                as="span"
+                size={messageLayout === MessageLayout.Bubble ? 'T300' : 'T400'}
+                truncate
+              >
+                <UsernameBold>{senderDisplayName}</UsernameBold>
+              </Text>
+            </Username>
+            <Time
+              ts={mEvent.getTs()}
+              compact={messageLayout === MessageLayout.Compact}
+              hour24Clock={hour24Clock}
+              dateFormatString={dateFormatString}
+            />
+          </Box>
           {tagIconSrc && <PowerIcon size="100" iconSrc={tagIconSrc} />}
         </Box>
-        <Box shrink="No" gap="100">
-          {messageLayout === MessageLayout.Modern && hover && (
-            <>
-              <Text as="span" size="T200" priority="300">
-                {senderId}
-              </Text>
-              <Text as="span" size="T200" priority="300">
-                |
-              </Text>
-            </>
-          )}
-          <Time
-            ts={mEvent.getTs()}
-            compact={messageLayout === MessageLayout.Compact}
-            hour24Clock={hour24Clock}
-            dateFormatString={dateFormatString}
-          />
-        </Box>
+        {messageLayout === MessageLayout.Modern && hover && (
+          <Box shrink="No">
+            <Text as="span" size="T200" priority="300">
+              @{getMxIdLocalPart(senderId)}
+            </Text>
+          </Box>
+        )}
       </Box>
     );
 
