@@ -12,13 +12,15 @@ import { setFavicon } from '../../utils/dom';
 import {
   isNotificationPermissionGrantedSync,
   sendDesktopNotification,
+  onNotificationAction,
+  isTauri,
 } from '../../utils/desktop-notifications';
 import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
 import { allInvitesAtom } from '../../state/room-list/inviteList';
 import { usePreviousValue } from '../../hooks/usePreviousValue';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
-import { getInboxInvitesPath, getInboxNotificationsPath } from '../pathUtils';
+import { getInboxInvitesPath, getInboxNotificationsPath, getHomeRoomPath } from '../pathUtils';
 import {
   getMemberDisplayName,
   getNotificationType,
@@ -30,6 +32,7 @@ import { getMxIdLocalPart, mxcUrlToHttp } from '../../utils/matrix';
 import { useSelectedRoom } from '../../hooks/router/useSelectedRoom';
 import { useInboxNotificationsSelected } from '../../hooks/router/useInbox';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
+import { getCurrentWindow, UserAttentionType } from '@tauri-apps/api/window';
 
 function SystemEmojiFeature() {
   const [twitterEmoji] = useSetting(settingsAtom, 'twitterEmoji');
@@ -97,6 +100,11 @@ function InviteNotifications() {
         body: `You have ${count} new invitation request.`,
       });
 
+      // Flash taskbar on Windows
+      if (isTauri()) {
+        getCurrentWindow().requestUserAttention(UserAttentionType.Informational).catch(() => {});
+      }
+
       // Browser fallback with click handler
       if (!('__TAURI__' in window || '__TAURI_INTERNALS__' in window) && 'Notification' in window) {
         const noti = new window.Notification('Invitation', {
@@ -154,25 +162,29 @@ function MessageNotifications() {
 
   const notify = useCallback(
     ({
-      roomName,
+      senderName,
       roomAvatar,
       notificationBody,
+      roomId,
+      eventId,
     }: {
-      roomName: string;
+      senderName: string;
       roomAvatar?: string;
       notificationBody: string;
       roomId: string;
       eventId: string;
     }) => {
-      sendDesktopNotification(roomName, {
+      sendDesktopNotification(senderName, {
         icon: roomAvatar,
         body: notificationBody,
+        roomId,
+        eventId,
       });
 
       // Browser fallback with click handler
       if (!('__TAURI__' in window || '__TAURI_INTERNALS__' in window) && 'Notification' in window) {
         notifRef.current?.close();
-        const noti = new window.Notification(roomName, {
+        const noti = new window.Notification(senderName, {
           icon: roomAvatar,
           badge: roomAvatar,
           body: notificationBody,
@@ -222,25 +234,24 @@ function MessageNotifications() {
         rawBody = content['m.new_content'].body;
       }
 
+      // Title is sender name (like Discord), body is just the message
       let notificationBody: string;
       if (!rawBody && !msgtype) {
-        notificationBody = `New message from ${username}`;
+        notificationBody = 'New message';
       } else if (msgtype === 'm.image') {
-        notificationBody = `${username} sent an image${rawBody ? `: ${rawBody}` : ''}`;
+        notificationBody = rawBody ? `📷 ${rawBody}` : 'Sent an image';
       } else if (msgtype === 'm.video') {
-        notificationBody = `${username} sent a video${rawBody ? `: ${rawBody}` : ''}`;
+        notificationBody = rawBody ? `🎬 ${rawBody}` : 'Sent a video';
       } else if (msgtype === 'm.audio') {
-        notificationBody = `${username} sent an audio clip${rawBody ? `: ${rawBody}` : ''}`;
+        notificationBody = rawBody ? `🎵 ${rawBody}` : 'Sent an audio clip';
       } else if (msgtype === 'm.file') {
-        notificationBody = `${username} sent a file${rawBody ? `: ${rawBody}` : ''}`;
+        notificationBody = rawBody ? `📎 ${rawBody}` : 'Sent a file';
       } else {
-        notificationBody = rawBody
-          ? `${username}: ${rawBody}`
-          : `New message from ${username}`;
+        notificationBody = rawBody || 'New message';
       }
 
       notify({
-        roomName: room.name ?? 'Unknown',
+        senderName: username,
         roomAvatar: avatarMxc
           ? mxcUrlToHttp(mx, avatarMxc, useAuthentication, 96, 96, 'crop') ?? undefined
           : undefined,
@@ -248,6 +259,11 @@ function MessageNotifications() {
         roomId: room.roomId,
         eventId,
       });
+
+      // Flash taskbar on Windows
+      if (isTauri()) {
+        getCurrentWindow().requestUserAttention(UserAttentionType.Informational).catch(() => {});
+      }
     };
 
     const handleTimelineEvent: RoomEventHandlerMap[RoomEvent.Timeline] = (
@@ -299,6 +315,20 @@ function MessageNotifications() {
     selectedRoomId,
     useAuthentication,
   ]);
+
+  // Handle notification clicks: bring window to foreground and navigate to room
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    onNotificationAction(({ roomId, eventId }) => {
+      if (roomId) {
+        navigate(getHomeRoomPath(roomId, eventId));
+      }
+      getCurrentWindow().setFocus().catch(() => {});
+      getCurrentWindow().show().catch(() => {});
+      getCurrentWindow().unminimize().catch(() => {});
+    }).then((fn) => { unlisten = fn; });
+    return () => { unlisten?.(); };
+  }, [navigate]);
 
   return (
     // eslint-disable-next-line jsx-a11y/media-has-caption

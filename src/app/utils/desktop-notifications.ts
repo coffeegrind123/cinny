@@ -71,16 +71,56 @@ export async function isNotificationPermissionGranted(): Promise<boolean> {
   return false;
 }
 
+let actionTypesRegistered = false;
+async function ensureActionTypes() {
+  if (actionTypesRegistered) return;
+  actionTypesRegistered = true;
+  const mod = await getTauriNotif();
+  if (mod) {
+    try {
+      await mod.registerActionTypes([
+        {
+          id: 'message',
+          actions: [
+            {
+              id: 'open',
+              title: 'Open',
+              foreground: true,
+            },
+          ],
+        },
+      ]);
+    } catch (err) {
+      console.error('[notif] Failed to register action types:', err);
+    }
+  }
+}
+
+export interface NotificationExtra {
+  roomId?: string;
+  eventId?: string;
+}
+
 export async function sendDesktopNotification(
   title: string,
-  options?: { body?: string; icon?: string }
+  options?: { body?: string; icon?: string; roomId?: string; eventId?: string }
 ): Promise<void> {
   if (isTauri()) {
     const mod = await getTauriNotif();
     if (mod) {
       const granted = await mod.isPermissionGranted();
       if (granted) {
-        mod.sendNotification({ title, body: options?.body ?? '' });
+        await ensureActionTypes();
+        mod.sendNotification({
+          title,
+          body: options?.body ?? '',
+          icon: options?.icon,
+          actionTypeId: 'message',
+          extra: {
+            roomId: options?.roomId ?? '',
+            eventId: options?.eventId ?? '',
+          },
+        });
         return;
       }
     }
@@ -94,6 +134,32 @@ export async function sendDesktopNotification(
       silent: true,
     });
   }
+}
+
+/**
+ * Listen for notification clicks (Tauri action events).
+ * Returns an unlisten function for cleanup.
+ */
+export async function onNotificationAction(
+  callback: (extra: NotificationExtra) => void
+): Promise<() => void> {
+  if (isTauri()) {
+    const mod = await getTauriNotif();
+    if (mod) {
+      try {
+        const listener = await mod.onAction((notification) => {
+          const extra = notification.extra as NotificationExtra | undefined;
+          if (extra?.roomId) {
+            callback(extra);
+          }
+        });
+        return () => listener();
+      } catch (err) {
+        console.error('[notif] Failed to register onAction listener:', err);
+      }
+    }
+  }
+  return () => {};
 }
 
 export function isNotificationPermissionGrantedSync(): boolean {
