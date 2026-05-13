@@ -91,3 +91,17 @@ export async function isForegroundServiceRunning(): Promise<boolean> {
   const result = await invoke<{ running: boolean }>('plugin:foreground|is_foreground_running');
   return result.running;
 }
+
+/**
+ * Toggle background service mode: hides the persistent notification
+ * while keeping the process alive. FairEmail's isBackgroundService() pattern.
+ */
+export async function setBackgroundService(enabled: boolean): Promise<void> {
+  await invoke('plugin:foreground|set_background_service', { enabled });
+}
+
+/** Check whether background service mode is enabled. */
+export async function isBackgroundServiceEnabled(): Promise<boolean> {
+  const result = await invoke<{ enabled: boolean }>('plugin:foreground|is_background_service');
+  return result.enabled;
+}
