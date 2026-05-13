@@ -68,6 +68,7 @@ import { HomeCreateRoom } from './client/home/CreateRoom';
 import { Create } from './client/create';
 import { CreateSpaceModalRenderer } from '../features/create-space';
 import { SearchModalRenderer } from '../features/search';
+import { KeyboardShortcutsRenderer } from '../features/keyboard-shortcuts/KeyboardShortcuts';
 import { getFallbackSession } from '../state/sessions';
 import { CallStatusRenderer } from './CallStatusRenderer';
 import { CallEmbedProvider } from '../components/CallEmbedProvider';
@@ -140,6 +141,7 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
                         <CallStatusRenderer />
                       </CallEmbedProvider>
                       <SearchModalRenderer />
+                      <KeyboardShortcutsRenderer />
                       <UserRoomProfileRenderer />
                       <CreateRoomModalRenderer />
                       <CreateSpaceModalRenderer />

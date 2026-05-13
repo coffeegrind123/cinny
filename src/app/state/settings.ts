@@ -43,6 +43,7 @@ export interface Settings {
   dateFormatString: string;
 
   developerTools: boolean;
+  keybinds: Record<string, string>;
 }
 
 const defaultSettings: Settings = {
@@ -79,6 +80,7 @@ const defaultSettings: Settings = {
   dateFormatString: 'D MMM YYYY',
 
   developerTools: false,
+  keybinds: {},
 };
 
 export const getSettings = () => {
