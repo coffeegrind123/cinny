@@ -1,5 +1,6 @@
 import React, { ReactNode } from 'react';
 import { Box } from 'folds';
+import { UpdateBanner } from '../../features/update-check/UpdateBanner';
 
 type ClientLayoutProps = {
   nav: ReactNode;
@@ -7,9 +8,12 @@ type ClientLayoutProps = {
 };
 export function ClientLayout({ nav, children }: ClientLayoutProps) {
   return (
-    <Box grow="Yes">
-      <Box shrink="No">{nav}</Box>
-      <Box grow="Yes">{children}</Box>
+    <Box grow="Yes" direction="Column">
+      <UpdateBanner />
+      <Box grow="Yes" direction="Row">
+        <Box shrink="No">{nav}</Box>
+        <Box grow="Yes">{children}</Box>
+      </Box>
     </Box>
   );
 }
