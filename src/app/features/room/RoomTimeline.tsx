@@ -554,7 +554,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
       }
     }
     return ids;
-  }, [timeline.linkedTimelines, mx]);
+  }, [timeline.linkedTimelines, eventsLength, mx]);
 
   const liveTimelineLinked =
     timeline.linkedTimelines[timeline.linkedTimelines.length - 1] === getLiveTimeline(room);
