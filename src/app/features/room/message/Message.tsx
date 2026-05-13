@@ -657,6 +657,7 @@ export type MessageProps = {
   mEvent: MatrixEvent;
   collapse: boolean;
   highlight: boolean;
+  repliedToMe?: boolean;
   edit?: boolean;
   canDelete?: boolean;
   canSendReaction?: boolean;
@@ -691,6 +692,7 @@ export const Message = as<'div', MessageProps>(
       mEvent,
       collapse,
       highlight,
+      repliedToMe,
       edit,
       canDelete,
       canSendReaction,
@@ -878,6 +880,7 @@ export const Message = as<'div', MessageProps>(
       <MessageBase
         className={classNames(css.MessageBase, className, {
           [css.MessageBaseBubbleCollapsed]: messageLayout === MessageLayout.Bubble && collapse,
+          [css.MessageReplyHighlight]: repliedToMe,
         })}
         tabIndex={0}
         space={messageSpacing}
@@ -1206,7 +1209,9 @@ export const Event = as<'div', EventProps>(
 
     return (
       <MessageBase
-        className={classNames(css.MessageBase, className)}
+        className={classNames(css.MessageBase, className, {
+          [css.MessageReplyHighlight]: repliedToMe,
+        })}
         tabIndex={0}
         space={messageSpacing}
         autoCollapse

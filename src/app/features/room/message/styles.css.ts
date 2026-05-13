@@ -4,6 +4,23 @@ import { DefaultReset, config, toRem } from 'folds';
 export const MessageBase = style({
   position: 'relative',
 });
+
+export const MessageReplyHighlight = style({
+  background: 'color-mix(in oklab, hsl(38.974 100% 45.882% / 0.078), transparent 100%)',
+  selectors: {
+    '&:before': {
+      content: '""',
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: '2px',
+      background: 'hsl(38.974 100% 45.882%)',
+      borderRadius: '1px',
+    },
+  },
+});
+
 export const MessageBaseBubbleCollapsed = style({
   paddingTop: 0,
 });
