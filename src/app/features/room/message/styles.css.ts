@@ -7,18 +7,7 @@ export const MessageBase = style({
 
 export const MessageReplyHighlight = style({
   background: 'hsla(39, 100%, 46%, 0.08)',
-  selectors: {
-    '&:before': {
-      content: '""',
-      position: 'absolute',
-      left: 0,
-      top: 0,
-      bottom: 0,
-      width: '2px',
-      background: 'hsl(38.974 100% 45.882%)',
-      borderRadius: '1px',
-    },
-  },
+  borderLeft: '2px solid hsl(39, 100%, 46%)',
 });
 
 export const MessageBaseBubbleCollapsed = style({

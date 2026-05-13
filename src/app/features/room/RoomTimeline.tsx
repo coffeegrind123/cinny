@@ -540,22 +540,6 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
   );
   const eventsLength = getTimelinesEventsCount(timeline.linkedTimelines);
 
-  // Build a Set of event IDs that have been replied to by someone other than the current user
-  const repliedToEventIds = useMemo(() => {
-    const ids = new Set<string>();
-    const myUserId = mx.getSafeUserId();
-    for (const tl of timeline.linkedTimelines) {
-      const events = tl.getEvents();
-      for (const ev of events) {
-        const replyEvId = ev.replyEventId;
-        if (replyEvId && ev.getSender() !== myUserId) {
-          ids.add(replyEvId);
-        }
-      }
-    }
-    return ids;
-  }, [timeline.linkedTimelines, eventsLength, mx]);
-
   const liveTimelineLinked =
     timeline.linkedTimelines[timeline.linkedTimelines.length - 1] === getLiveTimeline(room);
   const canPaginateBack =
@@ -1065,7 +1049,12 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
             messageLayout={messageLayout}
             collapse={collapse}
             highlight={highlighted}
-            repliedToMe={repliedToEventIds.has(mEventId)}
+            repliedToMe={
+              !!replyEventId &&
+              timelineSet
+                .findEventById(replyEventId)
+                ?.getSender() === mx.getUserId()
+            }
             edit={editId === mEventId}
             canDelete={canRedact || (canDeleteOwn && mEvent.getSender() === mx.getUserId())}
             canSendReaction={canSendReaction}
@@ -1148,7 +1137,12 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
             messageLayout={messageLayout}
             collapse={collapse}
             highlight={highlighted}
-            repliedToMe={repliedToEventIds.has(mEventId)}
+            repliedToMe={
+              !!replyEventId &&
+              timelineSet
+                .findEventById(replyEventId)
+                ?.getSender() === mx.getUserId()
+            }
             edit={editId === mEventId}
             canDelete={canRedact || (canDeleteOwn && mEvent.getSender() === mx.getUserId())}
             canSendReaction={canSendReaction}
