@@ -6,7 +6,7 @@ export const MessageBase = style({
 });
 
 export const MessageReplyHighlight = style({
-  background: 'color-mix(in oklab, hsl(38.974 100% 45.882% / 0.078), transparent 100%)',
+  background: 'hsla(39, 100%, 46%, 0.08)',
   selectors: {
     '&:before': {
       content: '""',
