@@ -745,7 +745,7 @@ function Editor() {
       <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
         <SettingTile
           title="Read Receipt Style"
-          description="Cinny shows who's following live. Element shows avatar dots at each person's last-read message."
+          description="Default shows who's following live. Element shows avatar dots at each person's last-read message."
           after={
             <Box gap="100">
               <Button
@@ -755,7 +755,7 @@ function Editor() {
                 radii="Pill"
                 onClick={() => setReadReceiptStyle('cinny')}
               >
-                <Text size="T300">Cinny</Text>
+                <Text size="T300">Default</Text>
               </Button>
               <Button
                 size="300"
