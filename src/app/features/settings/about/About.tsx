@@ -127,34 +127,6 @@ export function About({ requestClose }: AboutProps) {
                   >
                     <li>
                       <Text size="T300">
-                        <a
-                          href="https://github.com/coffeegrind123/prinny-client"
-                          rel="noreferrer noopener"
-                          target="_blank"
-                        >
-                          Prinny Client
-                        </a>{' '}
-                        is ©{' '}
-                        <a
-                          href="https://github.com/coffeegrind123"
-                          rel="noreferrer noopener"
-                          target="_blank"
-                        >
-                          coffeegrind123
-                        </a>{' '}
-                        used under the terms of{' '}
-                        <a
-                          href="https://www.gnu.org/licenses/agpl-3.0.html"
-                          rel="noreferrer noopener"
-                          target="_blank"
-                        >
-                          AGPL 3.0
-                        </a>
-                        .
-                      </Text>
-                    </li>
-                    <li>
-                      <Text size="T300">
                         Prinny Client is a hard fork of{' '}
                         <a
                           href="https://github.com/cinnyapp/cinny"
