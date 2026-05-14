@@ -1,6 +1,38 @@
 import { useCallback, DragEventHandler, RefObject, useState, useEffect, useRef } from 'react';
 import { getDataTransferFiles } from '../utils/dom';
 
+// Module-level handler for global (anywhere-in-window) file drops.
+// Set by RoomInput when a conversation is open; cleared on unmount.
+let globalDropHandler: ((files: File[]) => void) | null = null;
+
+export const setGlobalDropHandler = (handler: ((files: File[]) => void) | null) => {
+  globalDropHandler = handler;
+};
+
+// Call once at the app root to accept drops anywhere in the window.
+// When a conversation is open, dropped files are routed to the room input.
+export const useGlobalDropListener = () => {
+  useEffect(() => {
+    const handleDragOver = (evt: DragEvent) => {
+      evt.preventDefault();
+    };
+    const handleDrop = (evt: DragEvent) => {
+      if (evt.defaultPrevented) return;
+      evt.preventDefault();
+      if (!evt.dataTransfer || !globalDropHandler) return;
+      const files = getDataTransferFiles(evt.dataTransfer);
+      if (files) globalDropHandler(files);
+    };
+
+    document.addEventListener('dragover', handleDragOver);
+    document.addEventListener('drop', handleDrop);
+    return () => {
+      document.removeEventListener('dragover', handleDragOver);
+      document.removeEventListener('drop', handleDrop);
+    };
+  }, []);
+};
+
 export const useFileDropHandler = (onDrop: (file: File[]) => void): DragEventHandler =>
   useCallback(
     (evt) => {

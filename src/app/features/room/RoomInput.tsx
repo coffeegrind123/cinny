@@ -67,7 +67,7 @@ import {
 import { useTypingStatusUpdater } from '../../hooks/useTypingStatusUpdater';
 import { useFilePicker } from '../../hooks/useFilePicker';
 import { useFilePasteHandler } from '../../hooks/useFilePasteHandler';
-import { useFileDropZone } from '../../hooks/useFileDrop';
+import { useFileDropZone, setGlobalDropHandler } from '../../hooks/useFileDrop';
 import {
   TUploadItem,
   TUploadMetadata,
@@ -214,6 +214,13 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
       },
       [setSelectedFiles, room]
     );
+
+    // Register this room's file handler for global (anywhere-in-window) drops
+    useEffect(() => {
+      setGlobalDropHandler(handleFiles);
+      return () => setGlobalDropHandler(null);
+    }, [handleFiles]);
+
     const pickFile = useFilePicker(handleFiles, true);
     const handlePaste = useFilePasteHandler(handleFiles);
     const handleDrop: React.DragEventHandler = useCallback(
