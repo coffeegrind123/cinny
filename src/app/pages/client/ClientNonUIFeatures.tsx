@@ -249,8 +249,10 @@ function MessageNotifications() {
         return;
       }
 
-      const avatarMxc =
-        room.getAvatarFallbackMember()?.getMxcAvatarUrl() ?? room.getMxcAvatarUrl();
+      const senderMember = room.getMember(sender);
+      const avatarMxc = senderMember?.getMxcAvatarUrl()
+        ?? room.getAvatarFallbackMember()?.getMxcAvatarUrl()
+        ?? room.getMxcAvatarUrl();
       const username = getMemberDisplayName(room, sender) ?? getMxIdLocalPart(sender) ?? sender;
       const content = (mEvent as any).content ?? mEvent.getContent();
       const msgtype: string | undefined = content?.msgtype;
