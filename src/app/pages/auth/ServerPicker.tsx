@@ -1,4 +1,5 @@
 import React, {
+  ChangeEventHandler,
   KeyboardEventHandler,
   MouseEventHandler,
   useEffect,
@@ -6,8 +7,6 @@ import React, {
   useState,
 } from 'react';
 import {
-  Box,
-  Button,
   Header,
   Icon,
   IconButton,
@@ -22,6 +21,7 @@ import {
 } from 'folds';
 import FocusTrap from 'focus-trap-react';
 
+import { useDebounce } from '../../hooks/useDebounce';
 import { stopPropagation } from '../../utils/keyboard';
 
 export function ServerPicker({
@@ -39,14 +39,17 @@ export function ServerPicker({
   const serverInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // sync input with it outside server changes
     if (serverInputRef.current && serverInputRef.current.value !== server) {
       serverInputRef.current.value = server;
     }
   }, [server]);
 
-  const handleConnect = () => {
-    const inputServer = serverInputRef.current?.value.trim();
-    if (inputServer) onServerChange(inputServer);
+  const debounceServerSelect = useDebounce(onServerChange, { wait: 700 });
+
+  const handleServerChange: ChangeEventHandler<HTMLInputElement> = (evt) => {
+    const inputServer = evt.target.value.trim();
+    if (inputServer) debounceServerSelect(inputServer);
   };
 
   const handleKeyDown: KeyboardEventHandler<HTMLInputElement> = (evt) => {
@@ -56,7 +59,8 @@ export function ServerPicker({
     }
     if (evt.key === 'Enter') {
       evt.preventDefault();
-      handleConnect();
+      const inputServer = evt.currentTarget.value.trim();
+      if (inputServer) onServerChange(inputServer);
     }
   };
 
@@ -73,95 +77,69 @@ export function ServerPicker({
     setServerMenuAnchor(target.getBoundingClientRect());
   };
 
-  const showDropdown = serverList.length > 0 && !(serverList.length === 1 && !allowCustomServer);
-
   return (
-    <Box grow="Yes" gap="0" alignItems="Stretch">
-      <Input
-        ref={serverInputRef}
-        style={{
-          flexGrow: 1,
-          borderTopRightRadius: 0,
-          borderBottomRightRadius: 0,
-          paddingRight: config.space.S200,
-        }}
-        variant={allowCustomServer ? 'Background' : 'Surface'}
-        outlined
-        defaultValue={server}
-        onKeyDown={handleKeyDown}
-        size="500"
-        readOnly={!allowCustomServer}
-        onClick={allowCustomServer ? undefined : handleOpenServerMenu}
-        after={
-          showDropdown && (
-            <PopOut
-              anchor={serverMenuAnchor}
-              position="Bottom"
-              align="End"
-              offset={4}
-              content={
-                <FocusTrap
-                  focusTrapOptions={{
-                    initialFocus: false,
-                    onDeactivate: () => setServerMenuAnchor(undefined),
-                    clickOutsideDeactivates: true,
-                    isKeyForward: (evt: KeyboardEvent) => evt.key === 'ArrowDown',
-                    isKeyBackward: (evt: KeyboardEvent) => evt.key === 'ArrowUp',
-                    escapeDeactivates: stopPropagation,
-                  }}
-                >
-                  <Menu>
-                    <Header size="300" style={{ padding: `0 ${config.space.S200}` }}>
-                      <Text size="L400">Homeserver List</Text>
-                    </Header>
-                    <div style={{ padding: config.space.S100, paddingTop: 0 }}>
-                      {serverList?.map((serverName) => (
-                        <MenuItem
-                          key={serverName}
-                          radii="300"
-                          aria-pressed={serverName === server}
-                          data-server={serverName}
-                          onClick={handleServerSelect}
-                        >
-                          <Text>{serverName}</Text>
-                        </MenuItem>
-                      ))}
-                    </div>
-                  </Menu>
-                </FocusTrap>
-              }
-            >
-              <IconButton
-                onClick={handleOpenServerMenu}
-                variant={allowCustomServer ? 'Background' : 'Surface'}
-                size="300"
-                aria-pressed={!!serverMenuAnchor}
-                radii="300"
+    <Input
+      ref={serverInputRef}
+      style={{ paddingRight: config.space.S200 }}
+      variant={allowCustomServer ? 'Background' : 'Surface'}
+      outlined
+      defaultValue={server}
+      onChange={handleServerChange}
+      onKeyDown={handleKeyDown}
+      size="500"
+      readOnly={!allowCustomServer}
+      onClick={allowCustomServer ? undefined : handleOpenServerMenu}
+      after={
+        serverList.length === 0 || (serverList.length === 1 && !allowCustomServer) ? undefined : (
+          <PopOut
+            anchor={serverMenuAnchor}
+            position="Bottom"
+            align="End"
+            offset={4}
+            content={
+              <FocusTrap
+                focusTrapOptions={{
+                  initialFocus: false,
+                  onDeactivate: () => setServerMenuAnchor(undefined),
+                  clickOutsideDeactivates: true,
+                  isKeyForward: (evt: KeyboardEvent) => evt.key === 'ArrowDown',
+                  isKeyBackward: (evt: KeyboardEvent) => evt.key === 'ArrowUp',
+                  escapeDeactivates: stopPropagation,
+                }}
               >
-                <Icon src={Icons.ChevronBottom} />
-              </IconButton>
-            </PopOut>
-          )
-        }
-      />
-      {allowCustomServer && (
-        <Button
-          style={{
-            borderTopLeftRadius: 0,
-            borderBottomLeftRadius: 0,
-            flexShrink: 0,
-          }}
-          size="500"
-          variant="Primary"
-          fill="Solid"
-          outlined
-          radii="300"
-          onClick={handleConnect}
-          before={<Icon size="100" src={Icons.ArrowRight} />}
-        >
-          <Text size="B300">Connect</Text>
-        </Button>
-      )}
-    </Box>
+                <Menu>
+                  <Header size="300" style={{ padding: `0 ${config.space.S200}` }}>
+                    <Text size="L400">Homeserver List</Text>
+                  </Header>
+                  <div style={{ padding: config.space.S100, paddingTop: 0 }}>
+                    {serverList?.map((serverName) => (
+                      <MenuItem
+                        key={serverName}
+                        radii="300"
+                        aria-pressed={serverName === server}
+                        data-server={serverName}
+                        onClick={handleServerSelect}
+                      >
+                        <Text>{serverName}</Text>
+                      </MenuItem>
+                    ))}
+                  </div>
+                </Menu>
+              </FocusTrap>
+            }
+          >
+            <IconButton
+              onClick={handleOpenServerMenu}
+              variant={allowCustomServer ? 'Background' : 'Surface'}
+              size="300"
+              aria-pressed={!!serverMenuAnchor}
+              radii="300"
+            >
+              <Icon src={Icons.ChevronBottom} />
+            </IconButton>
+          </PopOut>
+        )
+      }
+    />
   );
 }
