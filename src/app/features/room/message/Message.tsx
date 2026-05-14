@@ -823,6 +823,8 @@ export const Message = as<'div', MessageProps>(
       </AvatarBase>
     );
 
+    const [readReceiptOpen, setReadReceiptOpen] = useState(false);
+
     const msgContentJSX = (
       <Box direction="Column" alignSelf="Start" style={{ maxWidth: '100%' }}>
         {reply}
@@ -839,14 +841,40 @@ export const Message = as<'div', MessageProps>(
             onCancel={() => onEditId()}
           />
         ) : (
-          children
-        )}
-        {reactions}
-        {receiptUserIds.length > 0 && (
-          <Box justifyContent="End" style={{ marginTop: '2px' }}>
-            <ReadReceiptAvatars room={room} userIds={receiptUserIds} />
+          <Box grow="Yes" gap="200" alignItems="Center" style={{ maxWidth: '100%' }}>
+            <Box grow="Yes">{children}</Box>
+            {receiptUserIds.length > 0 && (
+              <Box
+                shrink="No"
+                style={{ cursor: 'pointer' }}
+                onClick={() => setReadReceiptOpen(true)}
+              >
+                <ReadReceiptAvatars room={room} userIds={receiptUserIds} />
+              </Box>
+            )}
           </Box>
         )}
+        {reactions}
+        <Overlay open={readReceiptOpen} backdrop={<OverlayBackdrop />}>
+          <OverlayCenter>
+            <FocusTrap
+              focusTrapOptions={{
+                initialFocus: false,
+                onDeactivate: () => setReadReceiptOpen(false),
+                clickOutsideDeactivates: true,
+                escapeDeactivates: stopPropagation,
+              }}
+            >
+              <Modal variant="Surface" size="300">
+                <EventReaders
+                  room={room}
+                  eventId={mEvent.getId() ?? ''}
+                  requestClose={() => setReadReceiptOpen(false)}
+                />
+              </Modal>
+            </FocusTrap>
+          </OverlayCenter>
+        </Overlay>
       </Box>
     );
 
