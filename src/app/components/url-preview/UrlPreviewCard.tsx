@@ -14,6 +14,7 @@ import {
   as,
   color,
   config,
+  Button,
 } from 'folds';
 import FocusTrap from 'focus-trap-react';
 import { AsyncStatus, useAsyncCallback } from '../../hooks/useAsyncCallback';
@@ -55,6 +56,10 @@ function isVideoUrl(url: string): boolean {
   return /\.(mp4|webm|mov|ogg)(\?|$)/i.test(url);
 }
 
+function isAudioUrl(url: string): boolean {
+  return /\.(mp3|wav|ogg|flac|m4a|aac)(\?|$)/i.test(url);
+}
+
 export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
   ({ url, ts, ...props }, ref) => {
     const mx = useMatrixClient();
@@ -68,12 +73,16 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
       useCallback(() => mx.getUrlPreview(embedUrl, ts), [embedUrl, ts, mx])
     );
     const [viewerSrc, setViewerSrc] = useState<string>();
+    const [expanded, setExpanded] = useState(false);
+    const [dismissed, setDismissed] = useState(false);
 
     useEffect(() => {
       loadPreview();
     }, [loadPreview]);
 
     if (previewStatus.status === AsyncStatus.Error) return null;
+
+    if (dismissed) return null;
 
     const renderContent = (prev: IPreviewUrlResponse) => {
       const imgUrl = mxcUrlToHttp(
@@ -90,10 +99,117 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
       const description = prev['og:description'] as string | undefined;
       const siteName = prev['og:site_name'] as string | undefined;
       const isVideo = isVideoUrl(url) || (prev['og:type'] as string)?.startsWith('video');
+      const isAudio = isAudioUrl(url) || (prev['og:type'] as string)?.startsWith('music');
+
+      // og:video data for video embeds
+      const ogVideoUrl = (prev['og:video'] || prev['og:video:url']) as string | undefined;
+      const ogVideoType = prev['og:video:type'] as string | undefined;
+      const hasOgVideo = !!ogVideoUrl;
+
+      // YouTube embed via Invidious iframe
+      const ytMatch = url.match(/^https?:\/\/(www\.)?youtube\.com\/watch\?v=([\w-]+)/)
+        || url.match(/^https?:\/\/youtu\.be\/([\w-]+)/);
+      const ytVideoId = ytMatch ? (ytMatch[2] || ytMatch[1]) : null;
+      const isYoutube = !!ytVideoId;
+      const invidiousEmbedUrl = ytVideoId ? `https://inv.nadeko.net/embed/${ytVideoId}` : null;
+
+      const allKeys = Object.keys(prev).filter(k => k.startsWith('og:'));
 
       return (
-        <Box direction="Column">
-          {isVideo && imgUrl ? (
+        <Box direction="Column" style={{ position: 'relative' }}>
+          {/* Dismiss button */}
+          <IconButton
+            size="200"
+            radii="300"
+            variant="SurfaceVariant"
+            onClick={(e) => { e.stopPropagation(); setDismissed(true); }}
+            aria-label="Dismiss embed"
+            style={{ position: 'absolute', top: 4, right: 4, zIndex: 1 }}
+          >
+            <Icon size="50" src={Icons.Cross} />
+          </IconButton>
+          {/* Invidious YouTube iframe */}
+          {isYoutube && invidiousEmbedUrl && (
+            <Box
+              style={{
+                position: 'relative',
+                paddingBottom: '56.25%',
+                height: 0,
+                overflow: 'hidden',
+                backgroundColor: color.SurfaceVariant.Container,
+              }}
+            >
+              <Box
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <iframe
+                  src={invidiousEmbedUrl}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    border: 'none',
+                  }}
+                  allowFullScreen
+                  sandbox="allow-scripts allow-same-origin allow-popups"
+                  title={title || 'YouTube video'}
+                />
+                <Box
+                  style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    padding: '4px 8px',
+                    backgroundColor: 'rgba(0,0,0,0.7)',
+                  }}
+                  alignItems="Center"
+                  gap="100"
+                >
+                  <Text size="T200" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                    via Invidious
+                  </Text>
+                  <IconButton
+                    size="200"
+                    radii="Pill"
+                    as="a"
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <Icon size="50" src={Icons.External} />
+                  </IconButton>
+                </Box>
+              </Box>
+            </Box>
+          )}
+
+          {/* og:video embed (fxtwitter etc.) */}
+          {!isYoutube && hasOgVideo && (
+            <video
+              className={urlPreviewCss.UrlPreviewVideo}
+              src={ogVideoUrl}
+              controls
+              preload="metadata"
+              poster={imgUrl || undefined}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <a href={ogVideoUrl} target="_blank" rel="noreferrer">
+                {title || 'Video'}
+              </a>
+            </video>
+          )}
+
+          {/* Direct video URL */}
+          {!isYoutube && !hasOgVideo && isVideo && imgUrl && (
             <video
               className={urlPreviewCss.UrlPreviewVideo}
               src={imgUrl}
@@ -105,7 +221,25 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
                 {title || 'Video'}
               </a>
             </video>
-          ) : imgUrl ? (
+          )}
+
+          {/* Audio embed */}
+          {isAudio && imgUrl && (
+            <audio
+              className={urlPreviewCss.UrlPreviewVideo}
+              src={imgUrl}
+              controls
+              preload="metadata"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <a href={imgUrl} target="_blank" rel="noreferrer">
+                {title || 'Audio'}
+              </a>
+            </audio>
+          )}
+
+          {/* Preview image (only if no video/audio player showing) */}
+          {!isYoutube && !hasOgVideo && !isVideo && !isAudio && imgUrl && (
             <img
               className={urlPreviewCss.UrlPreviewImg}
               src={imgUrl}
@@ -113,7 +247,8 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
               title={title}
               onClick={() => setViewerSrc(imgUrl)}
             />
-          ) : null}
+          )}
+
           <UrlPreviewContent>
             <Text
               style={linkStyles}
@@ -136,7 +271,7 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
                 target="_blank"
                 rel="noreferrer"
                 size="T300"
-                truncate
+                truncate={!expanded}
               >
                 {title}
               </Text>
@@ -145,6 +280,38 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
               <Text size="T200" priority="300">
                 <UrlPreviewDescription>{description}</UrlPreviewDescription>
               </Text>
+            )}
+
+            {/* Expand/collapse extra embed data */}
+            {allKeys.length > 4 && (
+              <Button
+                variant="Secondary"
+                fill="Soft"
+                size="300"
+                radii="300"
+                onClick={() => setExpanded(!expanded)}
+              >
+                <Text size="B300">
+                  {expanded ? 'Show Less' : `Show All (${allKeys.length - 4} more)`}
+                </Text>
+              </Button>
+            )}
+
+            {expanded && (
+              <Box direction="Column" gap="100" style={{ padding: `${config.space.S100} 0` }}>
+                {allKeys.map((key) => {
+                  const val = prev[key];
+                  if (!val || key === 'og:title' || key === 'og:description' || key === 'og:image' || key === 'og:site_name') return null;
+                  return (
+                    <Text key={key} size="T200" priority="400">
+                      <b>{key.replace('og:', '')}:</b>{' '}
+                      {typeof val === 'string' && val.length > 120
+                        ? `${val.slice(0, 120)}...`
+                        : String(val)}
+                    </Text>
+                  );
+                })}
+              </Box>
             )}
           </UrlPreviewContent>
 
@@ -219,7 +386,7 @@ export const UrlPreviewHolder = as<'div'>(({ children, ...props }, ref) => {
     const backAnchor = backAnchorRef.current;
     const frontAnchor = frontAnchorRef.current;
     if (backAnchor) intersectionObserver?.observe(backAnchor);
-    if (frontAnchor) intersectionObserver?.observe(frontAnchor);
+    if (frontAnchor) intersectionObserver?.unobserve(frontAnchor);
     return () => {
       if (backAnchor) intersectionObserver?.unobserve(backAnchor);
       if (frontAnchor) intersectionObserver?.unobserve(frontAnchor);

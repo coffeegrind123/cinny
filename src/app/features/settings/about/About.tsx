@@ -68,7 +68,7 @@ export function About({ requestClose }: AboutProps) {
                     </Button>
                     <Button
                       as="a"
-                      href="https://github.com/coffeegrind123/prinny-client/releases"
+                      href="https://cinny.app"
                       rel="noreferrer noopener"
                       target="_blank"
                       variant="Critical"
@@ -77,7 +77,7 @@ export function About({ requestClose }: AboutProps) {
                       radii="300"
                       before={<Icon src={Icons.Heart} size="100" filled />}
                     >
-                      <Text size="B300">Releases</Text>
+                      <Text size="B300">Donate to Cinny</Text>
                     </Button>
                   </Box>
                 </Box>

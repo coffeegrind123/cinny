@@ -154,6 +154,7 @@ export function ServerPicker({
           size="500"
           variant="Primary"
           fill="Solid"
+          outlined
           radii="300"
           onClick={handleConnect}
           before={<Icon size="100" src={Icons.ArrowRight} />}

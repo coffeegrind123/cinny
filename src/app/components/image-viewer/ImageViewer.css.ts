@@ -4,26 +4,9 @@ import { DefaultReset, color, config } from 'folds';
 export const ImageViewer = style([
   DefaultReset,
   {
-    height: '100%',
-    position: 'relative',
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-  },
-]);
-
-export const ImageViewerTopBar = style([
-  DefaultReset,
-  {
-    position: 'absolute',
-    top: config.space.S200,
-    left: config.space.S200,
-    right: config.space.S200,
     display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: config.space.S200,
-    zIndex: 1,
-    pointerEvents: 'none',
-    flexShrink: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 ]);
 
@@ -45,22 +28,14 @@ export const ImageViewerBarGroup = style([
   },
 ]);
 
-export const ImageViewerContent = style([
-  DefaultReset,
-  {
-    overflow: 'hidden',
-    flex: 1,
-  },
-]);
-
 export const ImageViewerImg = style([
   DefaultReset,
   {
-    objectFit: 'contain',
-    width: 'auto',
-    height: 'auto',
-    maxWidth: '100%',
-    maxHeight: '100%',
+    display: 'block',
+    maxWidth: '80vw',
+    maxHeight: '80vh',
     transition: 'transform 100ms linear',
+    cursor: 'zoom-in',
+    userSelect: 'none',
   },
 ]);

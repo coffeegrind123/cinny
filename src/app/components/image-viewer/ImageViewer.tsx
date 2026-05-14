@@ -1,4 +1,3 @@
-/* eslint-disable jsx-a11y/no-noninteractive-element-interactions */
 import React from 'react';
 import FileSaver from 'file-saver';
 import classNames from 'classnames';
@@ -24,14 +23,26 @@ export const ImageViewer = as<'div', ImageViewerProps>(
       FileSaver.saveAs(fileContent, alt);
     };
 
+    const handleImageClick = () => {
+      setZoom(zoom === 1 ? 2 : 1);
+    };
+
+    const handleOpenExternal = () => {
+      window.open(src, '_blank', 'noopener,noreferrer');
+    };
+
+    const zoomCursor = zoom === 1 ? 'zoom-in' : 'zoom-out';
+
     return (
-      <Box
-        className={classNames(css.ImageViewer, className)}
-        direction="Column"
-        {...props}
-        ref={ref}
-      >
-        <Box className={css.ImageViewerTopBar}>
+      <>
+        <Box
+          style={{
+            position: 'fixed',
+            top: config.space.S200,
+            left: config.space.S200,
+            zIndex: 2,
+          }}
+        >
           <Box className={css.ImageViewerBarGroup} alignItems="Center" gap="100">
             <IconButton size="300" radii="300" onClick={requestClose}>
               <Icon size="50" src={Icons.ArrowLeft} />
@@ -39,7 +50,19 @@ export const ImageViewer = as<'div', ImageViewerProps>(
             <Text size="T300" truncate>
               {alt}
             </Text>
+            <IconButton size="200" radii="300" onClick={handleOpenExternal} aria-label="Open in browser">
+              <Icon size="50" src={Icons.External} />
+            </IconButton>
           </Box>
+        </Box>
+        <Box
+          style={{
+            position: 'fixed',
+            top: config.space.S200,
+            right: config.space.S200,
+            zIndex: 2,
+          }}
+        >
           <Box className={css.ImageViewerBarGroup} alignItems="Center" gap="100">
             <IconButton
               variant={zoom < 1 ? 'Success' : 'SurfaceVariant'}
@@ -51,7 +74,7 @@ export const ImageViewer = as<'div', ImageViewerProps>(
             >
               <Icon size="50" src={Icons.Minus} />
             </IconButton>
-            <Chip variant="SurfaceVariant" radii="Pill" onClick={() => setZoom(zoom === 1 ? 2 : 1)}>
+            <Chip variant="SurfaceVariant" radii="Pill" onClick={handleImageClick}>
               <Text size="B300">{Math.round(zoom * 100)}%</Text>
             </Chip>
             <IconButton
@@ -75,23 +98,23 @@ export const ImageViewer = as<'div', ImageViewerProps>(
           </Box>
         </Box>
         <Box
-          grow="Yes"
-          className={css.ImageViewerContent}
-          justifyContent="Center"
-          alignItems="Center"
+          className={classNames(css.ImageViewer, className)}
+          {...props}
+          ref={ref}
         >
           <img
             className={css.ImageViewerImg}
             style={{
-              cursor,
+              cursor: zoomCursor,
               transform: `scale(${zoom}) translate(${pan.translateX}px, ${pan.translateY}px)`,
             }}
             src={src}
             alt={alt}
+            onClick={handleImageClick}
             onMouseDown={onMouseDown}
           />
         </Box>
-      </Box>
+      </>
     );
   }
 );

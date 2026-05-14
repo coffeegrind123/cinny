@@ -89,9 +89,7 @@ export function AuthLayout() {
     }, [])
   );
 
-  useEffect(() => {
-    if (server) discoverServer(server);
-  }, [discoverServer, server]);
+  // Discovery triggered by selectServer (Connect button) — no auto-discover on mount
 
   // if server is mismatches with path server, update path
   useEffect(() => {
@@ -107,16 +105,14 @@ export function AuthLayout() {
 
   const selectServer = useCallback(
     (newServer: string) => {
-      if (newServer === server) {
-        if (discoveryState.status === AsyncStatus.Loading) return;
-        discoverServer(server);
-        return;
+      discoverServer(newServer);
+      if (newServer !== server) {
+        navigate(
+          generatePath(currentAuthPath(location.pathname), { server: encodeURIComponent(newServer) })
+        );
       }
-      navigate(
-        generatePath(currentAuthPath(location.pathname), { server: encodeURIComponent(newServer) })
-      );
     },
-    [navigate, location, discoveryState, server, discoverServer]
+    [navigate, location, server, discoverServer]
   );
 
   const [autoDiscoveryError, autoDiscoveryInfo] =
@@ -150,6 +146,11 @@ export function AuthLayout() {
                 onServerChange={selectServer}
               />
             </Box>
+            {discoveryState.status === AsyncStatus.Idle && (
+              <Text align="Center" size="T300" priority="300">
+                Enter a homeserver URL and press Connect to continue.
+              </Text>
+            )}
             {discoveryState.status === AsyncStatus.Loading && (
               <AuthLayoutLoading message="Looking for homeserver..." />
             )}
