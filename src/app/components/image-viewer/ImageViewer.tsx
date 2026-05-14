@@ -2,7 +2,7 @@
 import React from 'react';
 import FileSaver from 'file-saver';
 import classNames from 'classnames';
-import { Box, Chip, Header, Icon, IconButton, Icons, Text, as } from 'folds';
+import { Box, Chip, Icon, IconButton, Icons, Text, as, config } from 'folds';
 import * as css from './ImageViewer.css';
 import { useZoom } from '../../hooks/useZoom';
 import { usePan } from '../../hooks/usePan';
@@ -31,8 +31,8 @@ export const ImageViewer = as<'div', ImageViewerProps>(
         {...props}
         ref={ref}
       >
-        <Header className={css.ImageViewerHeader} size="400">
-          <Box grow="Yes" alignItems="Center" gap="200">
+        <Box className={css.ImageViewerTopBar}>
+          <Box className={css.ImageViewerBarGroup} alignItems="Center" gap="100">
             <IconButton size="300" radii="300" onClick={requestClose}>
               <Icon size="50" src={Icons.ArrowLeft} />
             </IconButton>
@@ -40,7 +40,7 @@ export const ImageViewer = as<'div', ImageViewerProps>(
               {alt}
             </Text>
           </Box>
-          <Box shrink="No" alignItems="Center" gap="200">
+          <Box className={css.ImageViewerBarGroup} alignItems="Center" gap="100">
             <IconButton
               variant={zoom < 1 ? 'Success' : 'SurfaceVariant'}
               outlined={zoom < 1}
@@ -73,7 +73,7 @@ export const ImageViewer = as<'div', ImageViewerProps>(
               <Text size="B300">Download</Text>
             </Chip>
           </Box>
-        </Header>
+        </Box>
         <Box
           grow="Yes"
           className={css.ImageViewerContent}

@@ -5,26 +5,51 @@ export const ImageViewer = style([
   DefaultReset,
   {
     height: '100%',
+    position: 'relative',
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
   },
 ]);
 
-export const ImageViewerHeader = style([
+export const ImageViewerTopBar = style([
   DefaultReset,
   {
-    paddingLeft: config.space.S200,
-    paddingRight: config.space.S200,
-    borderBottomWidth: config.borderWidth.B300,
-    flexShrink: 0,
+    position: 'absolute',
+    top: config.space.S200,
+    left: config.space.S200,
+    right: config.space.S200,
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     gap: config.space.S200,
+    zIndex: 1,
+    pointerEvents: 'none',
+    flexShrink: 0,
+  },
+]);
+
+export const ImageViewerBarGroup = style([
+  DefaultReset,
+  {
+    display: 'flex',
+    alignItems: 'center',
+    gap: config.space.S200,
+    padding: `6px ${config.space.S300}`,
+    backgroundColor: color.Surface.Container,
+    color: color.Surface.OnContainer,
+    borderRadius: config.radii.R400,
+    boxShadow: '0 2px 12px rgba(0, 0, 0, 0.3)',
+    border: `1px solid ${color.Surface.ContainerLine}`,
+    pointerEvents: 'auto',
+    maxWidth: '50%',
+    overflow: 'hidden',
   },
 ]);
 
 export const ImageViewerContent = style([
   DefaultReset,
   {
-    backgroundColor: color.Background.Container,
-    color: color.Background.OnContainer,
     overflow: 'hidden',
+    flex: 1,
   },
 ]);
 
@@ -36,7 +61,6 @@ export const ImageViewerImg = style([
     height: 'auto',
     maxWidth: '100%',
     maxHeight: '100%',
-    backgroundColor: color.Surface.Container,
     transition: 'transform 100ms linear',
   },
 ]);

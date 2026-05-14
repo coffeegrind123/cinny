@@ -76,13 +76,11 @@ export function UserHero({ userId, avatarUrl, presence }: UserHeroProps) {
                   escapeDeactivates: stopPropagation,
                 }}
               >
-                <Modal size="500" onContextMenu={(evt: any) => evt.stopPropagation()}>
-                  <ImageViewer
-                    src={viewAvatar}
-                    alt={userId}
-                    requestClose={() => setViewAvatar(undefined)}
-                  />
-                </Modal>
+                <ImageViewer
+                  src={viewAvatar}
+                  alt={userId}
+                  requestClose={() => setViewAvatar(undefined)}
+                />
               </FocusTrap>
             </OverlayCenter>
           </Overlay>
