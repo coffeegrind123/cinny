@@ -88,7 +88,7 @@ const useSettingsMenuItems = (): SettingsMenuItem[] =>
       {
         page: SettingsPages.KeybindsPage,
         name: 'Keybinds',
-        icon: Icons.Keyboard,
+        icon: Icons.Puzzle,
       },
       {
         page: SettingsPages.AboutPage,
