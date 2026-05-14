@@ -14,6 +14,7 @@ import { ReactEditor } from 'slate-react';
 import { Transforms, Editor } from 'slate';
 import {
   Box,
+  color,
   Dialog,
   Icon,
   IconButton,
@@ -602,7 +603,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
                 style={{
                   width: '1px',
                   height: '24px',
-                  backgroundColor: 'var(--folds-color-surface-variant-container-line)',
+                  backgroundColor: color.SurfaceVariant.ContainerLine,
                   marginRight: '4px',
                 }}
               />

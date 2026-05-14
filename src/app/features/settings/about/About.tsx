@@ -68,7 +68,7 @@ export function About({ requestClose }: AboutProps) {
                     </Button>
                     <Button
                       as="a"
-                      href="https://cinny.app"
+                      href="https://cinny.in/donate"
                       rel="noreferrer noopener"
                       target="_blank"
                       variant="Critical"

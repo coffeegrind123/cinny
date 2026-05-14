@@ -11,6 +11,7 @@ import {
 } from 'folds';
 import { Page, PageContent, PageHeader } from '../../../components/page';
 import { SequenceCard } from '../../../components/sequence-card';
+import { SequenceCardStyle } from '../styles.css';
 import { useSetting } from '../../../state/hooks/settings';
 import { settingsAtom } from '../../../state/settings';
 import {
@@ -174,6 +175,8 @@ export function Keybinds({ requestClose }: KeybindsProps) {
               return (
                 <SequenceCard
                   key={cat}
+                  className={SequenceCardStyle}
+                  variant="SurfaceVariant"
                   header={
                     <Box style={{ padding: `${config.space.S200} ${config.space.S400}` }}>
                       <Text size="H4" style={{ fontWeight: config.fontWeight.W600 }}>

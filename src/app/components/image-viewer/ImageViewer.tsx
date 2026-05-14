@@ -34,7 +34,11 @@ export const ImageViewer = as<'div', ImageViewerProps>(
     const zoomCursor = zoom === 1 ? 'zoom-in' : 'zoom-out';
 
     return (
-      <>
+      <Box
+        className={classNames(css.ImageViewer, className)}
+        {...props}
+        ref={ref}
+      >
         <Box
           style={{
             position: 'fixed',
@@ -97,24 +101,18 @@ export const ImageViewer = as<'div', ImageViewerProps>(
             </Chip>
           </Box>
         </Box>
-        <Box
-          className={classNames(css.ImageViewer, className)}
-          {...props}
-          ref={ref}
-        >
-          <img
-            className={css.ImageViewerImg}
-            style={{
-              cursor: zoomCursor,
-              transform: `scale(${zoom}) translate(${pan.translateX}px, ${pan.translateY}px)`,
-            }}
-            src={src}
-            alt={alt}
-            onClick={handleImageClick}
-            onMouseDown={onMouseDown}
-          />
-        </Box>
-      </>
+        <img
+          className={css.ImageViewerImg}
+          style={{
+            cursor: zoomCursor,
+            transform: `scale(${zoom}) translate(${pan.translateX}px, ${pan.translateY}px)`,
+          }}
+          src={src}
+          alt={alt}
+          onClick={handleImageClick}
+          onMouseDown={onMouseDown}
+        />
+      </Box>
     );
   }
 );
