@@ -76,29 +76,24 @@ export function ServerPicker({
   const showDropdown = serverList.length > 0 && !(serverList.length === 1 && !allowCustomServer);
 
   return (
-    <Input
-      ref={serverInputRef}
-      style={{ paddingRight: config.space.S200 }}
-      variant={allowCustomServer ? 'Background' : 'Surface'}
-      outlined
-      defaultValue={server}
-      onKeyDown={handleKeyDown}
-      size="500"
-      readOnly={!allowCustomServer}
-      onClick={allowCustomServer ? undefined : handleOpenServerMenu}
-      after={
-        <Box gap="100" alignItems="Center">
-          <Button
-            size="400"
-            variant="Primary"
-            fill="Solid"
-            radii="300"
-            onClick={handleConnect}
-            before={<Icon size="100" src={Icons.ArrowRight} />}
-          >
-            <Text size="B300">Connect</Text>
-          </Button>
-          {showDropdown && (
+    <Box grow="Yes" gap="0" alignItems="Stretch">
+      <Input
+        ref={serverInputRef}
+        style={{
+          flexGrow: 1,
+          borderTopRightRadius: 0,
+          borderBottomRightRadius: 0,
+          paddingRight: config.space.S200,
+        }}
+        variant={allowCustomServer ? 'Background' : 'Surface'}
+        outlined
+        defaultValue={server}
+        onKeyDown={handleKeyDown}
+        size="500"
+        readOnly={!allowCustomServer}
+        onClick={allowCustomServer ? undefined : handleOpenServerMenu}
+        after={
+          showDropdown && (
             <PopOut
               anchor={serverMenuAnchor}
               position="Bottom"
@@ -146,9 +141,26 @@ export function ServerPicker({
                 <Icon src={Icons.ChevronBottom} />
               </IconButton>
             </PopOut>
-          )}
-        </Box>
-      }
-    />
+          )
+        }
+      />
+      {allowCustomServer && (
+        <Button
+          style={{
+            borderTopLeftRadius: 0,
+            borderBottomLeftRadius: 0,
+            flexShrink: 0,
+          }}
+          size="500"
+          variant="Primary"
+          fill="Solid"
+          radii="300"
+          onClick={handleConnect}
+          before={<Icon size="100" src={Icons.ArrowRight} />}
+        >
+          <Text size="B300">Connect</Text>
+        </Button>
+      )}
+    </Box>
   );
 }
