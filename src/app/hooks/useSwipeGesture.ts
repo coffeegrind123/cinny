@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 
 interface SwipeGestureOptions {
   /** Which edge to detect swipe from */
@@ -20,10 +20,11 @@ interface SwipeGestureOptions {
 export function useSwipeGesture(
   ref: React.RefObject<HTMLElement | null>,
   { edge, edgeWidth = 32, threshold = 80, onSwipe }: SwipeGestureOptions
-) {
+): { isTracking: boolean } {
   const startX = useRef(0);
   const startY = useRef(0);
   const tracking = useRef(false);
+  const [isTracking, setIsTracking] = useState(false);
 
   const handleTouchStart = useCallback(
     (e: TouchEvent) => {
@@ -38,6 +39,7 @@ export function useSwipeGesture(
         startX.current = touch.clientX;
         startY.current = touch.clientY;
         tracking.current = true;
+        setIsTracking(true);
       }
     },
     [edge, edgeWidth]
@@ -55,6 +57,7 @@ export function useSwipeGesture(
     (e: TouchEvent) => {
       if (!tracking.current) return;
       tracking.current = false;
+      setIsTracking(false);
 
       const touch = e.changedTouches[0];
       const dx = touch.clientX - startX.current;
@@ -89,4 +92,6 @@ export function useSwipeGesture(
       el.removeEventListener('touchend', handleTouchEnd);
     };
   }, [ref, handleTouchStart, handleTouchMove, handleTouchEnd]);
+
+  return { isTracking };
 }

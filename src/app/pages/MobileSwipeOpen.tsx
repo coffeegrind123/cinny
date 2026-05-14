@@ -1,5 +1,5 @@
 import React, { useRef, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAtomValue } from 'jotai';
 import { useSwipeGesture } from '../hooks/useSwipeGesture';
 import { ScreenSize, useScreenSizeContext } from '../hooks/useScreenSize';
@@ -13,11 +13,11 @@ import { getHomeRoomPath, getDirectRoomPath } from './pathUtils';
  * Wraps room/channel nav list with a right-edge swipe gesture.
  * On right-to-left swipe, navigates to the currently selected room
  * (Discord-style: opens the active chat instead of hit-testing touch position).
+ * Highlights the selected room during the swipe gesture for visual feedback.
  */
 export function MobileSwipeOpen({ children }: { children: React.ReactNode }) {
   const screenSize = useScreenSizeContext();
   const navigate = useNavigate();
-  const location = useLocation();
   const mx = useMatrixClient();
   const ref = useRef<HTMLDivElement>(null);
 
@@ -33,7 +33,6 @@ export function MobileSwipeOpen({ children }: { children: React.ReactNode }) {
 
       const aliasOrId = getCanonicalAliasOrRoomId(mx, selectedRoomId);
 
-      // Determine whether this is a DM by checking m.direct account data
       const isDM = Array.from(mDirects.values()).some((roomIds) =>
         roomIds.includes(selectedRoomId)
       );
@@ -47,7 +46,7 @@ export function MobileSwipeOpen({ children }: { children: React.ReactNode }) {
     [selectedRoomId, mx, mDirects, navigate]
   );
 
-  useSwipeGesture(ref, {
+  const { isTracking } = useSwipeGesture(ref, {
     edge: 'right',
     threshold: 80,
     onSwipe: handleSwipe,
@@ -57,5 +56,23 @@ export function MobileSwipeOpen({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  return <div ref={ref} style={{ width: '100%', height: '100%', touchAction: 'pan-y' }}>{children}</div>;
+  return (
+    <>
+      {isTracking && (
+        <style>{`
+          [data-mobile-swipe-open] [aria-selected="true"] {
+            background: var(--folds-color-primary-container) !important;
+            box-shadow: inset 4px 0 0 var(--folds-color-primary) !important;
+          }
+        `}</style>
+      )}
+      <div
+        ref={ref}
+        data-mobile-swipe-open={isTracking ? 'true' : undefined}
+        style={{ width: '100%', height: '100%', touchAction: 'pan-y' }}
+      >
+        {children}
+      </div>
+    </>
+  );
 }
