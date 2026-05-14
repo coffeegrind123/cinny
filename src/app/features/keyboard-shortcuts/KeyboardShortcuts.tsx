@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import {
   Box,
+  color,
   config,
   Modal,
   Overlay,
@@ -45,14 +46,14 @@ function KeyCombo({ keys }: { keys: string[] }) {
             justifyContent: 'center',
             padding: '2px 6px',
             borderRadius: '4px',
-            backgroundColor: config.color.SurfaceVariant.Opacity(0.6),
-            border: `1px solid ${config.color.SurfaceVariant.Opacity(0.8)}`,
+            backgroundColor: color.SurfaceVariant.Container,
+            border: `1px solid ${color.SurfaceVariant.ContainerLine}`,
             minWidth: '20px',
             minHeight: '20px',
             fontSize: '12px',
             fontFamily: 'monospace',
             fontWeight: '600',
-            color: config.color.OnSurface,
+            color: color.Surface.OnContainer,
           }}
         >
           <Text size="T200">{key}</Text>
@@ -94,7 +95,7 @@ export function KeyboardShortcuts({ requestClose }: KeyboardShortcutsProps) {
             <Box
               style={{
                 padding: config.space.S400,
-                borderBottom: `1px solid ${config.color.SurfaceVariant}`,
+                borderBottom: `1px solid ${color.SurfaceVariant.ContainerLine}`,
               }}
               alignItems="Center"
               justifyContent="SpaceBetween"

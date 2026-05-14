@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Box,
   Button,
+  color,
   config,
   Icon,
   Icons,
@@ -40,14 +41,14 @@ function KeyCombo({ keys }: { keys: string[] }) {
             justifyContent: 'center',
             padding: '2px 6px',
             borderRadius: '4px',
-            backgroundColor: config.color.SurfaceVariant.Opacity(0.6),
-            border: `1px solid ${config.color.SurfaceVariant.Opacity(0.8)}`,
+            backgroundColor: color.SurfaceVariant.Container,
+            border: `1px solid ${color.SurfaceVariant.ContainerLine}`,
             minWidth: '20px',
             minHeight: '20px',
             fontSize: '12px',
             fontFamily: 'monospace',
             fontWeight: '600',
-            color: config.color.OnSurface,
+            color: color.Surface.OnContainer,
           }}
         >
           <Text size="T200">{key}</Text>
@@ -101,15 +102,15 @@ function KeybindCapture({ currentKey, onCapture }: KeybindCaptureProps) {
         padding: config.space.S100,
         borderRadius: '6px',
         border: capturing
-          ? `2px solid ${config.color.Primary}`
+          ? `2px solid ${color.Primary.Main}`
           : `2px solid transparent`,
         backgroundColor: capturing
-          ? config.color.Primary.Opacity(0.1)
+          ? color.Primary.Container
           : 'transparent',
       }}
     >
       {capturing ? (
-        <Text size="T200" style={{ color: config.color.Primary, fontStyle: 'italic' }}>
+        <Text size="T200" style={{ color: color.Primary.Main, fontStyle: 'italic' }}>
           Press keys...
         </Text>
       ) : (
