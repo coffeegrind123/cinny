@@ -30,8 +30,26 @@ import { mxcUrlToHttp } from '../../utils/matrix';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
 import { ImageViewer } from '../image-viewer';
 import { stopPropagation } from '../../utils/keyboard';
+import { useSetting } from '../../state/hooks/settings';
+import { settingsAtom } from '../../state/settings';
 
 const linkStyles = { color: color.Secondary.Main, textDecoration: 'none' };
+
+function rewriteEmbedUrl(url: string, useInvidious: boolean, useFxTwitter: boolean): string {
+  if (useFxTwitter) {
+    const twitterMatch = url.match(/^https?:\/\/(twitter\.com|x\.com)\/(\w+)\/status\/(\d+)/);
+    if (twitterMatch) {
+      return `https://fxtwitter.com/${twitterMatch[2]}/status/${twitterMatch[3]}`;
+    }
+  }
+  if (useInvidious) {
+    const ytMatch = url.match(/^https?:\/\/(www\.)?youtube\.com\/watch\?v=([\w-]+)/);
+    if (ytMatch) return `https://inv.nadeko.net/embed/${ytMatch[2]}`;
+    const ytShort = url.match(/^https?:\/\/youtu\.be\/([\w-]+)/);
+    if (ytShort) return `https://inv.nadeko.net/embed/${ytShort[1]}`;
+  }
+  return url;
+}
 
 function isVideoUrl(url: string): boolean {
   return /\.(mp4|webm|mov|ogg)(\?|$)/i.test(url);
@@ -41,8 +59,13 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
   ({ url, ts, ...props }, ref) => {
     const mx = useMatrixClient();
     const useAuthentication = useMediaAuthentication();
+    const [useInvidious] = useSetting(settingsAtom, 'useInvidious');
+    const [useFxTwitter] = useSetting(settingsAtom, 'useFxTwitter');
+
+    const embedUrl = rewriteEmbedUrl(url, useInvidious, useFxTwitter);
+
     const [previewStatus, loadPreview] = useAsyncCallback(
-      useCallback(() => mx.getUrlPreview(url, ts), [url, ts, mx])
+      useCallback(() => mx.getUrlPreview(embedUrl, ts), [embedUrl, ts, mx])
     );
     const [viewerSrc, setViewerSrc] = useState<string>();
 

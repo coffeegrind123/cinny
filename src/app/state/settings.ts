@@ -47,6 +47,8 @@ export interface Settings {
   developerTools: boolean;
   keybinds: Record<string, string>;
   readReceiptStyle: 'cinny' | 'element';
+  useInvidious: boolean;
+  useFxTwitter: boolean;
 }
 
 const defaultSettings: Settings = {
@@ -87,6 +89,8 @@ const defaultSettings: Settings = {
   developerTools: false,
   keybinds: {},
   readReceiptStyle: 'cinny',
+  useInvidious: false,
+  useFxTwitter: false,
 };
 
 export const getSettings = () => {

@@ -713,6 +713,8 @@ function Editor() {
   const [isMarkdown, setIsMarkdown] = useSetting(settingsAtom, 'isMarkdown');
   const [hideActivity, setHideActivity] = useSetting(settingsAtom, 'hideActivity');
   const [readReceiptStyle, setReadReceiptStyle] = useSetting(settingsAtom, 'readReceiptStyle');
+  const [useInvidious, setUseInvidious] = useSetting(settingsAtom, 'useInvidious');
+  const [useFxTwitter, setUseFxTwitter] = useSetting(settingsAtom, 'useFxTwitter');
   const [minimizeToTray, setMinimizeToTray] = useSetting(settingsAtom, 'minimizeToTray');
 
   return (
@@ -766,6 +768,20 @@ function Editor() {
               </Button>
             </Box>
           }
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Use Invidious for YouTube"
+          description="Rewrite YouTube embed URLs through inv.nadeko.net for privacy-respecting embeds."
+          after={<Switch variant="Primary" value={useInvidious} onChange={setUseInvidious} />}
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Use fxtwitter for Twitter/X"
+          description="Rewrite Twitter/X embed URLs through fxtwitter.com for better embeds with media."
+          after={<Switch variant="Primary" value={useFxTwitter} onChange={setUseFxTwitter} />}
         />
       </SequenceCard>
       {isTauri() && (
