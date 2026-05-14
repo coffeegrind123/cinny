@@ -89,8 +89,8 @@ const defaultSettings: Settings = {
   developerTools: false,
   keybinds: {},
   readReceiptStyle: 'cinny',
-  useInvidious: false,
-  useFxTwitter: false,
+  useInvidious: true,
+  useFxTwitter: true,
 };
 
 export const getSettings = () => {
