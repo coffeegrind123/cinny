@@ -1,5 +1,6 @@
 import React, { useEffect, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Editor } from 'slate';
+import { ReactEditor } from 'slate-react';
 import { Avatar, Icon, Icons, MenuItem, Text } from 'folds';
 import { MatrixClient, Room, RoomMember } from 'matrix-js-sdk';
 
@@ -114,6 +115,7 @@ export function UserMentionAutocomplete({
     );
     replaceWithElement(editor, query.range, mentionEl);
     moveCursor(editor, true);
+    ReactEditor.focus(editor);
     requestClose();
   };
 
@@ -162,7 +164,7 @@ export function UserMentionAutocomplete({
           handleAutocomplete={handleAutocomplete}
         />
       ) : (
-        autoCompleteMembers.map((roomMember) => {
+        autoCompleteMembers.map((roomMember, index) => {
           const avatarMxcUrl = roomMember.getMxcAvatarUrl();
           const avatarUrl = avatarMxcUrl
             ? mx.mxcUrlToHttp(avatarMxcUrl, 32, 32, 'crop', undefined, false, useAuthentication)
@@ -172,6 +174,7 @@ export function UserMentionAutocomplete({
               key={roomMember.userId}
               as="button"
               radii="300"
+              aria-pressed={index === 0}
               onKeyDown={(evt: ReactKeyboardEvent<HTMLButtonElement>) =>
                 onTabPress(evt, () => handleAutocomplete(roomMember.userId, getName(roomMember)))
               }

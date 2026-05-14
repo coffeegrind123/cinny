@@ -1,5 +1,6 @@
 import React, { KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect } from 'react';
 import { Editor } from 'slate';
+import { ReactEditor } from 'slate-react';
 import { Avatar, Icon, Icons, MenuItem, Text } from 'folds';
 import { JoinRule, MatrixClient } from 'matrix-js-sdk';
 import { useAtomValue } from 'jotai';
@@ -115,6 +116,7 @@ export function RoomMentionAutocomplete({
     );
     replaceWithElement(editor, query.range, mentionEl);
     moveCursor(editor, true);
+    ReactEditor.focus(editor);
     requestClose();
   };
 
@@ -147,7 +149,7 @@ export function RoomMentionAutocomplete({
       {autoCompleteRoomIds.length === 0 ? (
         <UnknownRoomMentionItem query={query} handleAutocomplete={handleAutocomplete} />
       ) : (
-        autoCompleteRoomIds.map((rId) => {
+        autoCompleteRoomIds.map((rId, index) => {
           const room = mx.getRoom(rId);
           if (!room) return null;
           const dm = mDirects.has(room.roomId);
@@ -159,6 +161,7 @@ export function RoomMentionAutocomplete({
               key={rId}
               as="button"
               radii="300"
+              aria-pressed={index === 0}
               onKeyDown={(evt: ReactKeyboardEvent<HTMLButtonElement>) =>
                 onTabPress(evt, handleSelect)
               }
