@@ -1,39 +1,50 @@
 import React, { useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAtomValue } from 'jotai';
 import { useSwipeGesture } from '../hooks/useSwipeGesture';
 import { ScreenSize, useScreenSizeContext } from '../hooks/useScreenSize';
+import { useSelectedRoom } from '../hooks/router/useSelectedRoom';
+import { useMatrixClient } from '../hooks/useMatrixClient';
+import { mDirectAtom } from '../state/mDirectList';
+import { getCanonicalAliasOrRoomId } from '../utils/matrix';
+import { getHomeRoomPath, getDirectRoomPath } from './pathUtils';
 
 /**
- * Wraps a room/channel nav list with a right-edge swipe gesture.
- * On right-to-left swipe, finds the room list item nearest the touch
- * point and navigates to it (Discord-style open-room gesture on mobile).
+ * Wraps room/channel nav list with a right-edge swipe gesture.
+ * On right-to-left swipe, navigates to the currently selected room
+ * (Discord-style: opens the active chat instead of hit-testing touch position).
  */
 export function MobileSwipeOpen({ children }: { children: React.ReactNode }) {
   const screenSize = useScreenSizeContext();
   const navigate = useNavigate();
+  const location = useLocation();
+  const mx = useMatrixClient();
   const ref = useRef<HTMLDivElement>(null);
 
-  const handleSwipe = useCallback(
-    ({ startY }: { startY: number }) => {
-      // Find the room link at the touch Y coordinate, near the right edge
-      const midX = Math.round(window.innerWidth / 2);
-      const elements = document.elementsFromPoint(midX, Math.round(startY));
+  const selectedRoomId = useSelectedRoom();
+  const mDirects = useAtomValue(mDirectAtom);
 
-      for (const el of elements) {
-        if (el instanceof HTMLAnchorElement) {
-          const href = el.getAttribute('href');
-          if (href) {
-            // Match room paths: /home/room/:id, /direct/room/:id, /space/:id/room/:id
-            const roomMatch = href.match(/\/(home|direct|space\/[^/]+)\/room\//);
-            if (roomMatch) {
-              navigate(href);
-              return;
-            }
-          }
-        }
-      }
+  const handleSwipe = useCallback(
+    () => {
+      if (!selectedRoomId) return;
+
+      const room = mx.getRoom(selectedRoomId);
+      if (!room) return;
+
+      const aliasOrId = getCanonicalAliasOrRoomId(mx, selectedRoomId);
+
+      // Determine whether this is a DM by checking m.direct account data
+      const isDM = Array.from(mDirects.values()).some((roomIds) =>
+        roomIds.includes(selectedRoomId)
+      );
+
+      const path = isDM
+        ? getDirectRoomPath(aliasOrId)
+        : getHomeRoomPath(aliasOrId);
+
+      navigate(path);
     },
-    [navigate]
+    [selectedRoomId, mx, mDirects, navigate]
   );
 
   useSwipeGesture(ref, {
