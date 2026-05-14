@@ -88,7 +88,7 @@ import {
   UploadSuccess,
   createUploadFamilyObserverAtom,
 } from '../../state/upload';
-import { getImageUrlBlob, loadImageElement } from '../../utils/dom';
+import { getDataTransferFiles, getImageUrlBlob, loadImageElement } from '../../utils/dom';
 import { safeFile } from '../../utils/mimeTypes';
 import { fulfilledPromiseSettledResult } from '../../utils/common';
 import { useSetting } from '../../state/hooks/settings';
@@ -215,6 +215,14 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
     );
     const pickFile = useFilePicker(handleFiles, true);
     const handlePaste = useFilePasteHandler(handleFiles);
+    const handleDrop: React.DragEventHandler = useCallback(
+      (evt) => {
+        evt.preventDefault();
+        const files = getDataTransferFiles(evt.dataTransfer);
+        if (files) handleFiles(files);
+      },
+      [handleFiles]
+    );
     const dropZoneVisible = useFileDropZone(fileDropContainerRef, handleFiles);
     const [hideStickerBtn, setHideStickerBtn] = useState(document.body.clientWidth < 500);
 
@@ -543,6 +551,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
           onKeyDown={handleKeyDown}
           onKeyUp={handleKeyUp}
           onPaste={handlePaste}
+          onDrop={handleDrop}
           top={
             replyDraft && (
               <div>
@@ -583,17 +592,28 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
             )
           }
           before={
-            <IconButton
-              onClick={() => pickFile('*')}
-              variant="SurfaceVariant"
-              size="300"
-              radii="300"
-            >
-              <Icon src={Icons.PlusCircle} />
+            <IconButton onClick={submit} variant="Primary" size="300" radii="300">
+              <Icon src={Icons.Send} />
             </IconButton>
           }
           after={
             <>
+              <Box
+                style={{
+                  width: '1px',
+                  height: '24px',
+                  backgroundColor: 'var(--folds-color-surface-variant-container-line)',
+                  marginRight: '4px',
+                }}
+              />
+              <IconButton
+                onClick={() => pickFile('*')}
+                variant="SurfaceVariant"
+                size="300"
+                radii="300"
+              >
+                <Icon src={Icons.PlusCircle} />
+              </IconButton>
               <IconButton
                 variant="SurfaceVariant"
                 size="300"
@@ -669,9 +689,6 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
                   </PopOut>
                 )}
               </UseStateProvider>
-              <IconButton onClick={submit} variant="SurfaceVariant" size="300" radii="300">
-                <Icon src={Icons.Send} />
-              </IconButton>
             </>
           }
           bottom={
