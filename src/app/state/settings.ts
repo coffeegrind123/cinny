@@ -55,6 +55,7 @@ export interface Settings {
   readReceiptStyle: 'cinny' | 'element';
   useFxTwitter: boolean;
   useSoundcloak: boolean;
+  usePiped: boolean;
 }
 
 const defaultSettings: Settings = {
@@ -97,6 +98,7 @@ const defaultSettings: Settings = {
   readReceiptStyle: 'cinny',
   useFxTwitter: true,
   useSoundcloak: true,
+  usePiped: true,
 };
 
 export const getSettings = () => {

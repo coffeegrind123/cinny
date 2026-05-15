@@ -715,6 +715,7 @@ function Editor() {
   const [readReceiptStyle, setReadReceiptStyle] = useSetting(settingsAtom, 'readReceiptStyle');
   const [useFxTwitter, setUseFxTwitter] = useSetting(settingsAtom, 'useFxTwitter');
   const [useSoundcloak, setUseSoundcloak] = useSetting(settingsAtom, 'useSoundcloak');
+  const [usePiped, setUsePiped] = useSetting(settingsAtom, 'usePiped');
   const [minimizeToTray, setMinimizeToTray] = useSetting(settingsAtom, 'minimizeToTray');
 
   return (
@@ -782,6 +783,13 @@ function Editor() {
           title="Use soundcloak for SoundCloud"
           description="Rewrite SoundCloud URLs through sc1.maid.zone for streamable embeds."
           after={<Switch variant="Primary" value={useSoundcloak} onChange={setUseSoundcloak} />}
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Use Piped for YouTube"
+          description="Replace YouTube embeds with piped.private.coffee for privacy-friendly playback."
+          after={<Switch variant="Primary" value={usePiped} onChange={setUsePiped} />}
         />
       </SequenceCard>
       {isTauri() && (

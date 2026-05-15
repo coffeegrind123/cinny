@@ -74,6 +74,7 @@ export const UrlPreviewCard = as<
   const useAuthentication = useMediaAuthentication();
   const [useFxTwitter] = useSetting(settingsAtom, 'useFxTwitter');
   const [useSoundcloak] = useSetting(settingsAtom, 'useSoundcloak');
+  const [usePiped] = useSetting(settingsAtom, 'usePiped');
 
   const embedUrl = rewriteEmbedUrl(url, useFxTwitter, useSoundcloak);
 
@@ -190,7 +191,9 @@ export const UrlPreviewCard = as<
                 height: '100%',
                 border: 'none',
               }}
-              src={`https://www.youtube.com/embed/${ytVideoId}`}
+              src={usePiped
+                ? `https://piped.private.coffee/embed/${ytVideoId}`
+                : `https://www.youtube.com/embed/${ytVideoId}`}
               title={title || 'YouTube video'}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
