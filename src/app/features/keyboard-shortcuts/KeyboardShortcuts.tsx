@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import {
   Box,
   color,
@@ -70,6 +70,7 @@ type KeyboardShortcutsProps = {
 export function KeyboardShortcuts({ requestClose }: KeyboardShortcutsProps) {
   const [keybinds] = useSetting(settingsAtom, 'keybinds');
   const modKey = isMacOS() ? KeySymbol.Command : 'Ctrl';
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const grouped = new Map<KeybindCategory, { id: string; description: string; keys: string }[]>();
   for (const cat of CATEGORY_ORDER) {
@@ -89,7 +90,7 @@ export function KeyboardShortcuts({ requestClose }: KeyboardShortcutsProps) {
             clickOutsideDeactivates: true,
             onDeactivate: requestClose,
             escapeDeactivates: stopPropagation,
-            fallbackFocus: () => false,
+            fallbackFocus: () => scrollRef.current || false,
           }}
         >
           <Modal size="500">
@@ -109,7 +110,7 @@ export function KeyboardShortcuts({ requestClose }: KeyboardShortcutsProps) {
               </Box>
             </Box>
             <Box grow="Yes" style={{ overflow: 'hidden' }}>
-              <Scroll size="0" tabIndex={-1}>
+              <Scroll ref={scrollRef} size="0" tabIndex={0}>
                 <Box style={{ padding: config.space.S400 }} direction="Column" gap="500">
                   {CATEGORY_ORDER.map((cat) => {
                     const items = grouped.get(cat);
