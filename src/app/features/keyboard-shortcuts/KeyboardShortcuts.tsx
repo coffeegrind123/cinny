@@ -131,7 +131,7 @@ export function KeyboardShortcuts({ requestClose }: KeyboardShortcutsProps) {
                                 borderRadius: '6px',
                               }}
                             >
-                              <div style={{ flex: '1 1 0%', minWidth: 0 }}>
+                              <div style={{ flex: '1 1 0%', minWidth: 0, display: 'block' }}>
                                 <span style={{ fontSize: '14px', lineHeight: 1.4 }}>
                                   {item.description}
                                 </span>
