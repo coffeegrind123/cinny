@@ -93,25 +93,25 @@ export function KeyboardShortcuts({ requestClose }: KeyboardShortcutsProps) {
             fallbackFocus: () => scrollRef.current || false,
           }}
         >
-          <Modal size="500">
-            <Box
-              style={{
-                padding: config.space.S400,
-                borderBottom: `1px solid ${color.SurfaceVariant.ContainerLine}`,
-              }}
-              alignItems="Center"
-              justifyContent="SpaceBetween"
-            >
-              <Box alignItems="Center" gap="200">
-                <Text size="H3">Keyboard Shortcuts</Text>
+          <Modal size="500" flexHeight>
+            <Box direction="Column">
+              <Box
+                style={{
+                  padding: config.space.S400,
+                  borderBottom: `1px solid ${color.SurfaceVariant.ContainerLine}`,
+                }}
+                alignItems="Center"
+                justifyContent="SpaceBetween"
+              >
+                <Box alignItems="Center" gap="200">
+                  <Text size="H3">Keyboard Shortcuts</Text>
+                </Box>
+                <Box gap="200" alignItems="Center">
+                  <KeyCombo keys={[modKey, '/']} />
+                </Box>
               </Box>
-              <Box gap="200" alignItems="Center">
-                <KeyCombo keys={[modKey, '/']} />
-              </Box>
-            </Box>
-            <Box grow="Yes">
-              <Scroll ref={scrollRef} size="300" hideTrack visibility="Hover" tabIndex={0}>
-                <Box style={{ padding: config.space.S400 }} direction="Column" gap="500">
+              <Scroll ref={scrollRef} size="300" hideTrack tabIndex={0}>
+                <Box style={{ padding: config.space.S400, paddingRight: config.space.S200 }} direction="Column" gap="500">
                   {CATEGORY_ORDER.map((cat) => {
                     const items = grouped.get(cat);
                     if (!items || items.length === 0) return null;

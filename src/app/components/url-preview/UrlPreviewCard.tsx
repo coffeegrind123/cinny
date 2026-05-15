@@ -295,7 +295,7 @@ export const UrlPreviewCard = as<
             allowFullScreen
           />
         )}
-        {!isYt && hasOgVideo && !/bandcamp\.com\/EmbeddedPlayer/.test(ogVideoUrl) && (
+        {!isYt && hasOgVideo && !/bandcamp\.com\/EmbeddedPlayer/.test(ogVideoUrl) && !/video\.twimg\.com/.test(ogVideoUrl) && (
           <video
             className={urlPreviewCss.UrlPreviewVideo}
             src={ogVideoUrl}
