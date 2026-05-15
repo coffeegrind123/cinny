@@ -33,21 +33,23 @@ import { ImageViewer } from '../image-viewer';
 import { stopPropagation } from '../../utils/keyboard';
 import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
+import {
+  isYoutubeUrl,
+  downloadVideo,
+  cancelDownload,
+  listenYtdlpOutput,
+  unlistenYtdlpOutput,
+} from '../../utils/ytdlp';
+import { isTauri } from '../../utils/desktop-notifications';
 
 const linkStyles = { color: color.Secondary.Main, textDecoration: 'none' };
 
-function rewriteEmbedUrl(url: string, useInvidious: boolean, useFxTwitter: boolean): string {
+function rewriteEmbedUrl(url: string, useFxTwitter: boolean): string {
   if (useFxTwitter) {
     const twitterMatch = url.match(/^https?:\/\/(twitter\.com|x\.com)\/(\w+)\/status\/(\d+)/);
     if (twitterMatch) {
       return `https://fxtwitter.com/${twitterMatch[2]}/status/${twitterMatch[3]}`;
     }
-  }
-  if (useInvidious) {
-    const ytMatch = url.match(/^https?:\/\/(www\.)?youtube\.com\/watch\?v=([\w-]+)/);
-    if (ytMatch) return `https://inv.nadeko.net/embed/${ytMatch[2]}`;
-    const ytShort = url.match(/^https?:\/\/youtu\.be\/([\w-]+)/);
-    if (ytShort) return `https://inv.nadeko.net/embed/${ytShort[1]}`;
   }
   return url;
 }
@@ -64,10 +66,10 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
   ({ url, ts, ...props }, ref) => {
     const mx = useMatrixClient();
     const useAuthentication = useMediaAuthentication();
-    const [useInvidious] = useSetting(settingsAtom, 'useInvidious');
+    const [useYtDlp] = useSetting(settingsAtom, 'useYtDlp');
     const [useFxTwitter] = useSetting(settingsAtom, 'useFxTwitter');
 
-    const embedUrl = rewriteEmbedUrl(url, useInvidious, useFxTwitter);
+    const embedUrl = rewriteEmbedUrl(url, useFxTwitter);
 
     const [previewStatus, loadPreview] = useAsyncCallback(
       useCallback(() => mx.getUrlPreview(embedUrl, ts), [embedUrl, ts, mx])
@@ -75,6 +77,12 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
     const [viewerSrc, setViewerSrc] = useState<string>();
     const [expanded, setExpanded] = useState(false);
     const [dismissed, setDismissed] = useState(false);
+    // yt-dlp download state
+    const [ytdlpDownloading, setYtdlpDownloading] = useState(false);
+    const [ytdlpProgress, setYtdlpProgress] = useState<string>('');
+    const [ytdlpLocalPath, setYtdlpLocalPath] = useState<string | null>(null);
+    const [ytdlpError, setYtdlpError] = useState<string | null>(null);
+    const isYt = isYoutubeUrl(url);
 
     useEffect(() => {
       loadPreview();
@@ -110,13 +118,6 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
       const ogVideoType = prev['og:video:type'] as string | undefined;
       const hasOgVideo = !!ogVideoUrl;
 
-      // YouTube embed via Invidious iframe
-      const ytMatch = url.match(/^https?:\/\/(www\.)?youtube\.com\/watch\?v=([\w-]+)/)
-        || url.match(/^https?:\/\/youtu\.be\/([\w-]+)/);
-      const ytVideoId = ytMatch ? (ytMatch[2] || ytMatch[1]) : null;
-      const isYoutube = !!ytVideoId;
-      const invidiousEmbedUrl = ytVideoId ? `https://inv.nadeko.net/embed/${ytVideoId}` : null;
-
       const allKeys = Object.keys(prev).filter(k => k.startsWith('og:'));
 
       return (
@@ -132,8 +133,8 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
           >
             <Icon size="50" src={Icons.Cross} />
           </IconButton>
-          {/* Invidious YouTube iframe */}
-          {isYoutube && invidiousEmbedUrl && (
+          {/* YouTube: yt-dlp download + local playback */}
+          {isYt && (
             <Box
               style={{
                 position: 'relative',
@@ -155,49 +156,116 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
                   justifyContent: 'center',
                 }}
               >
-                <iframe
-                  src={invidiousEmbedUrl}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    border: 'none',
-                  }}
-                  allowFullScreen
-                  sandbox="allow-scripts allow-same-origin allow-popups"
-                  title={title || 'YouTube video'}
-                />
-                <Box
-                  style={{
-                    position: 'absolute',
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    padding: '4px 8px',
-                    backgroundColor: 'rgba(0,0,0,0.7)',
-                  }}
-                  alignItems="Center"
-                  gap="100"
-                >
-                  <Text size="T200" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                    via Invidious
-                  </Text>
-                  <IconButton
-                    size="200"
-                    radii="Pill"
-                    as="a"
-                    href={url}
-                    target="_blank"
-                    rel="noreferrer"
+                {ytdlpLocalPath ? (
+                  <video
+                    src={ytdlpLocalPath}
+                    controls
+                    autoPlay
+                    style={{ width: '100%', height: '100%' }}
                   >
-                    <Icon size="50" src={Icons.External} />
-                  </IconButton>
-                </Box>
+                    <a href={ytdlpLocalPath}>{title || 'Video'}</a>
+                  </video>
+                ) : ytdlpDownloading ? (
+                  <Box direction="Column" alignItems="Center" gap="200">
+                    <Spinner variant="Secondary" size="400" />
+                    <Text size="T200" style={{ padding: config.space.S200 }}>
+                      {ytdlpProgress || 'Downloading...'}
+                    </Text>
+                    <Button
+                      variant="Critical"
+                      size="300"
+                      radii="300"
+                      onClick={() => {
+                        cancelDownload();
+                        setYtdlpDownloading(false);
+                        setYtdlpProgress('');
+                      }}
+                    >
+                      <Text size="B300">Cancel</Text>
+                    </Button>
+                  </Box>
+                ) : ytdlpError ? (
+                  <Box direction="Column" alignItems="Center" gap="200">
+                    <Text size="T200" style={{ padding: config.space.S200, color: color.Critical.Main }}>
+                      {ytdlpError}
+                    </Text>
+                    <Button
+                      variant="Secondary"
+                      size="300"
+                      radii="300"
+                      onClick={() => {
+                        setYtdlpError(null);
+                      }}
+                    >
+                      <Text size="B300">Retry</Text>
+                    </Button>
+                  </Box>
+                ) : (
+                  <Box direction="Column" alignItems="Center" gap="200">
+                    <Text size="T200" style={{ padding: config.space.S200 }}>
+                      {title || 'YouTube video'}
+                    </Text>
+                    {useYtDlp && isTauri() ? (
+                      <Button
+                        variant="Primary"
+                        size="300"
+                        radii="300"
+                        before={<Icon size="50" src={Icons.Download} />}
+                        onClick={async () => {
+                          setYtdlpDownloading(true);
+                          setYtdlpProgress('Starting download...');
+                          setYtdlpError(null);
+                          let destPath = '';
+                          listenYtdlpOutput((line) => {
+                            if (line === 'DOWNLOAD_COMPLETE') {
+                              setYtdlpProgress('Download complete!');
+                              return;
+                            }
+                            // Parse destination path from yt-dlp output
+                            const destMatch = line.match(/\[download\] Destination:\s*(.+)/i);
+                            if (destMatch) {
+                              destPath = destMatch[1].trim();
+                            }
+                            setYtdlpProgress(line);
+                          });
+                          try {
+                            await downloadVideo(url, 'best');
+                            setYtdlpDownloading(false);
+                            setYtdlpProgress('');
+                            unlistenYtdlpOutput();
+                            if (destPath) {
+                              setYtdlpLocalPath(`file://${destPath}`);
+                            }
+                          } catch (err: any) {
+                            setYtdlpDownloading(false);
+                            setYtdlpError(err?.message ?? String(err));
+                            unlistenYtdlpOutput();
+                          }
+                        }}
+                      >
+                        <Text size="B300">Watch with yt-dlp</Text>
+                      </Button>
+                    ) : (
+                      <IconButton
+                        size="300"
+                        radii="Pill"
+                        variant="SurfaceVariant"
+                        as="a"
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <Icon size="50" src={Icons.External} />
+                      </IconButton>
+                    )}
+                  </Box>
+                )}
               </Box>
             </Box>
           )}
 
           {/* og:video embed (fxtwitter etc.) */}
-          {!isYoutube && hasOgVideo && (
+          {!isYt && hasOgVideo && (
             <video
               className={urlPreviewCss.UrlPreviewVideo}
               src={ogVideoUrl}
@@ -213,7 +281,7 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
           )}
 
           {/* Direct video URL */}
-          {!isYoutube && !hasOgVideo && isVideo && imgUrl && (
+          {!isYt && !hasOgVideo && isVideo && imgUrl && (
             <video
               className={urlPreviewCss.UrlPreviewVideo}
               src={imgUrl}
@@ -243,7 +311,7 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
           )}
 
           {/* Preview image (only if no video/audio player showing) */}
-          {!isYoutube && !hasOgVideo && !isVideo && !isAudio && imgUrl && (
+          {!isYt && !hasOgVideo && !isVideo && !isAudio && imgUrl && (
             <img
               className={urlPreviewCss.UrlPreviewImg}
               src={imgUrl}
