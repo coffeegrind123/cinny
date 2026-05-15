@@ -56,11 +56,6 @@ function isAudioUrl(url: string): boolean {
   return /\.(mp3|wav|ogg|flac|m4a|aac)(\?|$)/i.test(url);
 }
 
-function getTwitterEmbedId(url: string): string | null {
-  const match = url.match(/^https?:\/\/(twitter\.com|x\.com)\/(\w+)\/status\/(\d+)/);
-  return match ? match[3] : null;
-}
-
 export const UrlPreviewCard = as<
   'div',
   { url: string; ts: number; renderViewer?: (props: RenderViewerProps) => ReactNode }
@@ -80,7 +75,6 @@ export const UrlPreviewCard = as<
 
   const isYt = isYoutubeUrl(url);
   const ytVideoId = isYt ? getYoutubeVideoId(url) : null;
-  const twitterId = getTwitterEmbedId(url);
 
   useEffect(() => {
     loadPreview();
@@ -169,36 +163,15 @@ export const UrlPreviewCard = as<
           </Box>
         )}
 
-        {/* Twitter/X embed — always shown; useFxTwitter toggle controls URL rewriting for og:data */}
-        {twitterId && (
-          <Box
-            style={{
-              position: 'relative',
-              overflow: 'hidden',
-              backgroundColor: color.SurfaceVariant.Container,
-            }}
-          >
-            <iframe
-              style={{
-                width: '100%',
-                minHeight: '250px',
-                border: 'none',
-              }}
-              src={`https://platform.twitter.com/embed/Tweet.html?id=${twitterId}`}
-              title={title || 'Tweet'}
-              allowFullScreen
-            />
-          </Box>
-        )}
-
-        {/* og:video embed (fxtwitter etc.) for non-Twitter or when fxtwitter returns video */}
-        {!isYt && !twitterId && hasOgVideo && (
+        {/* og:video embed (fxtwitter etc.) */}
+        {!isYt && hasOgVideo && (
           <video
             className={urlPreviewCss.UrlPreviewVideo}
             src={ogVideoUrl}
             controls
             preload="metadata"
             poster={imgUrl || undefined}
+            crossOrigin="anonymous"
             onClick={(e) => e.stopPropagation()}
           >
             <a href={ogVideoUrl} target="_blank" rel="noreferrer">
@@ -208,7 +181,7 @@ export const UrlPreviewCard = as<
         )}
 
         {/* Direct video URL */}
-        {!isYt && !twitterId && !hasOgVideo && isVideo && imgUrl && (
+        {!isYt && !hasOgVideo && isVideo && imgUrl && (
           <video
             className={urlPreviewCss.UrlPreviewVideo}
             src={imgUrl}
@@ -238,7 +211,7 @@ export const UrlPreviewCard = as<
         )}
 
         {/* Preview image (only if no video/audio player showing) */}
-        {!isYt && !twitterId && !hasOgVideo && !isVideo && !isAudio && thumbUrl && (
+        {!isYt && !hasOgVideo && !isVideo && !isAudio && thumbUrl && (
           <UrlPreviewImg
             src={thumbUrl}
             alt={title || ''}
