@@ -47,7 +47,6 @@ export interface Settings {
   developerTools: boolean;
   keybinds: Record<string, string>;
   readReceiptStyle: 'cinny' | 'element';
-  useYtDlp: boolean;
   useFxTwitter: boolean;
 }
 
@@ -89,7 +88,6 @@ const defaultSettings: Settings = {
   developerTools: false,
   keybinds: {},
   readReceiptStyle: 'cinny',
-  useYtDlp: true,
   useFxTwitter: true,
 };
 

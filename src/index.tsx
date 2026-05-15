@@ -12,6 +12,7 @@ import './index.css';
 
 import { trimTrailingSlash } from './app/utils/common';
 import App from './app/pages/App';
+import { initBlobLinkHandler } from './app/utils/blob-links';
 
 // import i18n (needs to be bundled ;))
 import './app/i18n';
@@ -57,3 +58,7 @@ const mountApp = () => {
 };
 
 mountApp();
+
+// Intercept blob: link clicks to trigger download instead of
+// trying to open them externally (OS doesn't know blob: scheme)
+initBlobLinkHandler();

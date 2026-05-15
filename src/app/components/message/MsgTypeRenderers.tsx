@@ -85,7 +85,7 @@ export function MText({ edited, content, renderBody, renderUrlsPreview, style }:
   const urls = urlsMatch ? [...new Set(urlsMatch)] : undefined;
 
   return (
-    <>
+    <Box direction="Column">
       <MessageTextBody
         preWrap={typeof customBody !== 'string'}
         jumboEmoji={JUMBO_EMOJI_REG.test(trimmedBody)}
@@ -98,7 +98,7 @@ export function MText({ edited, content, renderBody, renderUrlsPreview, style }:
         {edited && <MessageEditedContent />}
       </MessageTextBody>
       {renderUrlsPreview && urls && urls.length > 0 && renderUrlsPreview(urls)}
-    </>
+    </Box>
   );
 }
 
@@ -124,7 +124,7 @@ export function MEmote({
   const urls = urlsMatch ? [...new Set(urlsMatch)] : undefined;
 
   return (
-    <>
+    <Box direction="Column">
       <MessageTextBody
         emote
         preWrap={typeof customBody !== 'string'}
@@ -138,7 +138,7 @@ export function MEmote({
         {edited && <MessageEditedContent />}
       </MessageTextBody>
       {renderUrlsPreview && urls && urls.length > 0 && renderUrlsPreview(urls)}
-    </>
+    </Box>
   );
 }
 
@@ -157,7 +157,7 @@ export function MNotice({ edited, content, renderBody, renderUrlsPreview }: MNot
   const urls = urlsMatch ? [...new Set(urlsMatch)] : undefined;
 
   return (
-    <>
+    <Box direction="Column">
       <MessageTextBody
         notice
         preWrap={typeof customBody !== 'string'}
@@ -170,7 +170,7 @@ export function MNotice({ edited, content, renderBody, renderUrlsPreview }: MNot
         {edited && <MessageEditedContent />}
       </MessageTextBody>
       {renderUrlsPreview && urls && urls.length > 0 && renderUrlsPreview(urls)}
-    </>
+    </Box>
   );
 }
 

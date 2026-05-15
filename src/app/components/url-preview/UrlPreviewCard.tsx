@@ -33,14 +33,7 @@ import { ImageViewer } from '../image-viewer';
 import { stopPropagation } from '../../utils/keyboard';
 import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
-import {
-  isYoutubeUrl,
-  isYtdlpAvailable,
-  downloadVideo,
-  cancelDownload,
-  listenYtdlpOutput,
-  unlistenYtdlpOutput,
-} from '../../utils/ytdlp';
+import { isYoutubeUrl, getYoutubeVideoId } from '../../utils/youtube';
 
 const linkStyles = { color: color.Secondary.Main, textDecoration: 'none' };
 
@@ -62,11 +55,15 @@ function isAudioUrl(url: string): boolean {
   return /\.(mp3|wav|ogg|flac|m4a|aac)(\?|$)/i.test(url);
 }
 
+function getTwitterEmbedId(url: string): string | null {
+  const match = url.match(/^https?:\/\/(twitter\.com|x\.com)\/(\w+)\/status\/(\d+)/);
+  return match ? match[3] : null;
+}
+
 export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
   ({ url, ts, ...props }, ref) => {
     const mx = useMatrixClient();
     const useAuthentication = useMediaAuthentication();
-    const [useYtDlp] = useSetting(settingsAtom, 'useYtDlp');
     const [useFxTwitter] = useSetting(settingsAtom, 'useFxTwitter');
 
     const embedUrl = rewriteEmbedUrl(url, useFxTwitter);
@@ -77,19 +74,10 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
     const [viewerSrc, setViewerSrc] = useState<string>();
     const [expanded, setExpanded] = useState(false);
     const [dismissed, setDismissed] = useState(false);
-    // yt-dlp download state
-    const [ytdlpDownloading, setYtdlpDownloading] = useState(false);
-    const [ytdlpProgress, setYtdlpProgress] = useState<string>('');
-    const [ytdlpLocalPath, setYtdlpLocalPath] = useState<string | null>(null);
-    const [ytdlpError, setYtdlpError] = useState<string | null>(null);
-    const [ytdlpAvail, setYtdlpAvail] = useState(false);
-    const isYt = isYoutubeUrl(url);
 
-    useEffect(() => {
-      if (isYt) {
-        isYtdlpAvailable().then(setYtdlpAvail);
-      }
-    }, [isYt]);
+    const isYt = isYoutubeUrl(url);
+    const ytVideoId = isYt ? getYoutubeVideoId(url) : null;
+    const twitterId = getTwitterEmbedId(url);
 
     useEffect(() => {
       loadPreview();
@@ -120,9 +108,8 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
       const isVideo = isVideoUrl(url) || (prev['og:type'] as string)?.startsWith('video');
       const isAudio = isAudioUrl(url) || (prev['og:type'] as string)?.startsWith('music');
 
-      // og:video data for video embeds
+      // og:video data (fxtwitter etc.)
       const ogVideoUrl = (prev['og:video'] || prev['og:video:url']) as string | undefined;
-      const ogVideoType = prev['og:video:type'] as string | undefined;
       const hasOgVideo = !!ogVideoUrl;
 
       const allKeys = Object.keys(prev).filter(k => k.startsWith('og:'));
@@ -140,8 +127,9 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
           >
             <Icon size="50" src={Icons.Cross} />
           </IconButton>
-          {/* YouTube: yt-dlp download + local playback */}
-          {isYt && (
+
+          {/* YouTube iframe embed */}
+          {isYt && ytVideoId && (
             <Box
               style={{
                 position: 'relative',
@@ -151,128 +139,47 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
                 backgroundColor: color.SurfaceVariant.Container,
               }}
             >
-              <Box
+              <iframe
                 style={{
                   position: 'absolute',
                   top: 0,
                   left: 0,
                   width: '100%',
                   height: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  border: 'none',
                 }}
-              >
-                {ytdlpLocalPath ? (
-                  <video
-                    src={ytdlpLocalPath}
-                    controls
-                    autoPlay
-                    style={{ width: '100%', height: '100%' }}
-                  >
-                    <a href={ytdlpLocalPath}>{title || 'Video'}</a>
-                  </video>
-                ) : ytdlpDownloading ? (
-                  <Box direction="Column" alignItems="Center" gap="200">
-                    <Spinner variant="Secondary" size="400" />
-                    <Text size="T200" style={{ padding: config.space.S200 }}>
-                      {ytdlpProgress || 'Downloading...'}
-                    </Text>
-                    <Button
-                      variant="Critical"
-                      size="300"
-                      radii="300"
-                      onClick={() => {
-                        cancelDownload();
-                        setYtdlpDownloading(false);
-                        setYtdlpProgress('');
-                      }}
-                    >
-                      <Text size="B300">Cancel</Text>
-                    </Button>
-                  </Box>
-                ) : ytdlpError ? (
-                  <Box direction="Column" alignItems="Center" gap="200">
-                    <Text size="T200" style={{ padding: config.space.S200, color: color.Critical.Main }}>
-                      {ytdlpError}
-                    </Text>
-                    <Button
-                      variant="Secondary"
-                      size="300"
-                      radii="300"
-                      onClick={() => {
-                        setYtdlpError(null);
-                      }}
-                    >
-                      <Text size="B300">Retry</Text>
-                    </Button>
-                  </Box>
-                ) : (
-                  <Box direction="Column" alignItems="Center" gap="200">
-                    <Text size="T200" style={{ padding: config.space.S200 }}>
-                      {title || 'YouTube video'}
-                    </Text>
-                    {useYtDlp && ytdlpAvail ? (
-                      <Button
-                        variant="Primary"
-                        size="300"
-                        radii="300"
-                        before={<Icon size="50" src={Icons.Download} />}
-                        onClick={async () => {
-                          setYtdlpDownloading(true);
-                          setYtdlpProgress('Starting download...');
-                          setYtdlpError(null);
-                          let destPath = '';
-                          listenYtdlpOutput((line) => {
-                            if (line === 'DOWNLOAD_COMPLETE') {
-                              setYtdlpProgress('Download complete!');
-                              return;
-                            }
-                            // Parse destination path from yt-dlp output
-                            const destMatch = line.match(/\[download\] Destination:\s*(.+)/i);
-                            if (destMatch) {
-                              destPath = destMatch[1].trim();
-                            }
-                            setYtdlpProgress(line);
-                          });
-                          try {
-                            await downloadVideo(url, 'best');
-                            setYtdlpDownloading(false);
-                            setYtdlpProgress('');
-                            unlistenYtdlpOutput();
-                            if (destPath) {
-                              setYtdlpLocalPath(`file://${destPath}`);
-                            }
-                          } catch (err: any) {
-                            setYtdlpDownloading(false);
-                            setYtdlpError(err?.message ?? String(err));
-                            unlistenYtdlpOutput();
-                          }
-                        }}
-                      >
-                        <Text size="B300">Watch with yt-dlp</Text>
-                      </Button>
-                    ) : (
-                      <IconButton
-                        size="300"
-                        radii="Pill"
-                        variant="SurfaceVariant"
-                        as="a"
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <Icon size="50" src={Icons.External} />
-                      </IconButton>
-                    )}
-                  </Box>
-                )}
-              </Box>
+                src={`https://www.youtube.com/embed/${ytVideoId}`}
+                title={title || 'YouTube video'}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
             </Box>
           )}
 
-          {/* og:video embed (fxtwitter etc.) */}
-          {!isYt && hasOgVideo && (
+          {/* Twitter/X embed */}
+          {twitterId && useFxTwitter && (
+            <Box
+              style={{
+                position: 'relative',
+                overflow: 'hidden',
+                backgroundColor: color.SurfaceVariant.Container,
+              }}
+            >
+              <iframe
+                style={{
+                  width: '100%',
+                  minHeight: '250px',
+                  border: 'none',
+                }}
+                src={`https://platform.twitter.com/embed/Tweet.html?id=${twitterId}`}
+                title={title || 'Tweet'}
+                allowFullScreen
+              />
+            </Box>
+          )}
+
+          {/* og:video embed (fxtwitter etc.) for non-Twitter or when fxtwitter returns video */}
+          {!isYt && !twitterId && hasOgVideo && (
             <video
               className={urlPreviewCss.UrlPreviewVideo}
               src={ogVideoUrl}
@@ -288,7 +195,7 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
           )}
 
           {/* Direct video URL */}
-          {!isYt && !hasOgVideo && isVideo && imgUrl && (
+          {!isYt && !twitterId && !hasOgVideo && isVideo && imgUrl && (
             <video
               className={urlPreviewCss.UrlPreviewVideo}
               src={imgUrl}
@@ -318,7 +225,7 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
           )}
 
           {/* Preview image (only if no video/audio player showing) */}
-          {!isYt && !hasOgVideo && !isVideo && !isAudio && imgUrl && (
+          {!isYt && !twitterId && !hasOgVideo && !isVideo && !isAudio && imgUrl && (
             <img
               className={urlPreviewCss.UrlPreviewImg}
               src={imgUrl}

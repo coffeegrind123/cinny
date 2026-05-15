@@ -713,7 +713,6 @@ function Editor() {
   const [isMarkdown, setIsMarkdown] = useSetting(settingsAtom, 'isMarkdown');
   const [hideActivity, setHideActivity] = useSetting(settingsAtom, 'hideActivity');
   const [readReceiptStyle, setReadReceiptStyle] = useSetting(settingsAtom, 'readReceiptStyle');
-  const [useYtDlp, setUseYtDlp] = useSetting(settingsAtom, 'useYtDlp');
   const [useFxTwitter, setUseFxTwitter] = useSetting(settingsAtom, 'useFxTwitter');
   const [minimizeToTray, setMinimizeToTray] = useSetting(settingsAtom, 'minimizeToTray');
 
@@ -768,13 +767,6 @@ function Editor() {
               </Button>
             </Box>
           }
-        />
-      </SequenceCard>
-      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
-        <SettingTile
-          title="Use yt-dlp for YouTube"
-          description="Download and play YouTube videos locally with yt-dlp instead of loading embedded iframes."
-          after={<Switch variant="Primary" value={useYtDlp} onChange={setUseYtDlp} />}
         />
       </SequenceCard>
       <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">

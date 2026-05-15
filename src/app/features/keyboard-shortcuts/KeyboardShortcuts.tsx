@@ -38,7 +38,7 @@ function KeyCombo({ keys }: { keys: string[] }) {
   return (
     <Box gap="100" alignItems="Center" shrink="No">
       {keys.map((key, i) => (
-        <Box
+        <span
           key={i}
           style={{
             display: 'inline-flex',
@@ -52,12 +52,12 @@ function KeyCombo({ keys }: { keys: string[] }) {
             minHeight: '20px',
             fontSize: '12px',
             fontFamily: 'monospace',
-            fontWeight: '600',
+            fontWeight: 600,
             color: color.Surface.OnContainer,
           }}
         >
-          <Text size="T200">{key}</Text>
-        </Box>
+          {key}
+        </span>
       ))}
     </Box>
   );
