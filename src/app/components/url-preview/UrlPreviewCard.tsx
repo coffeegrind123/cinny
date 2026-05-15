@@ -122,8 +122,30 @@ export const UrlPreviewCard = as<
           >
             <Icon size="50" src={Icons.Cross} />
           </IconButton>
-          {vxMedia?.type === 'video' && (
-            <video className={urlPreviewCss.UrlPreviewVideo} src={vxMedia.url} controls preload="metadata" poster={thumbUrl || undefined} onClick={(e) => e.stopPropagation()} />
+          {vxMedia?.type === 'video' && vxData.user_screen_name && (
+            <Box
+              style={{
+                position: 'relative',
+                paddingBottom: '56.25%',
+                height: 0,
+                overflow: 'hidden',
+                backgroundColor: color.SurfaceVariant.Container,
+              }}
+            >
+              <iframe
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  border: 'none',
+                }}
+                src={`https://fxtwitter.com/${vxData.user_screen_name}/status/${twId}`}
+                title={vxData.text || 'Twitter video'}
+                allowFullScreen
+              />
+            </Box>
           )}
           {vxMedia?.type === 'photo' && vxMedia.url && (
             <UrlPreviewImg src={vxMedia.url} alt={vxData.text || ''} title={vxData.text} tabIndex={0} onKeyDown={(evt: any) => onEnterOrSpace(() => setViewerSrc(vxMedia.url))(evt)} onClick={() => setViewerSrc(vxMedia.url)} />
