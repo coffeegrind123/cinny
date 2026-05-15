@@ -48,7 +48,7 @@ function rewriteEmbedUrl(url: string, useFxTwitter: boolean, useSoundcloak: bool
   if (useSoundcloak) {
     const scMatch = url.match(/^https?:\/\/soundcloud\.com\/([^/]+)\/([^/?]+)/);
     if (scMatch) {
-      return `https://sc1.maid.zone/${scMatch[1]}/${scMatch[2]}`;
+      return `https://sc1.maid.zone/_/api/restream/${scMatch[1]}/${scMatch[2]}`;
     }
   }
   return url;
@@ -63,7 +63,7 @@ function isAudioUrl(url: string): boolean {
 }
 
 function isDirectAudioUrl(url: string): boolean {
-  return isAudioUrl(url) || /sc1\.maid\.zone\/.+\/.+/.test(url);
+  return isAudioUrl(url) || /sc1\.maid\.zone\/_\/api\/restream\//.test(url);
 }
 
 export const UrlPreviewCard = as<
