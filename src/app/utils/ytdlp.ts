@@ -64,6 +64,20 @@ export async function downloadYtdlpBinary(): Promise<string> {
   return invoke<string>('ytdlp_download_binary');
 }
 
+let ytdlpAvailable: boolean | null = null;
+
+export async function isYtdlpAvailable(): Promise<boolean> {
+  if (!isTauri()) return false;
+  if (ytdlpAvailable !== null) return ytdlpAvailable;
+  try {
+    await invoke('ytdlp_get_version');
+    ytdlpAvailable = true;
+  } catch {
+    ytdlpAvailable = false;
+  }
+  return ytdlpAvailable;
+}
+
 export function isYoutubeUrl(url: string): boolean {
   return /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/i.test(url);
 }

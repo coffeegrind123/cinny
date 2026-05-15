@@ -35,12 +35,12 @@ import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
 import {
   isYoutubeUrl,
+  isYtdlpAvailable,
   downloadVideo,
   cancelDownload,
   listenYtdlpOutput,
   unlistenYtdlpOutput,
 } from '../../utils/ytdlp';
-import { isTauri } from '../../utils/desktop-notifications';
 
 const linkStyles = { color: color.Secondary.Main, textDecoration: 'none' };
 
@@ -82,7 +82,14 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
     const [ytdlpProgress, setYtdlpProgress] = useState<string>('');
     const [ytdlpLocalPath, setYtdlpLocalPath] = useState<string | null>(null);
     const [ytdlpError, setYtdlpError] = useState<string | null>(null);
+    const [ytdlpAvail, setYtdlpAvail] = useState(false);
     const isYt = isYoutubeUrl(url);
+
+    useEffect(() => {
+      if (isYt) {
+        isYtdlpAvailable().then(setYtdlpAvail);
+      }
+    }, [isYt]);
 
     useEffect(() => {
       loadPreview();
@@ -205,7 +212,7 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
                     <Text size="T200" style={{ padding: config.space.S200 }}>
                       {title || 'YouTube video'}
                     </Text>
-                    {useYtDlp && isTauri() ? (
+                    {useYtDlp && ytdlpAvail ? (
                       <Button
                         variant="Primary"
                         size="300"
