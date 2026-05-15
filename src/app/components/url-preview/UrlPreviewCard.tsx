@@ -38,13 +38,12 @@ import { isYoutubeUrl, getYoutubeVideoId } from '../../utils/youtube';
 
 const linkStyles = { color: color.Secondary.Main, textDecoration: 'none' };
 
-function rewriteEmbedUrl(url: string, useFxTwitter: boolean, useSoundcloak: boolean): string {
-  if (useFxTwitter) {
-    const twitterMatch = url.match(/^https?:\/\/(twitter\.com|x\.com)\/(\w+)\/status\/(\d+)/);
-    if (twitterMatch) {
-      return `https://fxtwitter.com/${twitterMatch[2]}/status/${twitterMatch[3]}`;
-    }
-  }
+function getTwitterId(url: string): string | null {
+  const m = url.match(/^https?:\/\/(twitter\.com|x\.com)\/(\w+)\/status\/(\d+)/);
+  return m ? m[3] : null;
+}
+
+function rewriteEmbedUrl(url: string, useSoundcloak: boolean): string {
   if (useSoundcloak) {
     const scMatch = url.match(/^https?:\/\/soundcloud\.com\/([^/]+)\/([^/?]+)/);
     if (scMatch) {
@@ -72,11 +71,73 @@ export const UrlPreviewCard = as<
 >(({ url, ts, renderViewer, ...props }, ref) => {
   const mx = useMatrixClient();
   const useAuthentication = useMediaAuthentication();
-  const [useFxTwitter] = useSetting(settingsAtom, 'useFxTwitter');
+  const [useVxTwitter] = useSetting(settingsAtom, 'useVxTwitter');
   const [useSoundcloak] = useSetting(settingsAtom, 'useSoundcloak');
   const [usePiped] = useSetting(settingsAtom, 'usePiped');
 
-  const embedUrl = rewriteEmbedUrl(url, useFxTwitter, useSoundcloak);
+  const embedUrl = rewriteEmbedUrl(url, useSoundcloak);
+  const twId = useVxTwitter ? getTwitterId(url) : null;
+
+  // vxtwitter client-side fetch
+  const [vxData, setVxData] = useState<any>(null);
+  const [vxLoading, setVxLoading] = useState(false);
+  const [vxError, setVxError] = useState(false);
+  useEffect(() => {
+    if (!twId) return;
+    setVxLoading(true);
+    setVxError(false);
+    fetch(`https://api.vxtwitter.com/Twitter/status/${twId}`)
+      .then((r) => r.json())
+      .then((d) => { setVxData(d); setVxLoading(false); })
+      .catch(() => { setVxError(true); setVxLoading(false); });
+  }, [twId]);
+
+  // vxtwitter path — render directly from API response
+  if (twId && vxData) {
+    const vxMedia = vxData.media_extended?.[0];
+    const thumbUrl = mxcUrlToHttp(mx, vxMedia?.thumbnail_url || '', useAuthentication, 512, 512, 'scale', false);
+    return (
+      <UrlPreview {...props} ref={ref}>
+        <Box direction="Column" style={{ position: 'relative' }}>
+          <IconButton
+            size="200" radii="300" variant="SurfaceVariant"
+            onClick={(e) => { e.stopPropagation(); }}
+            aria-label="Dismiss embed"
+            style={{ position: 'absolute', top: 4, right: 4, zIndex: 1 }}
+          >
+            <Icon size="50" src={Icons.Cross} />
+          </IconButton>
+          {vxMedia?.type === 'video' && (
+            <video className={urlPreviewCss.UrlPreviewVideo} src={vxMedia.url} controls preload="metadata" poster={thumbUrl || undefined} onClick={(e) => e.stopPropagation()} />
+          )}
+          {vxMedia?.type === 'photo' && vxMedia.url && (
+            <UrlPreviewImg src={vxMedia.url} alt={vxData.text || ''} title={vxData.text} tabIndex={0} onKeyDown={(evt: any) => onEnterOrSpace(() => setViewerSrc(vxMedia.url))(evt)} onClick={() => setViewerSrc(vxMedia.url)} />
+          )}
+          <UrlPreviewContent>
+            <Text style={linkStyles} truncate as="a" href={url} target="_blank" rel="noreferrer" size="T200" priority="300">
+              {vxData.user_name ? `${vxData.user_name} | ` : ''}{tryDecodeURIComponent(url)}
+            </Text>
+            {vxData.text && <Text size="T300">{vxData.text}</Text>}
+            <Text size="T200" priority="300">
+              {`${vxData.likes ?? 0} likes · ${vxData.retweets ?? 0} retweets · ${vxData.replies ?? 0} replies`}
+            </Text>
+          </UrlPreviewContent>
+        </Box>
+      </UrlPreview>
+    );
+  }
+  if (twId && vxLoading) {
+    return (
+      <UrlPreview {...props} ref={ref}>
+        <Box grow="Yes" alignItems="Center" justifyContent="Center" style={{ padding: config.space.S400 }}>
+          <Spinner variant="Secondary" size="400" />
+        </Box>
+      </UrlPreview>
+    );
+  }
+  if (twId && vxError) {
+    return null;
+  }
 
   // SoundCloud/soundcloak or direct MP3 — render audio player directly, skip preview
   if (isDirectAudioUrl(embedUrl) || isAudioUrl(url)) {
@@ -151,7 +212,7 @@ export const UrlPreviewCard = as<
     const isVideo = isVideoUrl(url) || (prev['og:type'] as string)?.startsWith('video');
     const isAudio = isAudioUrl(url) || (prev['og:type'] as string)?.startsWith('music');
 
-    // og:video data (fxtwitter etc.)
+    // og:video data (Bandcamp etc.)
     const ogVideoUrl = (prev['og:video'] || prev['og:video:url']) as string | undefined;
     const hasOgVideo = !!ogVideoUrl;
 
@@ -201,7 +262,7 @@ export const UrlPreviewCard = as<
           </Box>
         )}
 
-        {/* og:video embed (fxtwitter, Bandcamp, etc.) */}
+        {/* og:video embed (Bandcamp etc.) */}
         {!isYt && hasOgVideo && /bandcamp\.com\/EmbeddedPlayer/.test(ogVideoUrl) && (
           <iframe
             style={{ border: 0, width: '100%', height: '120px' }}

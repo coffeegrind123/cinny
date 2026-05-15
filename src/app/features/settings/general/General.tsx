@@ -713,7 +713,7 @@ function Editor() {
   const [isMarkdown, setIsMarkdown] = useSetting(settingsAtom, 'isMarkdown');
   const [hideActivity, setHideActivity] = useSetting(settingsAtom, 'hideActivity');
   const [readReceiptStyle, setReadReceiptStyle] = useSetting(settingsAtom, 'readReceiptStyle');
-  const [useFxTwitter, setUseFxTwitter] = useSetting(settingsAtom, 'useFxTwitter');
+  const [useVxTwitter, setUseVxTwitter] = useSetting(settingsAtom, 'useVxTwitter');
   const [useSoundcloak, setUseSoundcloak] = useSetting(settingsAtom, 'useSoundcloak');
   const [usePiped, setUsePiped] = useSetting(settingsAtom, 'usePiped');
   const [minimizeToTray, setMinimizeToTray] = useSetting(settingsAtom, 'minimizeToTray');
@@ -773,9 +773,9 @@ function Editor() {
       </SequenceCard>
       <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
         <SettingTile
-          title="Use fxtwitter for Twitter/X"
-          description="Rewrite Twitter/X embed URLs through fxtwitter.com for better embeds with media."
-          after={<Switch variant="Primary" value={useFxTwitter} onChange={setUseFxTwitter} />}
+          title="Use vxtwitter for Twitter/X"
+          description="Fetch Twitter/X media client-side via vxtwitter API for full video and image embeds."
+          after={<Switch variant="Primary" value={useVxTwitter} onChange={setUseVxTwitter} />}
         />
       </SequenceCard>
       <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">

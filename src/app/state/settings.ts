@@ -53,7 +53,7 @@ export interface Settings {
   developerTools: boolean;
   keybinds: Record<string, string>;
   readReceiptStyle: 'cinny' | 'element';
-  useFxTwitter: boolean;
+  useVxTwitter: boolean;
   useSoundcloak: boolean;
   usePiped: boolean;
 }
@@ -96,7 +96,7 @@ const defaultSettings: Settings = {
   developerTools: false,
   keybinds: {},
   readReceiptStyle: 'cinny',
-  useFxTwitter: true,
+  useVxTwitter: true,
   useSoundcloak: true,
   usePiped: true,
 };
