@@ -171,7 +171,6 @@ export const UrlPreviewCard = as<
             controls
             preload="metadata"
             poster={imgUrl || undefined}
-            crossOrigin="anonymous"
             onClick={(e) => e.stopPropagation()}
           >
             <a href={ogVideoUrl} target="_blank" rel="noreferrer">
