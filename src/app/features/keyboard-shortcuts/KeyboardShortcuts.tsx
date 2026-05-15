@@ -107,37 +107,42 @@ export function KeyboardShortcuts({ requestClose }: KeyboardShortcutsProps) {
                 <KeyCombo keys={[modKey, '/']} />
               </Box>
             </Box>
-            <Scroll style={{ maxHeight: '60vh' }} size="0">
-              <Box style={{ padding: config.space.S400 }} direction="Column" gap="500">
-                {CATEGORY_ORDER.map((cat) => {
-                  const items = grouped.get(cat);
-                  if (!items || items.length === 0) return null;
-                  return (
-                    <Box key={cat} direction="Column" gap="200">
-                      <Text size="H4" style={{ fontWeight: config.fontWeight.W600 }}>
-                        {cat}
-                      </Text>
-                      <Box direction="Column" gap="100">
-                        {items.map((item) => (
-                          <Box
-                            key={item.id}
-                            alignItems="Center"
-                            justifyContent="SpaceBetween"
-                            style={{
-                              padding: `${config.space.S100} ${config.space.S200}`,
-                              borderRadius: '6px',
-                            }}
-                          >
-                            <Text size="T300">{item.description}</Text>
-                            <KeyCombo keys={formatKeyComboSplit(item.keys)} />
-                          </Box>
-                        ))}
+            <Box grow="Yes" style={{ overflow: 'hidden' }}>
+              <Scroll size="0">
+                <Box style={{ padding: config.space.S400 }} direction="Column" gap="500">
+                  {CATEGORY_ORDER.map((cat) => {
+                    const items = grouped.get(cat);
+                    if (!items || items.length === 0) return null;
+                    return (
+                      <Box key={cat} direction="Column" gap="200">
+                        <Text size="H4" style={{ fontWeight: config.fontWeight.W600 }}>
+                          {cat}
+                        </Text>
+                        <Box direction="Column" gap="100">
+                          {items.map((item) => (
+                            <Box
+                              key={item.id}
+                              alignItems="Center"
+                              justifyContent="SpaceBetween"
+                              gap="200"
+                              style={{
+                                padding: `${config.space.S100} ${config.space.S200}`,
+                                borderRadius: '6px',
+                              }}
+                            >
+                              <Box grow="Yes">
+                                <Text size="T300">{item.description}</Text>
+                              </Box>
+                              <KeyCombo keys={formatKeyComboSplit(item.keys)} />
+                            </Box>
+                          ))}
+                        </Box>
                       </Box>
-                    </Box>
-                  );
-                })}
-              </Box>
-            </Scroll>
+                    );
+                  })}
+                </Box>
+              </Scroll>
+            </Box>
           </Modal>
         </FocusTrap>
       </OverlayCenter>
