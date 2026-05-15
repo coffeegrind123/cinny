@@ -109,8 +109,8 @@ export function KeyboardShortcuts({ requestClose }: KeyboardShortcutsProps) {
                 <KeyCombo keys={[modKey, '/']} />
               </Box>
             </Box>
-            <Box grow="Yes" style={{ overflow: 'hidden' }}>
-              <Scroll ref={scrollRef} size="0" tabIndex={0}>
+            <Box grow="Yes">
+              <Scroll ref={scrollRef} size="300" hideTrack visibility="Hover" tabIndex={0}>
                 <Box style={{ padding: config.space.S400 }} direction="Column" gap="500">
                   {CATEGORY_ORDER.map((cat) => {
                     const items = grouped.get(cat);
