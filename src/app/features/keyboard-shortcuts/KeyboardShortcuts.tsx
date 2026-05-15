@@ -89,6 +89,7 @@ export function KeyboardShortcuts({ requestClose }: KeyboardShortcutsProps) {
             clickOutsideDeactivates: true,
             onDeactivate: requestClose,
             escapeDeactivates: stopPropagation,
+            fallbackFocus: () => false,
           }}
         >
           <Modal size="500">
@@ -108,7 +109,7 @@ export function KeyboardShortcuts({ requestClose }: KeyboardShortcutsProps) {
               </Box>
             </Box>
             <Box grow="Yes" style={{ overflow: 'hidden' }}>
-              <Scroll size="0">
+              <Scroll size="0" tabIndex={-1}>
                 <Box style={{ padding: config.space.S400 }} direction="Column" gap="500">
                   {CATEGORY_ORDER.map((cat) => {
                     const items = grouped.get(cat);
@@ -130,15 +131,11 @@ export function KeyboardShortcuts({ requestClose }: KeyboardShortcutsProps) {
                                 borderRadius: '6px',
                               }}
                             >
-                              <Box
-                                grow="Yes"
-                                shrink="Yes"
-                                style={{ flexBasis: '0%', minWidth: 0 }}
-                              >
-                                <Text size="T300" style={{ overflowWrap: 'break-word' }}>
+                              <div style={{ flex: '1 1 0%', minWidth: 0 }}>
+                                <span style={{ fontSize: '14px', lineHeight: 1.4 }}>
                                   {item.description}
-                                </Text>
-                              </Box>
+                                </span>
+                              </div>
                               <KeyCombo keys={formatKeyComboSplit(item.keys)} />
                             </Box>
                           ))}
