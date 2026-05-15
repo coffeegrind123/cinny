@@ -92,6 +92,21 @@ export const UrlPreviewCard = as<
       .catch(() => { setVxError(true); setVxLoading(false); });
   }, [twId]);
 
+  const [viewerSrc, setViewerSrc] = useState<string>();
+  const [expanded, setExpanded] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  const isYt = isYoutubeUrl(url);
+  const ytVideoId = isYt ? getYoutubeVideoId(url) : null;
+
+  const [previewStatus, loadPreview] = useAsyncCallback(
+    useCallback(() => mx.getUrlPreview(embedUrl, ts), [embedUrl, ts, mx])
+  );
+
+  useEffect(() => {
+    loadPreview();
+  }, [loadPreview]);
+
   // vxtwitter path — render directly from API response
   if (twId && vxData) {
     const vxMedia = vxData.media_extended?.[0];
@@ -162,20 +177,6 @@ export const UrlPreviewCard = as<
       </Box>
     );
   }
-
-  const [previewStatus, loadPreview] = useAsyncCallback(
-    useCallback(() => mx.getUrlPreview(embedUrl, ts), [embedUrl, ts, mx])
-  );
-  const [viewerSrc, setViewerSrc] = useState<string>();
-  const [expanded, setExpanded] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
-
-  const isYt = isYoutubeUrl(url);
-  const ytVideoId = isYt ? getYoutubeVideoId(url) : null;
-
-  useEffect(() => {
-    loadPreview();
-  }, [loadPreview]);
 
   const effectivePreview = previewStatus.status === AsyncStatus.Success
     ? previewStatus.data
