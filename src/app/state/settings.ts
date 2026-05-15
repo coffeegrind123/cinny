@@ -54,6 +54,7 @@ export interface Settings {
   keybinds: Record<string, string>;
   readReceiptStyle: 'cinny' | 'element';
   useFxTwitter: boolean;
+  useSoundcloak: boolean;
 }
 
 const defaultSettings: Settings = {
@@ -95,6 +96,7 @@ const defaultSettings: Settings = {
   keybinds: {},
   readReceiptStyle: 'cinny',
   useFxTwitter: true,
+  useSoundcloak: true,
 };
 
 export const getSettings = () => {

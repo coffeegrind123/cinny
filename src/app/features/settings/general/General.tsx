@@ -714,6 +714,7 @@ function Editor() {
   const [hideActivity, setHideActivity] = useSetting(settingsAtom, 'hideActivity');
   const [readReceiptStyle, setReadReceiptStyle] = useSetting(settingsAtom, 'readReceiptStyle');
   const [useFxTwitter, setUseFxTwitter] = useSetting(settingsAtom, 'useFxTwitter');
+  const [useSoundcloak, setUseSoundcloak] = useSetting(settingsAtom, 'useSoundcloak');
   const [minimizeToTray, setMinimizeToTray] = useSetting(settingsAtom, 'minimizeToTray');
 
   return (
@@ -774,6 +775,13 @@ function Editor() {
           title="Use fxtwitter for Twitter/X"
           description="Rewrite Twitter/X embed URLs through fxtwitter.com for better embeds with media."
           after={<Switch variant="Primary" value={useFxTwitter} onChange={setUseFxTwitter} />}
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Use soundcloak for SoundCloud"
+          description="Rewrite SoundCloud URLs through sc1.maid.zone for streamable embeds."
+          after={<Switch variant="Primary" value={useSoundcloak} onChange={setUseSoundcloak} />}
         />
       </SequenceCard>
       {isTauri() && (

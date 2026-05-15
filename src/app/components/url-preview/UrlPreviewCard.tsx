@@ -38,11 +38,17 @@ import { isYoutubeUrl, getYoutubeVideoId } from '../../utils/youtube';
 
 const linkStyles = { color: color.Secondary.Main, textDecoration: 'none' };
 
-function rewriteEmbedUrl(url: string, useFxTwitter: boolean): string {
+function rewriteEmbedUrl(url: string, useFxTwitter: boolean, useSoundcloak: boolean): string {
   if (useFxTwitter) {
     const twitterMatch = url.match(/^https?:\/\/(twitter\.com|x\.com)\/(\w+)\/status\/(\d+)/);
     if (twitterMatch) {
       return `https://fxtwitter.com/${twitterMatch[2]}/status/${twitterMatch[3]}`;
+    }
+  }
+  if (useSoundcloak) {
+    const scMatch = url.match(/^https?:\/\/soundcloud\.com\/([^/]+)\/([^/?]+)/);
+    if (scMatch) {
+      return `https://sc1.maid.zone/${scMatch[1]}/${scMatch[2]}`;
     }
   }
   return url;
@@ -56,6 +62,10 @@ function isAudioUrl(url: string): boolean {
   return /\.(mp3|wav|ogg|flac|m4a|aac)(\?|$)/i.test(url);
 }
 
+function isDirectAudioUrl(url: string): boolean {
+  return isAudioUrl(url) || /sc1\.maid\.zone\/.+\/.+/.test(url);
+}
+
 export const UrlPreviewCard = as<
   'div',
   { url: string; ts: number; renderViewer?: (props: RenderViewerProps) => ReactNode }
@@ -63,8 +73,33 @@ export const UrlPreviewCard = as<
   const mx = useMatrixClient();
   const useAuthentication = useMediaAuthentication();
   const [useFxTwitter] = useSetting(settingsAtom, 'useFxTwitter');
+  const [useSoundcloak] = useSetting(settingsAtom, 'useSoundcloak');
 
-  const embedUrl = rewriteEmbedUrl(url, useFxTwitter);
+  const embedUrl = rewriteEmbedUrl(url, useFxTwitter, useSoundcloak);
+
+  // SoundCloud/soundcloak or direct MP3 — render audio player directly, skip preview
+  if (isDirectAudioUrl(embedUrl) || isAudioUrl(url)) {
+    return (
+      <Box direction="Column" style={{ padding: config.space.S200 }} gap="100">
+        <audio
+          className={urlPreviewCss.UrlPreviewVideo}
+          src={isDirectAudioUrl(embedUrl) ? embedUrl : url}
+          controls
+          preload="metadata"
+        />
+        <Text size="T200" priority="300">
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: color.Secondary.Main, textDecoration: 'none' }}
+          >
+            {tryDecodeURIComponent(url)}
+          </a>
+        </Text>
+      </Box>
+    );
+  }
 
   const [previewStatus, loadPreview] = useAsyncCallback(
     useCallback(() => mx.getUrlPreview(embedUrl, ts), [embedUrl, ts, mx])
