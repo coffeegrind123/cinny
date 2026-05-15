@@ -101,10 +101,37 @@ export interface NotificationExtra {
   eventId?: string;
 }
 
+const avatarCache = new Map<string, string>();
+
+async function downloadAvatar(url: string): Promise<string | undefined> {
+  if (avatarCache.has(url)) return avatarCache.get(url);
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) return undefined;
+    const blob = await resp.blob();
+    const dataUrl = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+    avatarCache.set(url, dataUrl);
+    return dataUrl;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function sendDesktopNotification(
   title: string,
   options?: { body?: string; icon?: string; roomId?: string; eventId?: string }
 ): Promise<void> {
+  // Convert HTTP icon URL to data URI for native notification support
+  let iconUrl: string | undefined = options?.icon;
+  if (iconUrl && (iconUrl.startsWith('http://') || iconUrl.startsWith('https://'))) {
+    const dataUri = await downloadAvatar(iconUrl);
+    if (dataUri) iconUrl = dataUri;
+  }
+
   if (isTauri()) {
     const mod = await getTauriNotif();
     if (mod) {
@@ -114,7 +141,7 @@ export async function sendDesktopNotification(
         mod.sendNotification({
           title,
           body: options?.body ?? '',
-          icon: options?.icon,
+          icon: iconUrl,
           actionTypeId: 'message',
           extra: {
             roomId: options?.roomId ?? '',
@@ -130,7 +157,7 @@ export async function sendDesktopNotification(
   if ('Notification' in window && window.Notification.permission === 'granted') {
     new window.Notification(title, {
       body: options?.body,
-      icon: options?.icon,
+      icon: iconUrl,
       silent: true,
     });
   }
