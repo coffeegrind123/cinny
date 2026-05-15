@@ -130,8 +130,14 @@ export function KeyboardShortcuts({ requestClose }: KeyboardShortcutsProps) {
                                 borderRadius: '6px',
                               }}
                             >
-                              <Box grow="Yes">
-                                <Text size="T300">{item.description}</Text>
+                              <Box
+                                grow="Yes"
+                                shrink="Yes"
+                                style={{ flexBasis: '0%', minWidth: 0 }}
+                              >
+                                <Text size="T300" style={{ overflowWrap: 'break-word' }}>
+                                  {item.description}
+                                </Text>
                               </Box>
                               <KeyCombo keys={formatKeyComboSplit(item.keys)} />
                             </Box>
