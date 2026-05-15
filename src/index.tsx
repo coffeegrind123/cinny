@@ -1,9 +1,3 @@
-// Restore native fetch — tauri-plugin-cors-fetch patches it globally.
-// Our embed code uses fetchCORS() explicitly; Matrix SDK needs native fetch.
-if (typeof (window as any).fetchNative === 'function') {
-  (window as any).fetch = (window as any).fetchNative;
-}
-
 /* eslint-disable import/first */
 import React from 'react';
 import { createRoot } from 'react-dom/client';

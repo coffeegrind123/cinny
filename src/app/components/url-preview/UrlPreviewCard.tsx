@@ -33,7 +33,6 @@ import { ImageViewer } from '../image-viewer';
 import { stopPropagation } from '../../utils/keyboard';
 import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
-import { fetchWithDiscordUA, extractOgMeta } from '../../utils/fetch-cors';
 
 const linkStyles = { color: color.Secondary.Main, textDecoration: 'none' };
 
@@ -73,13 +72,6 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
     const [previewStatus, loadPreview] = useAsyncCallback(
       useCallback(() => mx.getUrlPreview(embedUrl, ts), [embedUrl, ts, mx])
     );
-    const [clientPreview, loadClientPreview] = useAsyncCallback(
-      useCallback(async () => {
-        const res = await fetchWithDiscordUA(url);
-        const html = await res.text();
-        return extractOgMeta(html);
-      }, [url])
-    );
     const [viewerSrc, setViewerSrc] = useState<string>();
     const [expanded, setExpanded] = useState(false);
     const [dismissed, setDismissed] = useState(false);
@@ -88,24 +80,11 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
       loadPreview();
     }, [loadPreview]);
 
-    // Fallback: if Matrix preview fails, try client-side fetch with Discord UA
-    useEffect(() => {
-      if (previewStatus.status === AsyncStatus.Error) {
-        loadClientPreview();
-      }
-    }, [previewStatus.status, loadClientPreview]);
-
-    if (previewStatus.status === AsyncStatus.Error && clientPreview.status === AsyncStatus.Idle) {
-      // matrix preview failed, client fallback loading
-    }
-
     const effectivePreview = previewStatus.status === AsyncStatus.Success
       ? previewStatus.data
-      : clientPreview.status === AsyncStatus.Success
-        ? clientPreview.data
-        : null;
+      : null;
 
-    if (!effectivePreview && previewStatus.status !== AsyncStatus.Loading && clientPreview.status !== AsyncStatus.Loading) return null;
+    if (!effectivePreview && previewStatus.status !== AsyncStatus.Loading) return null;
 
     if (dismissed) return null;
 

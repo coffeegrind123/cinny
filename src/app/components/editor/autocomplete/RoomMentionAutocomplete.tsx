@@ -13,7 +13,6 @@ import { AutocompleteMenu } from './AutocompleteMenu';
 import { getMxIdServer, isRoomAlias } from '../../../utils/matrix';
 import { UseAsyncSearchOptions, useAsyncSearch } from '../../../hooks/useAsyncSearch';
 import { onTabPress } from '../../../utils/keyboard';
-import { useKeyDown } from '../../../hooks/useKeyDown';
 import { mDirectAtom } from '../../../state/mDirectList';
 import { allRoomsAtom } from '../../../state/room-list/roomList';
 import { factoryRoomIdByActivity } from '../../../utils/sort';
@@ -132,16 +131,24 @@ export function RoomMentionAutocomplete({
     handleAutocomplete(r?.getCanonicalAlias() ?? rId, name);
   };
 
-  useKeyDown(window, (evt: KeyboardEvent) => {
-    onTabPress(evt, () => handleAutocompleteFirst());
+  useEffect(() => {
+    const handleTab = (evt: KeyboardEvent) => {
+      onTabPress(evt, () => handleAutocompleteFirst());
+    };
+    window.addEventListener('keydown', handleTab, true);
+    return () => window.removeEventListener('keydown', handleTab, true);
   });
 
-  useKeyDown(window, (evt: KeyboardEvent) => {
-    if (evt.key === 'Enter') {
-      evt.preventDefault();
-      evt.stopPropagation();
-      handleAutocompleteFirst();
-    }
+  useEffect(() => {
+    const handleEnter = (evt: KeyboardEvent) => {
+      if (evt.key === 'Enter' && !evt.metaKey && !evt.ctrlKey) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        handleAutocompleteFirst();
+      }
+    };
+    window.addEventListener('keydown', handleEnter, true);
+    return () => window.removeEventListener('keydown', handleEnter, true);
   });
 
   return (

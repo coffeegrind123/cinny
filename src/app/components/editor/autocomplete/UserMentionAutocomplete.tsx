@@ -15,7 +15,6 @@ import {
 } from '../../../hooks/useAsyncSearch';
 import { onTabPress } from '../../../utils/keyboard';
 import { createMentionElement, moveCursor, replaceWithElement } from '../utils';
-import { useKeyDown } from '../../../hooks/useKeyDown';
 import { getMxIdLocalPart, getMxIdServer, isUserId } from '../../../utils/matrix';
 import { getMemberDisplayName, getMemberSearchStr } from '../../../utils/room';
 import { UserAvatar } from '../../user-avatar';
@@ -133,16 +132,24 @@ export function UserMentionAutocomplete({
     handleAutocomplete(roomMember.userId, roomMember.name);
   };
 
-  useKeyDown(window, (evt: KeyboardEvent) => {
-    onTabPress(evt, () => handleAutocompleteFirst());
+  useEffect(() => {
+    const handleTab = (evt: KeyboardEvent) => {
+      onTabPress(evt, () => handleAutocompleteFirst());
+    };
+    window.addEventListener('keydown', handleTab, true);
+    return () => window.removeEventListener('keydown', handleTab, true);
   });
 
-  useKeyDown(window, (evt: KeyboardEvent) => {
-    if (evt.key === 'Enter') {
-      evt.preventDefault();
-      evt.stopPropagation();
-      handleAutocompleteFirst();
-    }
+  useEffect(() => {
+    const handleEnter = (evt: KeyboardEvent) => {
+      if (evt.key === 'Enter' && !evt.metaKey && !evt.ctrlKey) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        handleAutocompleteFirst();
+      }
+    };
+    window.addEventListener('keydown', handleEnter, true);
+    return () => window.removeEventListener('keydown', handleEnter, true);
   });
 
   const getName = (member: RoomMember) =>
