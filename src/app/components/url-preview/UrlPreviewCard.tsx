@@ -156,8 +156,8 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
             </Box>
           )}
 
-          {/* Twitter/X embed */}
-          {twitterId && useFxTwitter && (
+          {/* Twitter/X embed — always shown; useFxTwitter toggle controls URL rewriting for og:data */}
+          {twitterId && (
             <Box
               style={{
                 position: 'relative',

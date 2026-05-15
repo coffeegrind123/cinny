@@ -619,7 +619,8 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
                   width: '1px',
                   height: '24px',
                   backgroundColor: color.SurfaceVariant.ContainerLine,
-                  marginRight: '4px',
+                  marginLeft: '6px',
+                  marginRight: '6px',
                 }}
               />
               <IconButton
