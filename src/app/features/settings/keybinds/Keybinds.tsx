@@ -177,6 +177,7 @@ export function Keybinds({ requestClose }: KeybindsProps) {
                   key={cat}
                   className={SequenceCardStyle}
                   variant="SurfaceVariant"
+                  direction="Column"
                   header={
                     <Box style={{ padding: `${config.space.S200} ${config.space.S400}` }}>
                       <Text size="H4" style={{ fontWeight: config.fontWeight.W600 }}>

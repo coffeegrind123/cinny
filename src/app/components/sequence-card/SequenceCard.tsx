@@ -18,6 +18,8 @@ export const SequenceCard = as<
       lastChild,
       outlined,
       mergeBorder,
+      header,
+      children,
       ...props
     },
     ref
@@ -31,8 +33,12 @@ export const SequenceCard = as<
       )}
       data-first-child={firstChild}
       data-last-child={lastChild}
+      direction="Column"
       {...props}
       ref={ref}
-    />
+    >
+      {header}
+      {children}
+    </Box>
   )
 );
