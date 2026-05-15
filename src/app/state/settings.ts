@@ -83,7 +83,7 @@ const defaultSettings: Settings = {
   hideNickAvatarEvents: true,
   mediaAutoLoad: true,
   urlPreview: true,
-  encUrlPreview: false,
+  encUrlPreview: true,
   showHiddenEvents: false,
   legacyUsernameColor: false,
 
