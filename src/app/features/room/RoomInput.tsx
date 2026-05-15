@@ -606,14 +606,6 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
           }
           after={
             <>
-              <Box
-                style={{
-                  width: '1px',
-                  height: '24px',
-                  backgroundColor: color.SurfaceVariant.ContainerLine,
-                  marginRight: '4px',
-                }}
-              />
               <IconButton
                 onClick={() => pickFile('*')}
                 variant="SurfaceVariant"
@@ -622,6 +614,14 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
               >
                 <Icon src={Icons.PlusCircle} />
               </IconButton>
+              <Box
+                style={{
+                  width: '1px',
+                  height: '24px',
+                  backgroundColor: color.SurfaceVariant.ContainerLine,
+                  marginRight: '4px',
+                }}
+              />
               <IconButton
                 variant="SurfaceVariant"
                 size="300"

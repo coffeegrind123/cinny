@@ -23,7 +23,6 @@ export const ImageViewerBarGroup = style([
     boxShadow: '0 2px 12px rgba(0, 0, 0, 0.3)',
     border: `1px solid ${color.Surface.ContainerLine}`,
     pointerEvents: 'auto',
-    maxWidth: '50%',
     overflow: 'hidden',
   },
 ]);
