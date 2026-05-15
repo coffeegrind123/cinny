@@ -201,8 +201,17 @@ export const UrlPreviewCard = as<
           </Box>
         )}
 
-        {/* og:video embed (fxtwitter etc.) */}
-        {!isYt && hasOgVideo && (
+        {/* og:video embed (fxtwitter, Bandcamp, etc.) */}
+        {!isYt && hasOgVideo && /bandcamp\.com\/EmbeddedPlayer/.test(ogVideoUrl) && (
+          <iframe
+            style={{ border: 0, width: '100%', height: '120px' }}
+            src={ogVideoUrl}
+            title={title || 'Bandcamp'}
+            seamless
+            allowFullScreen
+          />
+        )}
+        {!isYt && hasOgVideo && !/bandcamp\.com\/EmbeddedPlayer/.test(ogVideoUrl) && (
           <video
             className={urlPreviewCss.UrlPreviewVideo}
             src={ogVideoUrl}
