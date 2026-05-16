@@ -35,6 +35,8 @@ import { stopPropagation, onEnterOrSpace } from '../../utils/keyboard';
 import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
 import { isYoutubeUrl, getYoutubeVideoId } from '../../utils/youtube';
+import { fetchAsBlobUrl } from '../../utils/tauri-media-proxy';
+import { isTauri } from '../../utils/desktop-notifications';
 
 const linkStyles = { color: color.Secondary.Main, textDecoration: 'none' };
 
@@ -63,6 +65,150 @@ function isAudioUrl(url: string): boolean {
 
 function isDirectAudioUrl(url: string): boolean {
   return isAudioUrl(url) || /sc1\.maid\.zone\/_\/api\/restream\//.test(url);
+}
+
+// Twitter's video.twimg.com 403s on cross-origin requests even with
+// referrerpolicy=no-referrer. On Tauri we proxy through Rust's HTTP plugin
+// (no CORS/Referer constraints) and play from a blob: URL. Web falls back
+// to the direct URL.
+function ProxiedVideo({
+  src,
+  poster,
+  isGif,
+  className,
+}: {
+  src: string;
+  poster?: string;
+  isGif: boolean;
+  className?: string;
+}) {
+  const [resolvedSrc, setResolvedSrc] = useState<string | null>(isTauri() ? null : src);
+
+  useEffect(() => {
+    if (!isTauri()) {
+      setResolvedSrc(src);
+      return undefined;
+    }
+    let cancelled = false;
+    let createdBlob: string | null = null;
+    fetchAsBlobUrl(src).then((blobUrl) => {
+      if (cancelled) {
+        if (blobUrl) URL.revokeObjectURL(blobUrl);
+        return;
+      }
+      if (blobUrl) {
+        createdBlob = blobUrl;
+        setResolvedSrc(blobUrl);
+      } else {
+        // Proxy failed — fall back to direct URL (will likely 403, but lets
+        // browser show its own error state instead of an indefinite spinner).
+        setResolvedSrc(src);
+      }
+    });
+    return () => {
+      cancelled = true;
+      if (createdBlob) URL.revokeObjectURL(createdBlob);
+    };
+  }, [src]);
+
+  if (!resolvedSrc) {
+    return (
+      <Box
+        alignItems="Center"
+        justifyContent="Center"
+        style={{
+          width: '100%',
+          aspectRatio: '16 / 9',
+          backgroundColor: color.SurfaceVariant.Container,
+        }}
+      >
+        <Spinner variant="Secondary" size="400" />
+      </Box>
+    );
+  }
+
+  return (
+    <video
+      className={className}
+      src={resolvedSrc}
+      poster={poster}
+      controls={!isGif}
+      autoPlay={isGif}
+      loop={isGif}
+      muted={isGif}
+      playsInline
+      preload="metadata"
+      referrerPolicy="no-referrer"
+      onClick={(e) => e.stopPropagation()}
+    />
+  );
+}
+
+function ProxiedImg({
+  src,
+  alt,
+  title,
+  onView,
+}: {
+  src: string;
+  alt: string;
+  title?: string;
+  onView: () => void;
+}) {
+  const [resolvedSrc, setResolvedSrc] = useState<string | null>(isTauri() ? null : src);
+
+  useEffect(() => {
+    if (!isTauri()) {
+      setResolvedSrc(src);
+      return undefined;
+    }
+    let cancelled = false;
+    let createdBlob: string | null = null;
+    fetchAsBlobUrl(src).then((blobUrl) => {
+      if (cancelled) {
+        if (blobUrl) URL.revokeObjectURL(blobUrl);
+        return;
+      }
+      if (blobUrl) {
+        createdBlob = blobUrl;
+        setResolvedSrc(blobUrl);
+      } else {
+        setResolvedSrc(src);
+      }
+    });
+    return () => {
+      cancelled = true;
+      if (createdBlob) URL.revokeObjectURL(createdBlob);
+    };
+  }, [src]);
+
+  if (!resolvedSrc) {
+    return (
+      <Box
+        alignItems="Center"
+        justifyContent="Center"
+        style={{
+          width: '100%',
+          minHeight: '200px',
+          backgroundColor: color.SurfaceVariant.Container,
+        }}
+      >
+        <Spinner variant="Secondary" size="400" />
+      </Box>
+    );
+  }
+
+  return (
+    <UrlPreviewImg
+      src={resolvedSrc}
+      alt={alt}
+      title={title}
+      referrerPolicy="no-referrer"
+      tabIndex={0}
+      onKeyDown={(evt: any) => onEnterOrSpace(onView)(evt)}
+      onClick={onView}
+    />
+  );
 }
 
 export const UrlPreviewCard = as<
@@ -130,33 +276,23 @@ export const UrlPreviewCard = as<
           {allMedia.map((m, i) => {
             if (m.type === 'video' || m.type === 'gif') {
               return (
-                <video
+                <ProxiedVideo
                   key={i}
-                  className={urlPreviewCss.UrlPreviewVideo}
                   src={m.url}
                   poster={m.thumbnail_url}
-                  controls={m.type === 'video'}
-                  autoPlay={m.type === 'gif'}
-                  loop={m.type === 'gif'}
-                  muted={m.type === 'gif'}
-                  playsInline
-                  preload="metadata"
-                  referrerPolicy="no-referrer"
-                  onClick={(e) => e.stopPropagation()}
+                  isGif={m.type === 'gif'}
+                  className={urlPreviewCss.UrlPreviewVideo}
                 />
               );
             }
             if (m.type === 'image' || m.type === 'photo') {
               return (
-                <UrlPreviewImg
+                <ProxiedImg
                   key={i}
                   src={m.url}
                   alt={m.altText || vxData.text || ''}
                   title={m.altText || vxData.text}
-                  referrerPolicy="no-referrer"
-                  tabIndex={0}
-                  onKeyDown={(evt: any) => onEnterOrSpace(() => setViewerSrc(m.url))(evt)}
-                  onClick={() => setViewerSrc(m.url)}
+                  onView={() => setViewerSrc(m.url)}
                 />
               );
             }

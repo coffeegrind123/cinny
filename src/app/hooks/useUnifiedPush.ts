@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { MatrixClient } from 'matrix-js-sdk';
-import { isTauri } from '../utils/desktop-notifications';
+import { isAndroid } from '../utils/platform';
 import {
   registerUnifiedPush,
   getUnifiedPushEndpoint,
@@ -50,18 +50,17 @@ export function useUnifiedPush(mx: MatrixClient | undefined) {
   useEffect(() => {
     if (!mx || !mx.clientRunning || setupDone.current) return;
 
-    // Only run on Tauri (Android)
-    if (!isTauri()) {
-      return;
-    }
-
-    setupDone.current = true;
-
+    let cancelled = false;
     let unsubMessage: (() => void) | undefined;
     let unsubEndpoint: (() => void) | undefined;
     let unsubUnregistered: (() => void) | undefined;
 
     async function setup() {
+      // Only run on Android — UnifiedPush + foreground service are Android-only.
+      // Calling these plugin commands on Tauri desktop fails the ACL check.
+      if (!(await isAndroid())) return;
+      if (cancelled || !mx) return;
+      setupDone.current = true;
       // 0. Start foreground service to keep Matrix WebSocket alive in background
       try {
         await startForegroundService();
@@ -106,10 +105,13 @@ export function useUnifiedPush(mx: MatrixClient | undefined) {
     setup();
 
     return () => {
+      cancelled = true;
       unsubMessage?.();
       unsubEndpoint?.();
       unsubUnregistered?.();
-      stopForegroundService().catch(() => {});
+      if (setupDone.current) {
+        stopForegroundService().catch(() => {});
+      }
     };
   }, [mx?.clientRunning]);
 }
