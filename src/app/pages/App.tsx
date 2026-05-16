@@ -12,7 +12,7 @@ import { FeatureCheck } from './FeatureCheck';
 import { createRouter } from './Router';
 import { ScreenSizeProvider, useScreenSize } from '../hooks/useScreenSize';
 import { useCompositionEndTracking } from '../hooks/useComposingCheck';
-import { useGlobalDropListener } from '../hooks/useFileDrop';
+import { useGlobalDropListener, useTauriDragDropListener } from '../hooks/useFileDrop';
 
 const queryClient = new QueryClient();
 
@@ -20,6 +20,7 @@ function App() {
   const screenSize = useScreenSize();
   useCompositionEndTracking();
   useGlobalDropListener();
+  useTauriDragDropListener();
 
   const portalContainer = document.getElementById('portalContainer') ?? undefined;
 
