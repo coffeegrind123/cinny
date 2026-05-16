@@ -1,8 +1,20 @@
 /**
- * Desktop notification wrapper.
+ * Notification wrapper.
  *
- * In Tauri: uses @tauri-apps/plugin-notification for native OS toasts.
- * In browser: falls back to the standard window.Notification API.
+ * Tauri desktop: @tauri-apps/plugin-notification → notify-rust (Windows
+ *   winrt-notification, macOS NSUserNotification, Linux libnotify). The
+ *   `icon` field must be an absolute file path — data URIs silently fail
+ *   on Windows because winrt-notification calls Path::new(icon) and that
+ *   path doesn't exist.
+ * Tauri Android: bypass plugin-notification (its icon resolver looks up
+ *   bundled drawable resources only, no file paths) and use our custom
+ *   MessageNotificationPlugin which calls Notification.Builder
+ *   .setLargeIcon(BitmapFactory.decodeFile(path)).
+ * Browser: window.Notification — data URIs work fine in icon field there.
+ *
+ * Avatar pipeline: JS receives an HTTP mxc-derived URL → invoke
+ * cache_notification_icon (Rust) which writes the bytes to the app
+ * cache dir → pass that absolute path to the platform notification.
  *
  * Windows: Toast notifications require the app to be "installed" via the
  * NSIS installer (Start Menu shortcut → AppUserModelID). A loose .exe
@@ -101,10 +113,11 @@ export interface NotificationExtra {
   eventId?: string;
 }
 
-const avatarCache = new Map<string, string>();
+// In-memory cache: source URL → resolved icon (path on Tauri, data URI on web).
+const iconCache = new Map<string, string>();
 
-async function downloadAvatar(url: string): Promise<string | undefined> {
-  if (avatarCache.has(url)) return avatarCache.get(url);
+async function resolveBrowserIcon(url: string): Promise<string | undefined> {
+  if (iconCache.has(url)) return iconCache.get(url);
   try {
     const resp = await fetch(url);
     if (!resp.ok) return undefined;
@@ -114,10 +127,48 @@ async function downloadAvatar(url: string): Promise<string | undefined> {
       reader.onloadend = () => resolve(reader.result as string);
       reader.readAsDataURL(blob);
     });
-    avatarCache.set(url, dataUrl);
+    iconCache.set(url, dataUrl);
     return dataUrl;
   } catch {
     return undefined;
+  }
+}
+
+async function resolveTauriIconPath(url: string): Promise<string | undefined> {
+  if (iconCache.has(url)) return iconCache.get(url);
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const path = await invoke<string>('cache_notification_icon', { url });
+    if (typeof path === 'string' && path.length > 0) {
+      iconCache.set(url, path);
+      return path;
+    }
+  } catch (err) {
+    console.warn('[notif] cache_notification_icon failed:', err);
+  }
+  return undefined;
+}
+
+async function sendAndroidNotification(
+  title: string,
+  body: string,
+  iconPath: string | undefined,
+  roomId: string | undefined,
+  eventId: string | undefined,
+): Promise<boolean> {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('plugin:messageNotification|show', {
+      title,
+      body,
+      iconPath,
+      roomId,
+      eventId,
+    });
+    return true;
+  } catch (err) {
+    console.warn('[notif] Android messageNotification|show failed:', err);
+    return false;
   }
 }
 
@@ -125,14 +176,38 @@ export async function sendDesktopNotification(
   title: string,
   options?: { body?: string; icon?: string; roomId?: string; eventId?: string }
 ): Promise<void> {
-  // Convert HTTP icon URL to data URI for native notification support
-  let iconUrl: string | undefined = options?.icon;
-  if (iconUrl && (iconUrl.startsWith('http://') || iconUrl.startsWith('https://'))) {
-    const dataUri = await downloadAvatar(iconUrl);
-    if (dataUri) iconUrl = dataUri;
-  }
+  const srcIcon = options?.icon;
+  const isHttpIcon =
+    typeof srcIcon === 'string' &&
+    (srcIcon.startsWith('http://') || srcIcon.startsWith('https://'));
 
   if (isTauri()) {
+    // Resolve avatar URL → absolute file path on disk so both notify-rust
+    // (desktop) and our Android plugin (Notification.Builder.setLargeIcon)
+    // can read real bytes.
+    let resolvedPath: string | undefined;
+    if (isHttpIcon && srcIcon) {
+      resolvedPath = await resolveTauriIconPath(srcIcon);
+    } else if (srcIcon && !srcIcon.startsWith('data:')) {
+      // Already a file path / bundled asset.
+      resolvedPath = srcIcon;
+    }
+
+    // Android: custom plugin (plugin-notification ignores file paths there).
+    const { getTauriPlatform } = await import('./platform');
+    const platform = await getTauriPlatform();
+    if (platform === 'android') {
+      const ok = await sendAndroidNotification(
+        title,
+        options?.body ?? '',
+        resolvedPath,
+        options?.roomId,
+        options?.eventId,
+      );
+      if (ok) return;
+      // Fall through to plugin-notification (no avatar) on failure.
+    }
+
     const mod = await getTauriNotif();
     if (mod) {
       const granted = await mod.isPermissionGranted();
@@ -141,7 +216,7 @@ export async function sendDesktopNotification(
         mod.sendNotification({
           title,
           body: options?.body ?? '',
-          icon: iconUrl,
+          icon: resolvedPath,
           actionTypeId: 'message',
           extra: {
             roomId: options?.roomId ?? '',
@@ -153,11 +228,16 @@ export async function sendDesktopNotification(
     }
   }
 
-  // Browser fallback
+  // Browser fallback: data URI is fine here (and required since browser
+  // can't read local file:// paths).
+  let browserIcon: string | undefined = srcIcon;
+  if (isHttpIcon && srcIcon) {
+    browserIcon = (await resolveBrowserIcon(srcIcon)) ?? srcIcon;
+  }
   if ('Notification' in window && window.Notification.permission === 'granted') {
     new window.Notification(title, {
       body: options?.body,
-      icon: iconUrl,
+      icon: browserIcon,
       silent: true,
     });
   }
