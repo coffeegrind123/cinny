@@ -48,7 +48,7 @@ export const RoomViewFollowing = as<'div', RoomViewFollowingProps>(
 
     const eventId = latestEvent?.getId();
 
-    if (readReceiptStyle === 'element') return null;
+    if (readReceiptStyle === 'element') return <RoomViewFollowingPlaceholder />;
 
     return (
       <>

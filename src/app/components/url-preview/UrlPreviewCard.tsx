@@ -39,8 +39,8 @@ import { isYoutubeUrl, getYoutubeVideoId } from '../../utils/youtube';
 const linkStyles = { color: color.Secondary.Main, textDecoration: 'none' };
 
 function getTwitterId(url: string): string | null {
-  const m = url.match(/^https?:\/\/(twitter\.com|x\.com)\/(\w+)\/status\/(\d+)/);
-  return m ? m[3] : null;
+  const m = url.match(/^https?:\/\/(?:[\w-]+\.)?(?:twitter\.com|x\.com|nitter\.[\w.-]+|fxtwitter\.com|vxtwitter\.com|fixupx\.com)\/(?:i\/web\/status|\w+\/status)\/(\d+)/);
+  return m ? m[1] : null;
 }
 
 function rewriteEmbedUrl(url: string, useSoundcloak: boolean): string {
@@ -107,58 +107,102 @@ export const UrlPreviewCard = as<
     loadPreview();
   }, [loadPreview]);
 
+  if (twId && dismissed) return null;
   // vxtwitter path — render directly from API response
   if (twId && vxData) {
-    const vxMedia = vxData.media_extended?.[0];
-    const thumbUrl = mxcUrlToHttp(mx, vxMedia?.thumbnail_url || '', useAuthentication, 512, 512, 'scale', false);
+    const allMedia = (vxData.media_extended ?? []) as Array<{
+      type: string;
+      url: string;
+      thumbnail_url?: string;
+      altText?: string;
+    }>;
     return (
       <UrlPreview {...props} ref={ref}>
         <Box direction="Column" style={{ position: 'relative' }}>
           <IconButton
             size="200" radii="300" variant="SurfaceVariant"
-            onClick={(e) => { e.stopPropagation(); }}
+            onClick={(e) => { e.stopPropagation(); setDismissed(true); }}
             aria-label="Dismiss embed"
             style={{ position: 'absolute', top: 4, right: 4, zIndex: 1 }}
           >
             <Icon size="50" src={Icons.Cross} />
           </IconButton>
-          {vxMedia?.type === 'video' && vxData.user_screen_name && (
-            <Box
-              style={{
-                position: 'relative',
-                paddingBottom: '56.25%',
-                height: 0,
-                overflow: 'hidden',
-                backgroundColor: color.SurfaceVariant.Container,
-              }}
-            >
-              <iframe
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  border: 'none',
-                }}
-                src={`https://fxtwitter.com/${vxData.user_screen_name}/status/${twId}`}
-                title={vxData.text || 'Twitter video'}
-                allowFullScreen
-              />
-            </Box>
-          )}
-          {vxMedia?.type === 'photo' && vxMedia.url && (
-            <UrlPreviewImg src={vxMedia.url} alt={vxData.text || ''} title={vxData.text} tabIndex={0} onKeyDown={(evt: any) => onEnterOrSpace(() => setViewerSrc(vxMedia.url))(evt)} onClick={() => setViewerSrc(vxMedia.url)} />
-          )}
+          {allMedia.map((m, i) => {
+            if (m.type === 'video' || m.type === 'gif') {
+              return (
+                <video
+                  key={i}
+                  className={urlPreviewCss.UrlPreviewVideo}
+                  src={m.url}
+                  poster={m.thumbnail_url}
+                  controls={m.type === 'video'}
+                  autoPlay={m.type === 'gif'}
+                  loop={m.type === 'gif'}
+                  muted={m.type === 'gif'}
+                  playsInline
+                  preload="metadata"
+                  referrerPolicy="no-referrer"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              );
+            }
+            if (m.type === 'image' || m.type === 'photo') {
+              return (
+                <UrlPreviewImg
+                  key={i}
+                  src={m.url}
+                  alt={m.altText || vxData.text || ''}
+                  title={m.altText || vxData.text}
+                  referrerPolicy="no-referrer"
+                  tabIndex={0}
+                  onKeyDown={(evt: any) => onEnterOrSpace(() => setViewerSrc(m.url))(evt)}
+                  onClick={() => setViewerSrc(m.url)}
+                />
+              );
+            }
+            return null;
+          })}
           <UrlPreviewContent>
             <Text style={linkStyles} truncate as="a" href={url} target="_blank" rel="noreferrer" size="T200" priority="300">
-              {vxData.user_name ? `${vxData.user_name} | ` : ''}{tryDecodeURIComponent(url)}
+              {vxData.user_name
+                ? `${vxData.user_name}${vxData.user_screen_name ? ` (@${vxData.user_screen_name})` : ''} | `
+                : ''}
+              {tryDecodeURIComponent(url)}
             </Text>
             {vxData.text && <Text size="T300">{vxData.text}</Text>}
             <Text size="T200" priority="300">
               {`${vxData.likes ?? 0} likes · ${vxData.retweets ?? 0} retweets · ${vxData.replies ?? 0} replies`}
             </Text>
           </UrlPreviewContent>
+          {viewerSrc && renderViewer && (
+            <ImageOverlay
+              src={viewerSrc}
+              alt={vxData.text || 'Image'}
+              viewer={!!viewerSrc}
+              requestClose={() => setViewerSrc(undefined)}
+              renderViewer={renderViewer}
+            />
+          )}
+          {viewerSrc && !renderViewer && (
+            <Overlay open backdrop={<OverlayBackdrop />}>
+              <OverlayCenter>
+                <FocusTrap
+                  focusTrapOptions={{
+                    initialFocus: false,
+                    onDeactivate: () => setViewerSrc(undefined),
+                    clickOutsideDeactivates: true,
+                    escapeDeactivates: stopPropagation,
+                  }}
+                >
+                  <ImageViewer
+                    src={viewerSrc}
+                    alt={vxData.text || 'Image'}
+                    requestClose={() => setViewerSrc(undefined)}
+                  />
+                </FocusTrap>
+              </OverlayCenter>
+            </Overlay>
+          )}
         </Box>
       </UrlPreview>
     );
@@ -172,9 +216,7 @@ export const UrlPreviewCard = as<
       </UrlPreview>
     );
   }
-  if (twId && vxError) {
-    return null;
-  }
+  // vxError: fall through to standard preview so Matrix og: metadata still shows
 
   // SoundCloud/soundcloak or direct MP3 — render audio player directly, skip preview
   if (isDirectAudioUrl(embedUrl) || isAudioUrl(url)) {

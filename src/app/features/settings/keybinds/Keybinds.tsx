@@ -5,6 +5,7 @@ import {
   color,
   config,
   Icon,
+  IconButton,
   Icons,
   Scroll,
   Text,
@@ -17,7 +18,6 @@ import { settingsAtom } from '../../../state/settings';
 import {
   KEYBIND_DEFINITIONS,
   KeybindCategory,
-  DEFAULT_KEYBINDS,
 } from '../../../state/keybinds';
 import { formatKeyComboSplit } from '../../../utils/key-display';
 import { SettingTile } from '../../../components/setting-tile';
@@ -151,76 +151,83 @@ export function Keybinds({ requestClose }: KeybindsProps) {
 
   return (
     <Page>
-      <PageHeader>
-        <Box alignItems="Center" justifyContent="SpaceBetween" grow="Yes">
-          <Text size="H3">Keybinds</Text>
-          <Button
-            size="300"
-            variant="Surface"
-            fill="None"
-            radii="Pill"
-            onClick={handleResetAll}
-            before={<Icon src={Icons.Reload} size="100" />}
-          >
-            <Text size="B400">Reset All</Text>
-          </Button>
+      <PageHeader outlined={false}>
+        <Box grow="Yes" gap="200">
+          <Box grow="Yes" alignItems="Center" gap="200">
+            <Text size="H3" truncate>
+              Keybinds
+            </Text>
+          </Box>
+          <Box shrink="No" gap="200" alignItems="Center">
+            <Button
+              size="300"
+              variant="Surface"
+              fill="None"
+              radii="Pill"
+              onClick={handleResetAll}
+              before={<Icon src={Icons.Reload} size="100" />}
+            >
+              <Text size="B400">Reset All</Text>
+            </Button>
+            <IconButton onClick={requestClose} variant="Surface">
+              <Icon src={Icons.Cross} />
+            </IconButton>
+          </Box>
         </Box>
       </PageHeader>
-      <PageContent>
-        <Scroll size="0">
-          <Box direction="Column" gap="500">
-            {CATEGORY_ORDER.map((cat) => {
-              const items = KEYBIND_DEFINITIONS.filter((d) => d.category === cat);
-              if (items.length === 0) return null;
-              return (
-                <SequenceCard
-                  key={cat}
-                  className={SequenceCardStyle}
-                  variant="SurfaceVariant"
-                  direction="Column"
-                  header={
-                    <Box style={{ padding: `${config.space.S200} ${config.space.S400}` }}>
-                      <Text size="H4" style={{ fontWeight: config.fontWeight.W600 }}>
-                        {cat}
-                      </Text>
-                    </Box>
-                  }
-                >
-                  {items.map((def) => {
-                    const currentKey = keybinds[def.id] ?? def.defaultKeys;
-                    const isCustom = keybinds[def.id] !== undefined;
-                    return (
-                      <SettingTile
-                        key={def.id}
-                        title={def.description}
-                        after={
-                          <Box gap="100" alignItems="Center">
-                            <KeybindCapture
-                              currentKey={currentKey}
-                              onCapture={(ks) => handleCapture(def.id, ks)}
-                            />
-                            {isCustom && (
-                              <Button
-                                size="200"
-                                variant="Surface"
-                                fill="None"
-                                radii="Pill"
-                                onClick={() => handleReset(def.id)}
-                              >
-                                <Text size="T200">Reset</Text>
-                              </Button>
-                            )}
-                          </Box>
-                        }
-                      />
-                    );
-                  })}
-                </SequenceCard>
-              );
-            })}
-          </Box>
+      <Box grow="Yes">
+        <Scroll hideTrack visibility="Hover">
+          <PageContent>
+            <Box direction="Column" gap="700">
+              {CATEGORY_ORDER.map((cat) => {
+                const items = KEYBIND_DEFINITIONS.filter((d) => d.category === cat);
+                if (items.length === 0) return null;
+                return (
+                  <Box key={cat} direction="Column" gap="100">
+                    <Text size="L400">{cat}</Text>
+                    <SequenceCard
+                      className={SequenceCardStyle}
+                      variant="SurfaceVariant"
+                      direction="Column"
+                      gap="400"
+                    >
+                      {items.map((def) => {
+                        const currentKey = keybinds[def.id] ?? def.defaultKeys;
+                        const isCustom = keybinds[def.id] !== undefined;
+                        return (
+                          <SettingTile
+                            key={def.id}
+                            title={def.description}
+                            after={
+                              <Box gap="100" alignItems="Center">
+                                <KeybindCapture
+                                  currentKey={currentKey}
+                                  onCapture={(ks) => handleCapture(def.id, ks)}
+                                />
+                                {isCustom && (
+                                  <Button
+                                    size="200"
+                                    variant="Surface"
+                                    fill="None"
+                                    radii="Pill"
+                                    onClick={() => handleReset(def.id)}
+                                  >
+                                    <Text size="T200">Reset</Text>
+                                  </Button>
+                                )}
+                              </Box>
+                            }
+                          />
+                        );
+                      })}
+                    </SequenceCard>
+                  </Box>
+                );
+              })}
+            </Box>
+          </PageContent>
         </Scroll>
-      </PageContent>
+      </Box>
     </Page>
   );
 }
