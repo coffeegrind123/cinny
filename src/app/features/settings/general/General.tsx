@@ -788,7 +788,7 @@ function Editor() {
       <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
         <SettingTile
           title="Use Piped for YouTube"
-          description="Replace YouTube embeds with piped.private.coffee for privacy-friendly playback."
+          description="Replace YouTube embeds with piped.video for privacy-friendly playback."
           after={<Switch variant="Primary" value={usePiped} onChange={setUsePiped} />}
         />
       </SequenceCard>

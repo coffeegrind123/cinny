@@ -454,7 +454,7 @@ export const UrlPreviewCard = as<
                 border: 'none',
               }}
               src={usePiped
-                ? `https://piped.private.coffee/embed/${ytVideoId}`
+                ? `https://piped.video/embed/${ytVideoId}`
                 : `https://www.youtube.com/embed/${ytVideoId}`}
               title={title || 'YouTube video'}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
