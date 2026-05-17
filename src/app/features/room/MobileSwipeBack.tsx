@@ -29,5 +29,26 @@ export function MobileSwipeBack({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  return <div ref={ref} style={{ width: '100%', height: '100%', touchAction: 'pan-y' }}>{children}</div>;
+  // Participate in the parent flex chain instead of using `height: 100%`.
+  // Room.tsx places this wrapper as a flex item; a block-level
+  // `height: 100%` collapses inside a flex container so the inner
+  // timeline ends up unbounded vertically — symptom on Android: the
+  // chat opens scrolled to the top, lags heavily, and touch-scroll
+  // down stops working because the scroll container is taller than
+  // the visible viewport allows.
+  return (
+    <div
+      ref={ref}
+      style={{
+        display: 'flex',
+        flex: '1 1 0%',
+        minWidth: 0,
+        minHeight: 0,
+        width: '100%',
+        touchAction: 'pan-y',
+      }}
+    >
+      {children}
+    </div>
+  );
 }
