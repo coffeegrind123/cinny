@@ -49,6 +49,7 @@ import { useMediaAuthentication } from '../hooks/useMediaAuthentication';
 import { mxcUrlToHttp } from '../utils/matrix';
 import { RoomAvatar, RoomIcon } from './room-avatar';
 import { useRoomNavigate } from '../hooks/useRoomNavigate';
+import { setForegroundMicrophoneActive } from '../utils/mobile-push';
 import { getStateEvent } from '../utils/room';
 import { StateEvent } from '../../types/matrix/room';
 import { getPowersLevelFromMatrixEvent } from '../hooks/usePowerLevels';
@@ -356,6 +357,17 @@ function CallUtils({ embed }: { embed: CallEmbed }) {
       setCallEmbed(undefined);
     }, [setCallEmbed])
   );
+
+  // Tell the Android foreground service to advertise microphone usage
+  // while a call is active so the OS keeps the mic open when the app
+  // is backgrounded (Android 14+ revokes mic from non-microphone-typed
+  // foreground services). No-op on desktop.
+  useEffect(() => {
+    setForegroundMicrophoneActive(true);
+    return () => {
+      setForegroundMicrophoneActive(false);
+    };
+  }, []);
 
   return null;
 }

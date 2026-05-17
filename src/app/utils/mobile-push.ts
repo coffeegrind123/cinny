@@ -92,3 +92,18 @@ export async function isForegroundServiceRunning(): Promise<boolean> {
   return result.running;
 }
 
+/**
+ * Toggle whether the foreground service advertises microphone usage.
+ * Required on Android 14+ so the WebView can keep the mic open during
+ * Element Call when the app is backgrounded — without it, the OS revokes
+ * the mic the moment the activity loses focus and the call goes silent.
+ * No-op on non-Android platforms.
+ */
+export async function setForegroundMicrophoneActive(active: boolean): Promise<void> {
+  try {
+    await invoke('plugin:foreground|set_microphone_active', { active });
+  } catch {
+    // Plugin is Android-only; ignore on desktop and other platforms.
+  }
+}
+
