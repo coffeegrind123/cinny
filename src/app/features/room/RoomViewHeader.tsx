@@ -319,22 +319,27 @@ function CallButton({
   const startCall = useCallStart(direct);
   const callStarted = callEmbed && callEmbed.roomId === room.roomId;
   const inAnotherCall = callEmbed && !callStarted;
-  const [menuAnchor, setMenuAnchor] = useState<RectCords>();
 
   const callBlocked = !livekitSupported || !hasCallPermission;
   const disabled = !!(inAnotherCall || callStarted || callBlocked);
 
-  const handleOpenMenu: MouseEventHandler<HTMLButtonElement> = (evt) => {
-    setMenuAnchor(evt.currentTarget.getBoundingClientRect());
-  };
-
-  const tooltipText = () => {
+  const blockerTooltip = () => {
     if (inAnotherCall)
       return 'Already in another call — End the current call to join!';
     if (!livekitSupported)
       return 'Your homeserver does not advertise a LiveKit/MatrixRTC focus, so calls cannot be started.';
     if (!hasCallPermission) return 'You do not have permission to start a call in this room.';
-    return 'Call';
+    return null;
+  };
+  const blocker = blockerTooltip();
+
+  const startVoice = () => {
+    if (disabled) return;
+    startCall(room, { microphone: true, video: false, sound: true });
+  };
+  const startVideo = () => {
+    if (disabled) return;
+    startCall(room, { microphone: true, video: true, sound: true });
   };
 
   return (
@@ -344,7 +349,7 @@ function CallButton({
         offset={4}
         tooltip={
           <Tooltip>
-            <Text size="L400">{tooltipText()}</Text>
+            <Text size="L400">{blocker ?? 'Start voice call'}</Text>
           </Tooltip>
         }
       >
@@ -353,47 +358,36 @@ function CallButton({
             variant="Surface"
             fill="None"
             ref={triggerRef}
-            onClick={handleOpenMenu}
-            onContextMenu={(evt) => {
-              evt.preventDefault();
-              if (disabled) return;
-              startCall(room, {
-                microphone: true,
-                video: true,
-                sound: true,
-              });
-            }}
+            onClick={startVoice}
             disabled={disabled}
-            aria-pressed={!!menuAnchor}
+            aria-label="Start voice call"
           >
-            <Icon size="400" src={Icons.VideoCamera} filled={!!menuAnchor} />
+            <Icon size="400" src={Icons.Phone} />
           </IconButton>
         )}
       </TooltipProvider>
-      <PopOut
-        anchor={menuAnchor}
+      <TooltipProvider
         position="Bottom"
-        align="Center"
-        content={
-          <FocusTrap
-            focusTrapOptions={{
-              initialFocus: false,
-              returnFocusOnDeactivate: false,
-              onDeactivate: () => setMenuAnchor(undefined),
-              clickOutsideDeactivates: true,
-              isKeyForward: (evt: KeyboardEvent) => evt.key === 'ArrowDown',
-              isKeyBackward: (evt: KeyboardEvent) => evt.key === 'ArrowUp',
-              escapeDeactivates: stopPropagation,
-            }}
-          >
-            <CallMenu
-              onVideoCall={() => startCall(room, { microphone: true, video: true, sound: true })}
-              onVoiceCall={() => startCall(room, { microphone: true, video: false, sound: true })}
-              requestClose={() => setMenuAnchor(undefined)}
-            />
-          </FocusTrap>
+        offset={4}
+        tooltip={
+          <Tooltip>
+            <Text size="L400">{blocker ?? 'Start video call'}</Text>
+          </Tooltip>
         }
-      />
+      >
+        {(triggerRef) => (
+          <IconButton
+            variant="Surface"
+            fill="None"
+            ref={triggerRef}
+            onClick={startVideo}
+            disabled={disabled}
+            aria-label="Start video call"
+          >
+            <Icon size="400" src={Icons.VideoCamera} />
+          </IconButton>
+        )}
+      </TooltipProvider>
     </>
   );
 }

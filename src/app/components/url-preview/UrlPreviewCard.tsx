@@ -182,6 +182,82 @@ function ProxiedVideo({
   );
 }
 
+// HLS-aware <video>. Bluesky videos are HLS m3u8 streams (`playlist`
+// field on app.bsky.embed.video#view) and Chromium-based browsers
+// don't play those natively — only Safari does. hls.js is loaded
+// lazily via dynamic import so users who never see a bsky video
+// don't pay the ~80kB-gzipped bundle hit.
+function HlsVideo({
+  src,
+  poster,
+  width,
+  height,
+  className,
+}: {
+  src: string;
+  poster?: string;
+  width?: number;
+  height?: number;
+  className?: string;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !src) return undefined;
+
+    // Native HLS (Safari + iOS WebView).
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = src;
+      return undefined;
+    }
+
+    let cancelled = false;
+    let hlsInstance: { destroy: () => void } | null = null;
+
+    import('hls.js')
+      .then(({ default: Hls }) => {
+        if (cancelled) return;
+        if (!Hls.isSupported()) {
+          // No MSE either — last-resort direct src so the browser
+          // shows its own "format not supported" UI rather than a
+          // mute placeholder.
+          video.src = src;
+          return;
+        }
+        const hls = new Hls({ enableWorker: true });
+        hlsInstance = hls;
+        hls.loadSource(src);
+        hls.attachMedia(video);
+      })
+      .catch((err) => {
+        console.warn('[bsky] failed to load hls.js, falling back to direct src:', err);
+        if (!cancelled) video.src = src;
+      });
+
+    return () => {
+      cancelled = true;
+      hlsInstance?.destroy();
+    };
+  }, [src]);
+
+  const aspect = width && height ? `${width} / ${height}` : '16 / 9';
+
+  return (
+    <video
+      ref={videoRef}
+      poster={poster}
+      controls
+      playsInline
+      preload="metadata"
+      referrerPolicy="no-referrer"
+      style={{ aspectRatio: aspect, width: '100%' }}
+      className={className}
+      onClick={(e) => e.stopPropagation()}
+    />
+  );
+}
+
 function ProxiedImg({
   src,
   alt,
@@ -493,10 +569,9 @@ export const UrlPreviewCard = as<
             </Box>
           )}
           {videoView && videoView.playlist && (
-            <ProxiedVideo
+            <HlsVideo
               src={videoView.playlist}
               poster={videoView.thumbnail}
-              isGif={false}
               width={videoView.aspectRatio?.width}
               height={videoView.aspectRatio?.height}
               className={urlPreviewCss.UrlPreviewVideo}
