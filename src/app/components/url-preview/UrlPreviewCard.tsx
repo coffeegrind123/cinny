@@ -45,6 +45,37 @@ function getTwitterId(url: string): string | null {
   return m ? m[1] : null;
 }
 
+// Bluesky post URLs: https://bsky.app/profile/{handle-or-did}/post/{rkey}
+// Also accept the AT-protocol-friendly bsky URL shapes used by clients.
+function getBskyPostInfo(url: string): { actor: string; rkey: string } | null {
+  const m = url.match(/^https?:\/\/(?:bsky\.app|cbsky\.app|psky\.app|deer\.social)\/profile\/([^/?#]+)\/post\/([^/?#]+)/);
+  if (!m) return null;
+  return { actor: m[1], rkey: m[2] };
+}
+
+const BSKY_API = 'https://public.api.bsky.app';
+
+async function resolveBskyDid(actor: string): Promise<string> {
+  if (actor.startsWith('did:')) return actor;
+  const resp = await fetch(
+    `${BSKY_API}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(actor)}`
+  );
+  if (!resp.ok) throw new Error(`resolveHandle HTTP ${resp.status}`);
+  const data = await resp.json();
+  if (typeof data?.did !== 'string') throw new Error('resolveHandle: no did');
+  return data.did as string;
+}
+
+async function fetchBskyPost(actor: string, rkey: string): Promise<any> {
+  const did = await resolveBskyDid(actor);
+  const uri = `at://${did}/app.bsky.feed.post/${rkey}`;
+  const resp = await fetch(
+    `${BSKY_API}/xrpc/app.bsky.feed.getPostThread?uri=${encodeURIComponent(uri)}&depth=0&parentHeight=0`
+  );
+  if (!resp.ok) throw new Error(`getPostThread HTTP ${resp.status}`);
+  return resp.json();
+}
+
 function rewriteEmbedUrl(url: string, useSoundcloak: boolean): string {
   if (useSoundcloak) {
     const scMatch = url.match(/^https?:\/\/soundcloud\.com\/([^/]+)\/([^/?]+)/);
@@ -230,6 +261,7 @@ export const UrlPreviewCard = as<
 
   const embedUrl = rewriteEmbedUrl(url, useSoundcloak);
   const twId = useVxTwitter ? getTwitterId(url) : null;
+  const bskyPost = getBskyPostInfo(url);
 
   // vxtwitter client-side fetch
   const [vxData, setVxData] = useState<any>(null);
@@ -244,6 +276,21 @@ export const UrlPreviewCard = as<
       .then((d) => { setVxData(d); setVxLoading(false); })
       .catch(() => { setVxError(true); setVxLoading(false); });
   }, [twId]);
+
+  // Bluesky client-side fetch — public API, no auth needed.
+  const [bskyData, setBskyData] = useState<any>(null);
+  const [bskyLoading, setBskyLoading] = useState(false);
+  const [bskyError, setBskyError] = useState(false);
+  useEffect(() => {
+    if (!bskyPost) return;
+    setBskyLoading(true);
+    setBskyError(false);
+    fetchBskyPost(bskyPost.actor, bskyPost.rkey)
+      .then((d) => { setBskyData(d); setBskyLoading(false); })
+      .catch(() => { setBskyError(true); setBskyLoading(false); });
+    // bskyPost is a fresh object each render — narrow deps to its primitives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bskyPost?.actor, bskyPost?.rkey]);
 
   const [viewerSrc, setViewerSrc] = useState<string>();
   const [expanded, setExpanded] = useState(false);
@@ -365,6 +412,180 @@ export const UrlPreviewCard = as<
     );
   }
   // vxError: fall through to standard preview so Matrix og: metadata still shows
+
+  // Bluesky native render — uses public getPostThread API; supports
+  // multi-image posts (1–4 images) plus video and external-link embeds.
+  if (bskyPost && dismissed) return null;
+  if (bskyPost && bskyData) {
+    const post = bskyData?.thread?.post;
+    const author = post?.author;
+    const record = post?.record ?? {};
+    const embed = post?.embed ?? {};
+    const images: Array<{
+      thumb: string;
+      fullsize: string;
+      alt?: string;
+      aspectRatio?: { height: number; width: number };
+    }> = Array.isArray(embed.images) ? embed.images : [];
+    // recordWithMedia#view: media nested under embed.media
+    const mediaImages: typeof images = Array.isArray(embed.media?.images)
+      ? embed.media.images
+      : [];
+    const allImages = images.length ? images : mediaImages;
+
+    const videoView =
+      embed.$type === 'app.bsky.embed.video#view' || embed.media?.$type === 'app.bsky.embed.video#view'
+        ? embed.$type === 'app.bsky.embed.video#view'
+          ? embed
+          : embed.media
+        : null;
+    const externalView =
+      embed.$type === 'app.bsky.embed.external#view'
+        ? embed.external
+        : embed.media?.$type === 'app.bsky.embed.external#view'
+          ? embed.media.external
+          : null;
+
+    const displayName = author?.displayName || author?.handle || 'Bluesky';
+    const handle = author?.handle ? `@${author.handle}` : '';
+
+    return (
+      <UrlPreview {...props} ref={ref}>
+        <Box grow="Yes" direction="Column" style={{ position: 'relative', minWidth: 0 }}>
+          <IconButton
+            size="200" radii="300" variant="SurfaceVariant"
+            onClick={(e) => { e.stopPropagation(); setDismissed(true); }}
+            aria-label="Dismiss embed"
+            style={{ position: 'absolute', top: 4, right: 4, zIndex: 1 }}
+          >
+            <Icon size="50" src={Icons.Cross} />
+          </IconButton>
+          {allImages.length > 0 && (
+            <Box
+              direction="Row"
+              gap="100"
+              style={{ width: '100%', flexWrap: 'wrap' }}
+            >
+              {allImages.map((img, i) => {
+                // 1 image: full width. 2+: 2-column grid that fills.
+                const basis = allImages.length === 1 ? '100%' : 'calc(50% - 2px)';
+                return (
+                  <Box
+                    key={i}
+                    style={{
+                      flexBasis: basis,
+                      flexGrow: 1,
+                      minWidth: '160px',
+                      maxWidth: '100%',
+                      overflow: 'hidden',
+                      borderRadius: '8px',
+                    }}
+                  >
+                    <ProxiedImg
+                      src={img.fullsize || img.thumb}
+                      alt={img.alt || ''}
+                      title={img.alt}
+                      onView={() => setViewerSrc(img.fullsize || img.thumb)}
+                    />
+                  </Box>
+                );
+              })}
+            </Box>
+          )}
+          {videoView && videoView.playlist && (
+            <ProxiedVideo
+              src={videoView.playlist}
+              poster={videoView.thumbnail}
+              isGif={false}
+              width={videoView.aspectRatio?.width}
+              height={videoView.aspectRatio?.height}
+              className={urlPreviewCss.UrlPreviewVideo}
+            />
+          )}
+          {externalView && (
+            <Box direction="Column" gap="100" style={{ padding: config.space.S200 }}>
+              {externalView.thumb && (
+                <ProxiedImg
+                  src={externalView.thumb}
+                  alt={externalView.title || ''}
+                  onView={() => setViewerSrc(externalView.thumb)}
+                />
+              )}
+              {externalView.title && (
+                <Text size="T300" priority="500">
+                  <a href={externalView.uri} target="_blank" rel="noreferrer" style={linkStyles}>
+                    {externalView.title}
+                  </a>
+                </Text>
+              )}
+              {externalView.description && (
+                <Text size="T200" priority="300">{externalView.description}</Text>
+              )}
+            </Box>
+          )}
+          <UrlPreviewContent>
+            <Text style={linkStyles} truncate as="a" href={url} target="_blank" rel="noreferrer" size="T200" priority="300">
+              {`${displayName}${handle ? ` ${handle}` : ''} | `}
+              {tryDecodeURIComponent(url)}
+            </Text>
+            {typeof record.text === 'string' && record.text.length > 0 && (
+              <Text size="T300" style={{ whiteSpace: 'pre-wrap' }}>
+                {record.text}
+              </Text>
+            )}
+            <Text size="T200" priority="300">
+              {`${post?.likeCount ?? 0} likes · ${post?.repostCount ?? 0} reposts · ${post?.replyCount ?? 0} replies${
+                typeof post?.quoteCount === 'number' && post.quoteCount > 0
+                  ? ` · ${post.quoteCount} quotes`
+                  : ''
+              }`}
+            </Text>
+          </UrlPreviewContent>
+          {viewerSrc && renderViewer && (
+            <ImageOverlay
+              src={viewerSrc}
+              alt={record.text || 'Image'}
+              viewer={!!viewerSrc}
+              requestClose={() => setViewerSrc(undefined)}
+              renderViewer={renderViewer}
+              externalUrl={url}
+            />
+          )}
+          {viewerSrc && !renderViewer && (
+            <Overlay open backdrop={<OverlayBackdrop />}>
+              <OverlayCenter>
+                <FocusTrap
+                  focusTrapOptions={{
+                    initialFocus: false,
+                    onDeactivate: () => setViewerSrc(undefined),
+                    clickOutsideDeactivates: true,
+                    escapeDeactivates: stopPropagation,
+                  }}
+                >
+                  <ImageViewer
+                    src={viewerSrc}
+                    alt={record.text || 'Image'}
+                    requestClose={() => setViewerSrc(undefined)}
+                    externalUrl={url}
+                  />
+                </FocusTrap>
+              </OverlayCenter>
+            </Overlay>
+          )}
+        </Box>
+      </UrlPreview>
+    );
+  }
+  if (bskyPost && bskyLoading) {
+    return (
+      <UrlPreview {...props} ref={ref}>
+        <Box grow="Yes" alignItems="Center" justifyContent="Center" style={{ padding: config.space.S400 }}>
+          <Spinner variant="Secondary" size="400" />
+        </Box>
+      </UrlPreview>
+    );
+  }
+  // bskyError: fall through to Matrix og: preview
 
   // SoundCloud/soundcloak or direct MP3 — render audio player directly, skip preview
   if (isDirectAudioUrl(embedUrl) || isAudioUrl(url)) {
