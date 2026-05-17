@@ -47,11 +47,16 @@ export const ImageViewer = as<'div', ImageViewerProps>(
             zIndex: 2,
           }}
         >
-          <Box className={css.ImageViewerBarGroup} alignItems="Center" gap="100">
+          <Box
+            className={css.ImageViewerBarGroup}
+            alignItems="Center"
+            gap="100"
+            style={{ maxWidth: 'min(60vw, 600px)' }}
+          >
             <IconButton size="300" radii="300" onClick={requestClose}>
               <Icon size="50" src={Icons.ArrowLeft} />
             </IconButton>
-            <Text size="T300" truncate>
+            <Text size="T300" truncate style={{ flex: 1, minWidth: 0 }}>
               {alt}
             </Text>
             <IconButton size="200" radii="300" onClick={handleOpenExternal} aria-label="Open in browser">

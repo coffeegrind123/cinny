@@ -64,7 +64,10 @@ export const UrlPreviewVideo = style([
   DefaultReset,
   {
     width: '100%',
-    maxHeight: toRem(400),
+    height: 'auto',
+    maxHeight: '70vh',
+    objectFit: 'contain',
+    backgroundColor: 'black',
     borderRadius: `${config.radii.R200} ${config.radii.R200} 0 0`,
     display: 'block',
   },

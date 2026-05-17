@@ -75,11 +75,15 @@ function ProxiedVideo({
   src,
   poster,
   isGif,
+  width,
+  height,
   className,
 }: {
   src: string;
   poster?: string;
   isGif: boolean;
+  width?: number;
+  height?: number;
   className?: string;
 }) {
   const [resolvedSrc, setResolvedSrc] = useState<string | null>(isTauri() ? null : src);
@@ -111,6 +115,8 @@ function ProxiedVideo({
     };
   }, [src]);
 
+  const aspect = width && height ? `${width} / ${height}` : '16 / 9';
+
   if (!resolvedSrc) {
     return (
       <Box
@@ -118,7 +124,7 @@ function ProxiedVideo({
         justifyContent="Center"
         style={{
           width: '100%',
-          aspectRatio: '16 / 9',
+          aspectRatio: aspect,
           backgroundColor: color.SurfaceVariant.Container,
         }}
       >
@@ -139,6 +145,7 @@ function ProxiedVideo({
       playsInline
       preload="metadata"
       referrerPolicy="no-referrer"
+      style={{ aspectRatio: aspect }}
       onClick={(e) => e.stopPropagation()}
     />
   );
@@ -261,10 +268,11 @@ export const UrlPreviewCard = as<
       url: string;
       thumbnail_url?: string;
       altText?: string;
+      size?: { width: number; height: number };
     }>;
     return (
       <UrlPreview {...props} ref={ref}>
-        <Box direction="Column" style={{ position: 'relative' }}>
+        <Box grow="Yes" direction="Column" style={{ position: 'relative', minWidth: 0 }}>
           <IconButton
             size="200" radii="300" variant="SurfaceVariant"
             onClick={(e) => { e.stopPropagation(); setDismissed(true); }}
@@ -281,6 +289,8 @@ export const UrlPreviewCard = as<
                   src={m.url}
                   poster={m.thumbnail_url}
                   isGif={m.type === 'gif'}
+                  width={m.size?.width}
+                  height={m.size?.height}
                   className={urlPreviewCss.UrlPreviewVideo}
                 />
               );
@@ -416,11 +426,16 @@ export const UrlPreviewCard = as<
     // og:video data (Bandcamp etc.)
     const ogVideoUrl = (prev['og:video'] || prev['og:video:url']) as string | undefined;
     const hasOgVideo = !!ogVideoUrl;
+    const ogVideoWidth = Number(prev['og:video:width']) || undefined;
+    const ogVideoHeight = Number(prev['og:video:height']) || undefined;
+    const ogVideoAspect = ogVideoWidth && ogVideoHeight
+      ? `${ogVideoWidth} / ${ogVideoHeight}`
+      : undefined;
 
     const allKeys = Object.keys(prev).filter(k => k.startsWith('og:'));
 
     return (
-      <Box direction="Column" style={{ position: 'relative' }}>
+      <Box grow="Yes" direction="Column" style={{ position: 'relative', minWidth: 0 }}>
         {/* Dismiss button */}
         <IconButton
           size="200"
@@ -480,6 +495,7 @@ export const UrlPreviewCard = as<
             controls
             preload="metadata"
             poster={imgUrl || undefined}
+            style={ogVideoAspect ? { aspectRatio: ogVideoAspect } : undefined}
             onClick={(e) => e.stopPropagation()}
           >
             <a href={ogVideoUrl} target="_blank" rel="noreferrer">
@@ -495,6 +511,7 @@ export const UrlPreviewCard = as<
             src={imgUrl}
             controls
             preload="metadata"
+            style={ogVideoAspect ? { aspectRatio: ogVideoAspect } : undefined}
             onClick={(e) => e.stopPropagation()}
           >
             <a href={imgUrl} target="_blank" rel="noreferrer">

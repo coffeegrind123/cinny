@@ -841,12 +841,12 @@ export const Message = as<'div', MessageProps>(
             onCancel={() => onEditId()}
           />
         ) : (
-          <Box grow="Yes" gap="200" alignItems="Center" style={{ maxWidth: '100%' }}>
+          <Box grow="Yes" gap="200" alignItems="Start" style={{ maxWidth: '100%' }}>
             <Box grow="Yes">{children}</Box>
             {receiptUserIds.length > 0 && (
               <Box
                 shrink="No"
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: 'pointer', marginTop: '2px' }}
                 onClick={() => setReadReceiptOpen(true)}
               >
                 <ReadReceiptAvatars room={room} userIds={receiptUserIds} />
