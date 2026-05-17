@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { isTauri } from '../utils/desktop-notifications';
+import { isMobile as isMobileTauri } from '../utils/platform';
 
 type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'installing' | 'error' | 'no-update';
 
@@ -25,6 +26,13 @@ export function useUpdateCheck(): UpdateCheckState {
 
   const checkForUpdate = useCallback(async () => {
     if (!isTauri()) return;
+    // Mobile (Android/iOS) handles updates natively — Android via
+    // `UpdateChecker.kt` from `MainActivity.onCreate`, which downloads
+    // the new APK through DownloadManager and prompts the user to
+    // install it. The desktop `tauri-plugin-updater` isn't compiled for
+    // mobile targets (see src-tauri/Cargo.toml), so calling
+    // `plugin:updater|check` on Android returns "not allowed by ACL".
+    if (await isMobileTauri()) return;
     setStatus('checking');
     setError(null);
     try {
