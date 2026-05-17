@@ -53,6 +53,7 @@ import { SidebarNav } from './client/SidebarNav';
 import { PageRoot } from '../components/page';
 import { ScreenSize } from '../hooks/useScreenSize';
 import { MobileFriendlyPageNav, MobileFriendlyClientNav } from './MobileFriendly';
+import { MobileSwipeOpen } from './MobileSwipeOpen';
 import { ClientInitStorageAtom } from './client/ClientInitStorageAtom';
 import { ClientNonUIFeatures } from './client/ClientNonUIFeatures';
 import { AuthRouteThemeManager, UnAuthRouteThemeManager } from './ThemeManager';
@@ -67,6 +68,7 @@ import { HomeCreateRoom } from './client/home/CreateRoom';
 import { Create } from './client/create';
 import { CreateSpaceModalRenderer } from '../features/create-space';
 import { SearchModalRenderer } from '../features/search';
+import { KeyboardShortcutsRenderer } from '../features/keyboard-shortcuts/KeyboardShortcuts';
 import { getFallbackSession } from '../state/sessions';
 import { CallStatusRenderer } from './CallStatusRenderer';
 import { CallEmbedProvider } from '../components/CallEmbedProvider';
@@ -139,6 +141,7 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
                         <CallStatusRenderer />
                       </CallEmbedProvider>
                       <SearchModalRenderer />
+                      <KeyboardShortcutsRenderer />
                       <UserRoomProfileRenderer />
                       <CreateRoomModalRenderer />
                       <CreateSpaceModalRenderer />
@@ -160,7 +163,9 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
             <PageRoot
               nav={
                 <MobileFriendlyPageNav path={HOME_PATH}>
-                  <Home />
+                  <MobileSwipeOpen>
+                    <Home />
+                  </MobileSwipeOpen>
                 </MobileFriendlyPageNav>
               }
             >
@@ -187,7 +192,9 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
             <PageRoot
               nav={
                 <MobileFriendlyPageNav path={DIRECT_PATH}>
-                  <Direct />
+                  <MobileSwipeOpen>
+                    <Direct />
+                  </MobileSwipeOpen>
                 </MobileFriendlyPageNav>
               }
             >
@@ -213,7 +220,9 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
               <PageRoot
                 nav={
                   <MobileFriendlyPageNav path={SPACE_PATH}>
-                    <Space />
+                    <MobileSwipeOpen>
+                      <Space />
+                    </MobileSwipeOpen>
                   </MobileFriendlyPageNav>
                 }
               >

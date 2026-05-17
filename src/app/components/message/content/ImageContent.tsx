@@ -129,17 +129,11 @@ export const ImageContent = as<'div', ImageContentProps>(
                   escapeDeactivates: stopPropagation,
                 }}
               >
-                <Modal
-                  className={ModalWide}
-                  size="500"
-                  onContextMenu={(evt: any) => evt.stopPropagation()}
-                >
-                  {renderViewer({
-                    src: srcState.data,
-                    alt: body,
-                    requestClose: () => setViewer(false),
-                  })}
-                </Modal>
+                {renderViewer({
+                  src: srcState.data,
+                  alt: body,
+                  requestClose: () => setViewer(false),
+                })}
               </FocusTrap>
             </OverlayCenter>
           </Overlay>

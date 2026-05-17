@@ -1,5 +1,6 @@
 import React, { useEffect, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Editor } from 'slate';
+import { ReactEditor } from 'slate-react';
 import { Avatar, Icon, Icons, MenuItem, Text } from 'folds';
 import { MatrixClient, Room, RoomMember } from 'matrix-js-sdk';
 
@@ -14,7 +15,6 @@ import {
 } from '../../../hooks/useAsyncSearch';
 import { onTabPress } from '../../../utils/keyboard';
 import { createMentionElement, moveCursor, replaceWithElement } from '../utils';
-import { useKeyDown } from '../../../hooks/useKeyDown';
 import { getMxIdLocalPart, getMxIdServer, isUserId } from '../../../utils/matrix';
 import { getMemberDisplayName, getMemberSearchStr } from '../../../utils/room';
 import { UserAvatar } from '../../user-avatar';
@@ -114,23 +114,42 @@ export function UserMentionAutocomplete({
     );
     replaceWithElement(editor, query.range, mentionEl);
     moveCursor(editor, true);
+    ReactEditor.focus(editor);
     requestClose();
   };
 
-  useKeyDown(window, (evt: KeyboardEvent) => {
-    onTabPress(evt, () => {
-      if (query.text === 'room') {
-        handleAutocomplete(roomAliasOrId, '@room');
-        return;
+  const handleAutocompleteFirst = () => {
+    if (query.text === 'room') {
+      handleAutocomplete(roomAliasOrId, '@room');
+      return;
+    }
+    if (autoCompleteMembers.length === 0) {
+      const userId = userIdFromQueryText(mx, query.text);
+      handleAutocomplete(userId, userId);
+      return;
+    }
+    const roomMember = autoCompleteMembers[0];
+    handleAutocomplete(roomMember.userId, roomMember.name);
+  };
+
+  useEffect(() => {
+    const handleTab = (evt: KeyboardEvent) => {
+      onTabPress(evt, () => handleAutocompleteFirst());
+    };
+    window.addEventListener('keydown', handleTab, true);
+    return () => window.removeEventListener('keydown', handleTab, true);
+  });
+
+  useEffect(() => {
+    const handleEnter = (evt: KeyboardEvent) => {
+      if (evt.key === 'Enter' && !evt.metaKey && !evt.ctrlKey) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        handleAutocompleteFirst();
       }
-      if (autoCompleteMembers.length === 0) {
-        const userId = userIdFromQueryText(mx, query.text);
-        handleAutocomplete(userId, userId);
-        return;
-      }
-      const roomMember = autoCompleteMembers[0];
-      handleAutocomplete(roomMember.userId, roomMember.name);
-    });
+    };
+    window.addEventListener('keydown', handleEnter, true);
+    return () => window.removeEventListener('keydown', handleEnter, true);
   });
 
   const getName = (member: RoomMember) =>
@@ -152,7 +171,7 @@ export function UserMentionAutocomplete({
           handleAutocomplete={handleAutocomplete}
         />
       ) : (
-        autoCompleteMembers.map((roomMember) => {
+        autoCompleteMembers.map((roomMember, index) => {
           const avatarMxcUrl = roomMember.getMxcAvatarUrl();
           const avatarUrl = avatarMxcUrl
             ? mx.mxcUrlToHttp(avatarMxcUrl, 32, 32, 'crop', undefined, false, useAuthentication)
@@ -162,6 +181,7 @@ export function UserMentionAutocomplete({
               key={roomMember.userId}
               as="button"
               radii="300"
+              aria-pressed={index === 0}
               onKeyDown={(evt: ReactKeyboardEvent<HTMLButtonElement>) =>
                 onTabPress(evt, () => handleAutocomplete(roomMember.userId, getName(roomMember)))
               }

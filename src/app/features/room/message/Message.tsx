@@ -28,6 +28,7 @@ import React, {
   MouseEventHandler,
   ReactNode,
   useCallback,
+  useEffect,
   useState,
 } from 'react';
 import FocusTrap from 'focus-trap-react';
@@ -58,6 +59,15 @@ import {
   isRoomAlias,
   mxcUrlToHttp,
 } from '../../../utils/matrix';
+import { markAsUnread } from '../../../utils/notifications';
+import {
+  clearHoveredMessageEventId,
+  setHoveredMessageEventId,
+} from '../../../state/hoveredMessage';
+import { useElementReadReceipts } from '../../../hooks/useElementReadReceipts';
+import { ReadReceiptAvatars } from '../../../components/read-receipt-avatars/ReadReceiptAvatars';
+import { useSetting } from '../../../state/hooks/settings';
+import { settingsAtom } from '../../../state/settings';
 import { MessageLayout, MessageSpacing } from '../../../state/settings';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { useRecentEmoji } from '../../../hooks/useRecentEmoji';
@@ -657,6 +667,7 @@ export type MessageProps = {
   mEvent: MatrixEvent;
   collapse: boolean;
   highlight: boolean;
+  repliedToMe?: boolean;
   edit?: boolean;
   canDelete?: boolean;
   canSendReaction?: boolean;
@@ -691,6 +702,7 @@ export const Message = as<'div', MessageProps>(
       mEvent,
       collapse,
       highlight,
+      repliedToMe,
       edit,
       canDelete,
       canSendReaction,
@@ -721,12 +733,28 @@ export const Message = as<'div', MessageProps>(
     const mx = useMatrixClient();
     const useAuthentication = useMediaAuthentication();
     const senderId = mEvent.getSender() ?? '';
+    const [readReceiptStyle] = useSetting(settingsAtom, 'readReceiptStyle');
+    const elementReceipts = useElementReadReceipts(
+      room,
+      readReceiptStyle === 'element' && !hideReadReceipts
+    );
+    const receiptUserIds = elementReceipts.get(mEvent.getId() ?? '') ?? [];
 
     const [hover, setHover] = useState(false);
     const { hoverProps } = useHover({ onHoverChange: setHover });
     const { focusWithinProps } = useFocusWithin({ onFocusWithinChange: setHover });
     const [menuAnchor, setMenuAnchor] = useState<RectCords>();
     const [emojiBoardAnchor, setEmojiBoardAnchor] = useState<RectCords>();
+
+    // Publish hover state to the module-level ref so keybinds bound at
+    // RoomTimeline scope (MessageKeybinds) can act on the message under
+    // the cursor without a context.
+    useEffect(() => {
+      const id = mEvent.getId();
+      if (!id) return undefined;
+      if (hover) setHoveredMessageEventId(id);
+      return () => clearHoveredMessageEventId(id);
+    }, [hover, mEvent]);
 
     const senderDisplayName =
       getMemberDisplayName(room, senderId) ?? getMxIdLocalPart(senderId) ?? senderId;
@@ -749,42 +777,39 @@ export const Message = as<'div', MessageProps>(
         alignItems="Baseline"
         grow="Yes"
       >
-        <Box alignItems="Center" gap="200">
-          <Username
-            as="button"
-            style={{ color: usernameColor }}
-            data-user-id={senderId}
-            onContextMenu={onUserClick}
-            onClick={onUsernameClick}
-          >
-            <Text
-              as="span"
-              size={messageLayout === MessageLayout.Bubble ? 'T300' : 'T400'}
-              truncate
+        <Box alignItems="Baseline" gap="200" grow="Yes">
+          <Box alignItems="Baseline" gap="100">
+            <Username
+              as="button"
+              style={{ color: usernameColor }}
+              data-user-id={senderId}
+              onContextMenu={onUserClick}
+              onClick={onUsernameClick}
             >
-              <UsernameBold>{senderDisplayName}</UsernameBold>
-            </Text>
-          </Username>
+              <Text
+                as="span"
+                size={messageLayout === MessageLayout.Bubble ? 'T300' : 'T400'}
+                truncate
+              >
+                <UsernameBold>{senderDisplayName}</UsernameBold>
+              </Text>
+            </Username>
+            <Time
+              ts={mEvent.getTs()}
+              compact={messageLayout === MessageLayout.Compact}
+              hour24Clock={hour24Clock}
+              dateFormatString={dateFormatString}
+            />
+          </Box>
           {tagIconSrc && <PowerIcon size="100" iconSrc={tagIconSrc} />}
         </Box>
-        <Box shrink="No" gap="100">
-          {messageLayout === MessageLayout.Modern && hover && (
-            <>
-              <Text as="span" size="T200" priority="300">
-                {senderId}
-              </Text>
-              <Text as="span" size="T200" priority="300">
-                |
-              </Text>
-            </>
-          )}
-          <Time
-            ts={mEvent.getTs()}
-            compact={messageLayout === MessageLayout.Compact}
-            hour24Clock={hour24Clock}
-            dateFormatString={dateFormatString}
-          />
-        </Box>
+        {messageLayout === MessageLayout.Modern && hover && (
+          <Box shrink="No">
+            <Text as="span" size="T200" priority="300">
+              @{getMxIdLocalPart(senderId)}
+            </Text>
+          </Box>
+        )}
       </Box>
     );
 
@@ -813,6 +838,8 @@ export const Message = as<'div', MessageProps>(
       </AvatarBase>
     );
 
+    const [readReceiptOpen, setReadReceiptOpen] = useState(false);
+
     const msgContentJSX = (
       <Box direction="Column" alignSelf="Start" style={{ maxWidth: '100%' }}>
         {reply}
@@ -829,9 +856,40 @@ export const Message = as<'div', MessageProps>(
             onCancel={() => onEditId()}
           />
         ) : (
-          children
+          <Box grow="Yes" gap="200" alignItems="Start" style={{ maxWidth: '100%' }}>
+            <Box grow="Yes">{children}</Box>
+            {receiptUserIds.length > 0 && (
+              <Box
+                shrink="No"
+                style={{ cursor: 'pointer', marginTop: '2px' }}
+                onClick={() => setReadReceiptOpen(true)}
+              >
+                <ReadReceiptAvatars room={room} userIds={receiptUserIds} />
+              </Box>
+            )}
+          </Box>
         )}
         {reactions}
+        <Overlay open={readReceiptOpen} backdrop={<OverlayBackdrop />}>
+          <OverlayCenter>
+            <FocusTrap
+              focusTrapOptions={{
+                initialFocus: false,
+                onDeactivate: () => setReadReceiptOpen(false),
+                clickOutsideDeactivates: true,
+                escapeDeactivates: stopPropagation,
+              }}
+            >
+              <Modal variant="Surface" size="300">
+                <EventReaders
+                  room={room}
+                  eventId={mEvent.getId() ?? ''}
+                  requestClose={() => setReadReceiptOpen(false)}
+                />
+              </Modal>
+            </FocusTrap>
+          </OverlayCenter>
+        </Overlay>
       </Box>
     );
 
@@ -878,6 +936,7 @@ export const Message = as<'div', MessageProps>(
       <MessageBase
         className={classNames(css.MessageBase, className, {
           [css.MessageBaseBubbleCollapsed]: messageLayout === MessageLayout.Bubble && collapse,
+          [css.MessageReplyHighlight]: repliedToMe,
         })}
         tabIndex={0}
         space={messageSpacing}
@@ -1085,6 +1144,24 @@ export const Message = as<'div', MessageProps>(
                             />
                           )}
                           <MessageCopyLinkItem room={room} mEvent={mEvent} onClose={closeMenu} />
+                          <MenuItem
+                            size="300"
+                            after={<Icon size="100" src={Icons.MessageUnread} />}
+                            radii="300"
+                            onClick={() => {
+                              markAsUnread(mx, room.roomId, mEvent.getId()!);
+                              closeMenu();
+                            }}
+                          >
+                            <Text
+                              className={css.MessageMenuItemText}
+                              as="span"
+                              size="T300"
+                              truncate
+                            >
+                              Mark Unread
+                            </Text>
+                          </MenuItem>
                           {canPinEvent && (
                             <MessagePinItem room={room} mEvent={mEvent} onClose={closeMenu} />
                           )}

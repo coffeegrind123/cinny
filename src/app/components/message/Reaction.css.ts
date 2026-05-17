@@ -19,7 +19,6 @@ export const Reaction = style([
     },
     padding: `${toRem(2)} ${config.space.S200} ${toRem(2)} ${config.space.S100}`,
     backgroundColor: Container,
-    border: `${config.borderWidth.B300} solid ${ContainerLine}`,
     borderRadius: config.radii.R300,
 
     selectors: {

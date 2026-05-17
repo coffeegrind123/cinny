@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Button, Icon, Icons, Text, config, toRem } from 'folds';
 import { Page, PageHero, PageHeroSection } from '../../components/page';
 import CinnySVG from '../../../../public/res/svg/cinny.svg';
+import { version } from '../../../../../package.json';
 
 export function WelcomePage() {
   return (
@@ -14,17 +15,17 @@ export function WelcomePage() {
       >
         <PageHeroSection>
           <PageHero
-            icon={<img width="70" height="70" src={CinnySVG} alt="Cinny Logo" />}
-            title="Welcome to Cinny"
+            icon={<img width="70" height="70" src={CinnySVG} alt="Prinny Logo" />}
+            title="Welcome to Prinny Client"
             subTitle={
               <span>
-                Yet another matrix client.{' '}
+                A Matrix chat client that actually feels native.{' '}
                 <a
-                  href="https://github.com/cinnyapp/cinny/releases"
+                  href="https://github.com/coffeegrind123/prinny-client/releases"
                   target="_blank"
                   rel="noreferrer noopener"
                 >
-                  v4.11.1
+                  v{version}
                 </a>
               </span>
             }

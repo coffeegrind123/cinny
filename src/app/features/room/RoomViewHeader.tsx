@@ -21,6 +21,7 @@ import {
   RectCords,
   Badge,
   Spinner,
+  Button,
 } from 'folds';
 import { useNavigate } from 'react-router-dom';
 import { Room } from 'matrix-js-sdk';
@@ -68,6 +69,9 @@ import { useRoomPermissions } from '../../hooks/useRoomPermissions';
 import { InviteUserPrompt } from '../../components/invite-user-prompt';
 import { ContainerColor } from '../../styles/ContainerColor.css';
 import { RoomSettingsPage } from '../../state/roomSettings';
+import { useCallEmbed, useCallStart } from '../../hooks/useCallEmbed';
+import { useLivekitSupport } from '../../hooks/useLivekitSupport';
+import { webRTCSupported } from '../../utils/rtc';
 
 type RoomMenuProps = {
   room: Room;
@@ -253,6 +257,141 @@ const RoomMenu = forwardRef<HTMLDivElement, RoomMenuProps>(({ room, requestClose
   );
 });
 
+type CallMenuProps = {
+  onVoiceCall: () => void;
+  onVideoCall: () => void;
+  requestClose: () => void;
+};
+const CallMenu = forwardRef<HTMLDivElement, CallMenuProps>(
+  ({ requestClose, onVoiceCall, onVideoCall }, ref) => {
+    const handleVoice = () => {
+      onVoiceCall();
+      requestClose();
+    };
+    const handleVideo = () => {
+      onVideoCall();
+      requestClose();
+    };
+
+    return (
+      <Menu ref={ref} style={{ padding: config.space.S200, minWidth: toRem(150) }}>
+        <Box direction="Column" gap="200">
+          <Text size="L400">Start Call</Text>
+          <Box direction="Column" gap="200">
+            <Button
+              size="300"
+              variant="Success"
+              fill="Soft"
+              outlined
+              radii="300"
+              before={<Icon size="100" src={Icons.Phone} filled />}
+              onClick={handleVoice}
+            >
+              <Text size="B300">Voice</Text>
+            </Button>
+            <Button
+              size="300"
+              variant="Success"
+              radii="300"
+              before={<Icon size="100" src={Icons.VideoCamera} filled />}
+              onClick={handleVideo}
+            >
+              <Text size="B300">Video</Text>
+            </Button>
+          </Box>
+        </Box>
+      </Menu>
+    );
+  }
+);
+
+function CallButton({
+  livekitSupported,
+  hasCallPermission,
+}: {
+  livekitSupported: boolean;
+  hasCallPermission: boolean;
+}) {
+  const room = useRoom();
+  const direct = useIsDirectRoom();
+
+  const callEmbed = useCallEmbed();
+  const startCall = useCallStart(direct);
+  const callStarted = callEmbed && callEmbed.roomId === room.roomId;
+  const inAnotherCall = callEmbed && !callStarted;
+
+  const callBlocked = !livekitSupported || !hasCallPermission;
+  const disabled = !!(inAnotherCall || callStarted || callBlocked);
+
+  const blockerTooltip = () => {
+    if (inAnotherCall)
+      return 'Already in another call — End the current call to join!';
+    if (!livekitSupported)
+      return 'Your homeserver does not advertise a LiveKit/MatrixRTC focus, so calls cannot be started.';
+    if (!hasCallPermission) return 'You do not have permission to start a call in this room.';
+    return null;
+  };
+  const blocker = blockerTooltip();
+
+  const startVoice = () => {
+    if (disabled) return;
+    startCall(room, { microphone: true, video: false, sound: true });
+  };
+  const startVideo = () => {
+    if (disabled) return;
+    startCall(room, { microphone: true, video: true, sound: true });
+  };
+
+  return (
+    <>
+      <TooltipProvider
+        position="Bottom"
+        offset={4}
+        tooltip={
+          <Tooltip>
+            <Text size="L400">{blocker ?? 'Start voice call'}</Text>
+          </Tooltip>
+        }
+      >
+        {(triggerRef) => (
+          <IconButton
+            variant="Surface"
+            fill="None"
+            ref={triggerRef}
+            onClick={startVoice}
+            disabled={disabled}
+            aria-label="Start voice call"
+          >
+            <Icon size="400" src={Icons.Phone} />
+          </IconButton>
+        )}
+      </TooltipProvider>
+      <TooltipProvider
+        position="Bottom"
+        offset={4}
+        tooltip={
+          <Tooltip>
+            <Text size="L400">{blocker ?? 'Start video call'}</Text>
+          </Tooltip>
+        }
+      >
+        {(triggerRef) => (
+          <IconButton
+            variant="Surface"
+            fill="None"
+            ref={triggerRef}
+            onClick={startVideo}
+            disabled={disabled}
+            aria-label="Start video call"
+          >
+            <Icon size="400" src={Icons.VideoCamera} />
+          </IconButton>
+        )}
+      </TooltipProvider>
+    </>
+  );
+}
+
 export function RoomViewHeader({ callView }: { callView?: boolean }) {
   const navigate = useNavigate();
   const mx = useMatrixClient();
@@ -260,6 +399,17 @@ export function RoomViewHeader({ callView }: { callView?: boolean }) {
   const screenSize = useScreenSizeContext();
   const room = useRoom();
   const space = useSpaceOptionally();
+  const powerLevels = usePowerLevelsContext();
+  const creators = useRoomCreators(room);
+  const permissions = useRoomPermissions(creators, powerLevels);
+
+  const hasCallPermission = permissions.stateEvent(
+    StateEvent.GroupCallMemberPrefix,
+    mx.getSafeUserId()
+  );
+  const livekitSupported = useLivekitSupport();
+  const rtcSupported = webRTCSupported();
+
   const [menuAnchor, setMenuAnchor] = useState<RectCords>();
   const [pinMenuAnchor, setPinMenuAnchor] = useState<RectCords>();
   const direct = useIsDirectRoom();
@@ -453,7 +603,12 @@ export function RoomViewHeader({ callView }: { callView?: boolean }) {
               </FocusTrap>
             }
           />
-
+          {!room.isCallRoom() && rtcSupported && (
+            <CallButton
+              livekitSupported={livekitSupported}
+              hasCallPermission={hasCallPermission}
+            />
+          )}
           {screenSize === ScreenSize.Desktop && (
             <TooltipProvider
               position="Bottom"

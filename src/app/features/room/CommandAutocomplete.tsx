@@ -70,6 +70,14 @@ export function CommandAutocomplete({
     });
   });
 
+  useKeyDown(window, (evt: KeyboardEvent) => {
+    if (evt.key === 'Enter' && autoCompleteNames.length > 0) {
+      evt.preventDefault();
+      evt.stopPropagation();
+      handleAutocomplete(autoCompleteNames[0]);
+    }
+  });
+
   return autoCompleteNames.length === 0 ? null : (
     <AutocompleteMenu
       headerContent={

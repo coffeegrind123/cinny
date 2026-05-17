@@ -44,7 +44,6 @@ export const BlockQuote = style([
 const BaseCode = style({
   color: color.SurfaceVariant.OnContainer,
   background: color.SurfaceVariant.Container,
-  border: `${config.borderWidth.B300} solid ${color.SurfaceVariant.ContainerLine}`,
   borderRadius: config.radii.R300,
 });
 const CodeFont = style({
@@ -56,7 +55,7 @@ export const Code = style([
   BaseCode,
   CodeFont,
   {
-    padding: `0 ${config.space.S100}`,
+    padding: `2px ${config.space.S100}`,
   },
 ]);
 
@@ -120,12 +119,23 @@ export const CodeBlockBottomShadow = style({
   background: `linear-gradient(to top, #00000022, #00000000)`,
 });
 
+const BaseList = style({});
 export const List = style([
+  BaseList,
   DefaultReset,
   MarginSpaced,
   {
     padding: `0 ${config.space.S100}`,
     paddingLeft: config.space.S600,
+    selectors: {
+      '& &': {
+        marginTop: config.space.S200,
+        marginBottom: config.space.S200,
+      },
+      'li:last-child &': {
+        marginBottom: 0,
+      },
+    },
   },
 ]);
 

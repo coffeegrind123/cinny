@@ -1,6 +1,7 @@
 /* eslint-disable no-param-reassign */
 import React, {
   ClipboardEventHandler,
+  DragEventHandler,
   KeyboardEventHandler,
   ReactNode,
   forwardRef,
@@ -71,6 +72,7 @@ type CustomEditorProps = {
   onKeyUp?: KeyboardEventHandler;
   onChange?: EditorChangeHandler;
   onPaste?: ClipboardEventHandler;
+  onDrop?: DragEventHandler;
 };
 export const CustomEditor = forwardRef<HTMLDivElement, CustomEditorProps>(
   (
@@ -87,6 +89,7 @@ export const CustomEditor = forwardRef<HTMLDivElement, CustomEditorProps>(
       onKeyUp,
       onChange,
       onPaste,
+      onDrop,
     },
     ref
   ) => {
@@ -146,6 +149,7 @@ export const CustomEditor = forwardRef<HTMLDivElement, CustomEditorProps>(
                 onKeyDown={handleKeydown}
                 onKeyUp={onKeyUp}
                 onPaste={onPaste}
+                onDrop={onDrop}
               />
             </Scroll>
             {after && (

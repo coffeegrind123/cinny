@@ -29,6 +29,7 @@ import { CallEmbed, useCallControlState } from '../../plugins/call';
 import { useResizeObserver } from '../../hooks/useResizeObserver';
 import { stopPropagation } from '../../utils/keyboard';
 import { AsyncStatus, useAsyncCallback } from '../../hooks/useAsyncCallback';
+import { useKeybind } from '../../hooks/useKeybind';
 
 type CallControlsProps = {
   callEmbed: CallEmbed;
@@ -76,6 +77,25 @@ export function CallControls({ callEmbed }: CallControlsProps) {
   );
   const exiting =
     hangupState.status === AsyncStatus.Loading || hangupState.status === AsyncStatus.Success;
+
+  // Call keybinds — only active while this component is mounted, which is
+  // the same lifetime as the active CallEmbed. So these never fire when
+  // there's no call.
+  useKeybind('call-toggle-microphone', () => {
+    callEmbed.control.toggleMicrophone();
+  });
+  useKeybind('call-toggle-video', () => {
+    callEmbed.control.toggleVideo();
+  });
+  useKeybind('call-toggle-screenshare', () => {
+    callEmbed.control.toggleScreenshare();
+  });
+  useKeybind('call-toggle-sound', () => {
+    callEmbed.control.toggleSound();
+  });
+  useKeybind('call-hangup', () => {
+    if (!exiting) hangup();
+  });
 
   return (
     <Box

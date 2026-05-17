@@ -1,5 +1,6 @@
 import React, { KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect } from 'react';
 import { Editor } from 'slate';
+import { ReactEditor } from 'slate-react';
 import { Avatar, Icon, Icons, MenuItem, Text } from 'folds';
 import { JoinRule, MatrixClient } from 'matrix-js-sdk';
 import { useAtomValue } from 'jotai';
@@ -12,7 +13,6 @@ import { AutocompleteMenu } from './AutocompleteMenu';
 import { getMxIdServer, isRoomAlias } from '../../../utils/matrix';
 import { UseAsyncSearchOptions, useAsyncSearch } from '../../../hooks/useAsyncSearch';
 import { onTabPress } from '../../../utils/keyboard';
-import { useKeyDown } from '../../../hooks/useKeyDown';
 import { mDirectAtom } from '../../../state/mDirectList';
 import { allRoomsAtom } from '../../../state/room-list/roomList';
 import { factoryRoomIdByActivity } from '../../../utils/sort';
@@ -115,21 +115,40 @@ export function RoomMentionAutocomplete({
     );
     replaceWithElement(editor, query.range, mentionEl);
     moveCursor(editor, true);
+    ReactEditor.focus(editor);
     requestClose();
   };
 
-  useKeyDown(window, (evt: KeyboardEvent) => {
-    onTabPress(evt, () => {
-      if (autoCompleteRoomIds.length === 0) {
-        const alias = roomAliasFromQueryText(mx, query.text);
-        handleAutocomplete(alias, alias);
-        return;
+  const handleAutocompleteFirst = () => {
+    if (autoCompleteRoomIds.length === 0) {
+      const alias = roomAliasFromQueryText(mx, query.text);
+      handleAutocomplete(alias, alias);
+      return;
+    }
+    const rId = autoCompleteRoomIds[0];
+    const r = mx.getRoom(rId);
+    const name = r?.name ?? rId;
+    handleAutocomplete(r?.getCanonicalAlias() ?? rId, name);
+  };
+
+  useEffect(() => {
+    const handleTab = (evt: KeyboardEvent) => {
+      onTabPress(evt, () => handleAutocompleteFirst());
+    };
+    window.addEventListener('keydown', handleTab, true);
+    return () => window.removeEventListener('keydown', handleTab, true);
+  });
+
+  useEffect(() => {
+    const handleEnter = (evt: KeyboardEvent) => {
+      if (evt.key === 'Enter' && !evt.metaKey && !evt.ctrlKey) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        handleAutocompleteFirst();
       }
-      const rId = autoCompleteRoomIds[0];
-      const r = mx.getRoom(rId);
-      const name = r?.name ?? rId;
-      handleAutocomplete(r?.getCanonicalAlias() ?? rId, name);
-    });
+    };
+    window.addEventListener('keydown', handleEnter, true);
+    return () => window.removeEventListener('keydown', handleEnter, true);
   });
 
   return (
@@ -137,7 +156,7 @@ export function RoomMentionAutocomplete({
       {autoCompleteRoomIds.length === 0 ? (
         <UnknownRoomMentionItem query={query} handleAutocomplete={handleAutocomplete} />
       ) : (
-        autoCompleteRoomIds.map((rId) => {
+        autoCompleteRoomIds.map((rId, index) => {
           const room = mx.getRoom(rId);
           if (!room) return null;
           const dm = mDirects.has(room.roomId);
@@ -149,6 +168,7 @@ export function RoomMentionAutocomplete({
               key={rId}
               as="button"
               radii="300"
+              aria-pressed={index === 0}
               onKeyDown={(evt: ReactKeyboardEvent<HTMLButtonElement>) =>
                 onTabPress(evt, handleSelect)
               }

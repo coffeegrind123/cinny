@@ -53,6 +53,8 @@ import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { useVirtualPaginator, ItemRange } from '../../hooks/useVirtualPaginator';
 import { useAlive } from '../../hooks/useAlive';
 import { editableActiveElement, scrollToBottom } from '../../utils/dom';
+import { setActiveTimelineScrollContainer } from '../../components/global-keybinds/GlobalKeybinds';
+import { MessageKeybinds } from './MessageKeybinds';
 import {
   DefaultPlaceholder,
   CompactPlaceholder,
@@ -504,6 +506,15 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
     smooth: true,
   });
 
+  // Expose the active timeline's scroll container to the global keybind
+  // layer so PageUp/PageDown/etc. can scroll the current room without
+  // plumbing a context down the tree. Unregister on unmount so a stale
+  // detached node never receives scroll commands.
+  useEffect(() => {
+    setActiveTimelineScrollContainer(scrollRef.current);
+    return () => setActiveTimelineScrollContainer(null);
+  }, []);
+
   const [focusItem, setFocusItem] = useState<
     | {
         index: number;
@@ -539,6 +550,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
     eventId ? getEmptyTimeline() : getInitialTimeline(room)
   );
   const eventsLength = getTimelinesEventsCount(timeline.linkedTimelines);
+
   const liveTimelineLinked =
     timeline.linkedTimelines[timeline.linkedTimelines.length - 1] === getLiveTimeline(room);
   const canPaginateBack =
@@ -1048,6 +1060,12 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
             messageLayout={messageLayout}
             collapse={collapse}
             highlight={highlighted}
+            repliedToMe={
+              !!replyEventId &&
+              timelineSet
+                .findEventById(replyEventId)
+                ?.getSender() === mx.getUserId()
+            }
             edit={editId === mEventId}
             canDelete={canRedact || (canDeleteOwn && mEvent.getSender() === mx.getUserId())}
             canSendReaction={canSendReaction}
@@ -1130,6 +1148,12 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
             messageLayout={messageLayout}
             collapse={collapse}
             highlight={highlighted}
+            repliedToMe={
+              !!replyEventId &&
+              timelineSet
+                .findEventById(replyEventId)
+                ?.getSender() === mx.getUserId()
+            }
             edit={editId === mEventId}
             canDelete={canRedact || (canDeleteOwn && mEvent.getSender() === mx.getUserId())}
             canSendReaction={canSendReaction}
@@ -1674,11 +1698,12 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
     const newDividerJSX =
       newDivider && eventJSX && eventSender !== mx.getUserId() ? (
         <MessageBase space={messageSpacing}>
-          <TimelineDivider style={{ color: color.Success.Main }} variant="Inherit">
-            <Badge as="span" size="500" variant="Success" fill="Solid" radii="300">
-              <Text size="L400">New Messages</Text>
+          <Box gap="100" justifyContent="End" alignItems="Center">
+            <Line style={{ flexGrow: 1 }} variant="Success" size="300" />
+            <Badge as="span" size="400" variant="Success" fill="Solid" radii="200">
+              <Text size="L400">NEW</Text>
             </Badge>
-          </TimelineDivider>
+          </Box>
         </MessageBase>
       ) : null;
 
@@ -1740,6 +1765,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
           </Chip>
         </TimelineFloat>
       )}
+      <MessageKeybinds room={room} onSetEditId={setEditId} />
       <Scroll ref={scrollRef} visibility="Hover">
         <Box
           direction="Column"

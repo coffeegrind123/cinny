@@ -1,5 +1,6 @@
 import React, { KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo } from 'react';
 import { Editor } from 'slate';
+import { ReactEditor } from 'slate-react';
 import { Box, MenuItem, Text, toRem } from 'folds';
 import { Room } from 'matrix-js-sdk';
 
@@ -12,7 +13,6 @@ import { createEmoticonElement, moveCursor, replaceWithElement } from '../utils'
 import { useRecentEmoji } from '../../../hooks/useRecentEmoji';
 import { useRelevantImagePacks } from '../../../hooks/useImagePacks';
 import { IEmoji, emojis } from '../../../plugins/emoji';
-import { useKeyDown } from '../../../hooks/useKeyDown';
 import { mxcUrlToHttp } from '../../../utils/matrix';
 import { useMediaAuthentication } from '../../../hooks/useMediaAuthentication';
 import { ImageUsage, PackImageReader } from '../../../plugins/custom-emoji';
@@ -71,21 +71,42 @@ export function EmoticonAutocomplete({
     const emoticonEl = createEmoticonElement(key, shortcode);
     replaceWithElement(editor, query.range, emoticonEl);
     moveCursor(editor, true);
+    ReactEditor.focus(editor);
     requestClose();
   };
 
-  useKeyDown(window, (evt: KeyboardEvent) => {
-    onTabPress(evt, () => {
-      if (autoCompleteEmoticon.length === 0) return;
-      const emoticon = autoCompleteEmoticon[0];
-      const key = 'url' in emoticon ? emoticon.url : emoticon.unicode;
-      handleAutocomplete(key, emoticon.shortcode);
-    });
+  // Capture phase — fires before the editor's keydown so we can stopPropagation
+  // and prevent the editor from ever seeing Enter/Tab when autocomplete is open.
+  useEffect(() => {
+    const handleTab = (evt: KeyboardEvent) => {
+      onTabPress(evt, () => {
+        if (autoCompleteEmoticon.length === 0) return;
+        const emoticon = autoCompleteEmoticon[0];
+        const key = 'url' in emoticon ? emoticon.url : emoticon.unicode;
+        handleAutocomplete(key, emoticon.shortcode);
+      });
+    };
+    window.addEventListener('keydown', handleTab, true);
+    return () => window.removeEventListener('keydown', handleTab, true);
+  });
+
+  useEffect(() => {
+    const handleEnter = (evt: KeyboardEvent) => {
+      if (evt.key === 'Enter' && !evt.metaKey && !evt.ctrlKey && autoCompleteEmoticon.length > 0) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        const emoticon = autoCompleteEmoticon[0];
+        const key = 'url' in emoticon ? emoticon.url : emoticon.unicode;
+        handleAutocomplete(key, emoticon.shortcode);
+      }
+    };
+    window.addEventListener('keydown', handleEnter, true);
+    return () => window.removeEventListener('keydown', handleEnter, true);
   });
 
   return autoCompleteEmoticon.length === 0 ? null : (
     <AutocompleteMenu headerContent={<Text size="L400">Emojis</Text>} requestClose={requestClose}>
-      {autoCompleteEmoticon.map((emoticon) => {
+      {autoCompleteEmoticon.map((emoticon, index) => {
         const isCustomEmoji = 'url' in emoticon;
         const key = isCustomEmoji ? emoticon.url : emoticon.unicode;
         const customEmojiUrl = mxcUrlToHttp(mx, key, useAuthentication);
@@ -95,6 +116,7 @@ export function EmoticonAutocomplete({
             key={emoticon.shortcode + key}
             as="button"
             radii="300"
+            aria-pressed={index === 0}
             onKeyDown={(evt: ReactKeyboardEvent<HTMLButtonElement>) =>
               onTabPress(evt, () => handleAutocomplete(key, emoticon.shortcode))
             }

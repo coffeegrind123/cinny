@@ -23,6 +23,8 @@ import { useRoomLatestRenderedEvent } from '../../hooks/useRoomLatestRenderedEve
 import { useRoomEventReaders } from '../../hooks/useRoomEventReaders';
 import { EventReaders } from '../../components/event-readers';
 import { stopPropagation } from '../../utils/keyboard';
+import { useSetting } from '../../state/hooks/settings';
+import { settingsAtom } from '../../state/settings';
 
 export function RoomViewFollowingPlaceholder() {
   return <div className={css.RoomViewFollowingPlaceholder} />;
@@ -34,6 +36,7 @@ export type RoomViewFollowingProps = {
 export const RoomViewFollowing = as<'div', RoomViewFollowingProps>(
   ({ className, room, ...props }, ref) => {
     const mx = useMatrixClient();
+    const [readReceiptStyle] = useSetting(settingsAtom, 'readReceiptStyle');
     const [open, setOpen] = useState(false);
     const latestEvent = useRoomLatestRenderedEvent(room);
     const latestEventReaders = useRoomEventReaders(room, latestEvent?.getId());
@@ -44,6 +47,8 @@ export const RoomViewFollowing = as<'div', RoomViewFollowingProps>(
       );
 
     const eventId = latestEvent?.getId();
+
+    if (readReceiptStyle === 'element') return <RoomViewFollowingPlaceholder />;
 
     return (
       <>

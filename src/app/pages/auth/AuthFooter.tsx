@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'folds';
 import * as css from './styles.css';
+import { version } from '../../../../../package.json';
 
 export function AuthFooter() {
   return (
@@ -11,16 +12,13 @@ export function AuthFooter() {
       <Text
         as="a"
         size="T300"
-        href="https://github.com/ajbura/cinny/releases"
+        href="https://github.com/coffeegrind123/prinny-client/releases"
         target="_blank"
         rel="noreferrer"
       >
-        v4.11.1
+        v{version}
       </Text>
-      <Text as="a" size="T300" href="https://twitter.com/cinnyapp" target="_blank" rel="noreferrer">
-        Twitter
-      </Text>
-      <Text as="a" size="T300" href="https://matrix.org" target="_blank" rel="noreferrer">
+<Text as="a" size="T300" href="https://matrix.org" target="_blank" rel="noreferrer">
         Powered by Matrix
       </Text>
     </Box>

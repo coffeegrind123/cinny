@@ -46,6 +46,7 @@ export const AuthCardContent = style({
   paddingTop: config.space.S700,
   paddingBottom: toRem(44),
   gap: toRem(44),
+  minHeight: toRem(360),
 });
 
 export const AuthFooter = style({

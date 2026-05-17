@@ -8,6 +8,10 @@ export type RenderViewerProps = {
   src: string;
   alt: string;
   requestClose: () => void;
+  // When set, the "open in browser" button opens this URL instead of `src`.
+  // Used by embed previews so opening the gallery image opens the source
+  // tweet/post/page instead of the raw pbs.twimg.com / blob: media URL.
+  externalUrl?: string;
 };
 
 type ImageOverlayProps = RenderViewerProps & {
@@ -16,7 +20,7 @@ type ImageOverlayProps = RenderViewerProps & {
 };
 
 export const ImageOverlay = as<'div', ImageOverlayProps>(
-  ({ src, alt, viewer, requestClose, renderViewer, ...props }, ref) => (
+  ({ src, alt, viewer, requestClose, renderViewer, externalUrl, ...props }, ref) => (
     <Overlay {...props} ref={ref} open={viewer} backdrop={<OverlayBackdrop />}>
       <OverlayCenter>
         <FocusTrap
@@ -36,6 +40,7 @@ export const ImageOverlay = as<'div', ImageOverlayProps>(
               src,
               alt,
               requestClose,
+              externalUrl,
             })}
           </Modal>
         </FocusTrap>

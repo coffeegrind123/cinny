@@ -36,6 +36,7 @@ import { DateFormat, MessageLayout, MessageSpacing, settingsAtom } from '../../.
 import { SettingTile } from '../../../components/setting-tile';
 import { KeySymbol } from '../../../utils/key-symbol';
 import { isMacOS } from '../../../utils/user-agent';
+import { isTauri } from '../../../utils/desktop-notifications';
 import {
   DarkTheme,
   LightTheme,
@@ -711,6 +712,11 @@ function Editor() {
   const [enterForNewline, setEnterForNewline] = useSetting(settingsAtom, 'enterForNewline');
   const [isMarkdown, setIsMarkdown] = useSetting(settingsAtom, 'isMarkdown');
   const [hideActivity, setHideActivity] = useSetting(settingsAtom, 'hideActivity');
+  const [readReceiptStyle, setReadReceiptStyle] = useSetting(settingsAtom, 'readReceiptStyle');
+  const [useVxTwitter, setUseVxTwitter] = useSetting(settingsAtom, 'useVxTwitter');
+  const [useSoundcloak, setUseSoundcloak] = useSetting(settingsAtom, 'useSoundcloak');
+  const [usePiped, setUsePiped] = useSetting(settingsAtom, 'usePiped');
+  const [minimizeToTray, setMinimizeToTray] = useSetting(settingsAtom, 'minimizeToTray');
 
   return (
     <Box direction="Column" gap="100">
@@ -737,6 +743,64 @@ function Editor() {
           after={<Switch variant="Primary" value={hideActivity} onChange={setHideActivity} />}
         />
       </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Read Receipt Style"
+          description="Default shows who's following live. Element shows avatar dots at each person's last-read message."
+          after={
+            <Box gap="100">
+              <Button
+                size="300"
+                variant={readReceiptStyle === 'cinny' ? 'Primary' : 'SurfaceVariant'}
+                fill={readReceiptStyle === 'cinny' ? 'Solid' : 'None'}
+                radii="Pill"
+                onClick={() => setReadReceiptStyle('cinny')}
+              >
+                <Text size="T300">Default</Text>
+              </Button>
+              <Button
+                size="300"
+                variant={readReceiptStyle === 'element' ? 'Primary' : 'SurfaceVariant'}
+                fill={readReceiptStyle === 'element' ? 'Solid' : 'None'}
+                radii="Pill"
+                onClick={() => setReadReceiptStyle('element')}
+              >
+                <Text size="T300">Element</Text>
+              </Button>
+            </Box>
+          }
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Use vxtwitter for Twitter/X"
+          description="Fetch Twitter/X media client-side via vxtwitter API for full video and image embeds."
+          after={<Switch variant="Primary" value={useVxTwitter} onChange={setUseVxTwitter} />}
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Use soundcloak for SoundCloud"
+          description="Rewrite SoundCloud URLs through sc1.maid.zone for streamable embeds."
+          after={<Switch variant="Primary" value={useSoundcloak} onChange={setUseSoundcloak} />}
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Use Piped for YouTube"
+          description="Replace YouTube embeds with piped.video for privacy-friendly playback."
+          after={<Switch variant="Primary" value={usePiped} onChange={setUsePiped} />}
+        />
+      </SequenceCard>
+      {isTauri() && (
+        <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+          <SettingTile
+            title="Minimize to Tray"
+            description="When closing the window, hide to system tray instead of quitting."
+            after={<Switch variant="Primary" value={minimizeToTray} onChange={setMinimizeToTray} />}
+          />
+        </SequenceCard>
+      )}
     </Box>
   );
 }

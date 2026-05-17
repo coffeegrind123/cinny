@@ -4,6 +4,12 @@ import { DefaultReset, config, toRem } from 'folds';
 export const MessageBase = style({
   position: 'relative',
 });
+
+export const MessageReplyHighlight = style({
+  background: 'hsla(39, 100%, 46%, 0.08)',
+  borderLeft: '2px solid hsl(39, 100%, 46%)',
+});
+
 export const MessageBaseBubbleCollapsed = style({
   paddingTop: 0,
 });

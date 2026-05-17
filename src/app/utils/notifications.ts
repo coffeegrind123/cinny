@@ -24,3 +24,24 @@ export async function markAsRead(mx: MatrixClient, roomId: string, privateReceip
     privateReceipt ? ReceiptType.ReadPrivate : ReceiptType.Read
   );
 }
+
+export async function markAsUnread(mx: MatrixClient, roomId: string, eventId: string) {
+  const room = mx.getRoom(roomId);
+  if (!room) return;
+
+  const timeline = room.getLiveTimeline().getEvents();
+
+  let targetIndex = -1;
+  for (let i = 0; i < timeline.length; i++) {
+    if (timeline[i].getId() === eventId) {
+      targetIndex = i;
+      break;
+    }
+  }
+  if (targetIndex <= 0) return;
+
+  const previousEvent = timeline[targetIndex - 1];
+  if (!previousEvent || previousEvent.isSending()) return;
+
+  await mx.sendReadReceipt(previousEvent, ReceiptType.Read);
+}

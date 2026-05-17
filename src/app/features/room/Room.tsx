@@ -18,11 +18,18 @@ import { CallView } from '../call/CallView';
 import { RoomViewHeader } from './RoomViewHeader';
 import { callChatAtom } from '../../state/callEmbed';
 import { CallChatView } from './CallChatView';
+import { MobileSwipeBack } from './MobileSwipeBack';
+import { useCallEmbed } from '../../hooks/useCallEmbed';
+import { useCallMembers, useCallSession } from '../../hooks/useCall';
 
 export function Room() {
   const { eventId } = useParams();
   const room = useRoom();
   const mx = useMatrixClient();
+
+  const callSession = useCallSession(room);
+  const callMembers = useCallMembers(room, callSession);
+  const callEmbed = useCallEmbed();
 
   const [isDrawer] = useSetting(settingsAtom, 'isPeopleDrawer');
   const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
@@ -43,11 +50,12 @@ export function Room() {
     )
   );
 
-  const callView = room.isCallRoom();
+  const callView = callEmbed?.roomId === room.roomId || room.isCallRoom() || callMembers.length > 0;
 
   return (
     <PowerLevelsContextProvider value={powerLevels}>
-      <Box grow="Yes">
+      <MobileSwipeBack>
+        <Box grow="Yes">
         {callView && (screenSize === ScreenSize.Desktop || !chat) && (
           <Box grow="Yes" direction="Column">
             <RoomViewHeader callView />
@@ -80,6 +88,7 @@ export function Room() {
           </>
         )}
       </Box>
+      </MobileSwipeBack>
     </PowerLevelsContextProvider>
   );
 }

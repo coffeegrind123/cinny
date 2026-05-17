@@ -7,6 +7,7 @@ import { SettingTile } from '../../../components/setting-tile';
 import CinnySVG from '../../../../../public/res/svg/cinny.svg';
 import { clearCacheAndReload } from '../../../../client/initMatrix';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
+import { version } from '../../../../../package.json';
 
 type AboutProps = {
   requestClose: () => void;
@@ -37,24 +38,24 @@ export function About({ requestClose }: AboutProps) {
               <Box gap="400">
                 <Box shrink="No">
                   <img
-                    style={{ width: toRem(60), height: toRem(60) }}
+                    style={{ width: toRem(96), height: toRem(96) }}
                     src={CinnySVG}
-                    alt="Cinny logo"
+                    alt="Prinny Client logo"
                   />
                 </Box>
                 <Box direction="Column" gap="300">
                   <Box direction="Column" gap="100">
                     <Box gap="100" alignItems="End">
-                      <Text size="H3">Cinny</Text>
-                      <Text size="T200">v4.11.1</Text>
+                      <Text size="H3">Prinny Client</Text>
+                      <Text size="T200">v{version}</Text>
                     </Box>
-                    <Text>Yet another matrix client.</Text>
+                    <Text>A Matrix chat client that actually feels native.</Text>
                   </Box>
 
                   <Box gap="200" wrap="Wrap">
                     <Button
                       as="a"
-                      href="https://github.com/cinnyapp/cinny"
+                      href="https://github.com/coffeegrind123/prinny-client"
                       rel="noreferrer noopener"
                       target="_blank"
                       variant="Secondary"
@@ -67,7 +68,7 @@ export function About({ requestClose }: AboutProps) {
                     </Button>
                     <Button
                       as="a"
-                      href="https://cinny.in/#sponsor"
+                      href="https://cinny.in/donate"
                       rel="noreferrer noopener"
                       target="_blank"
                       variant="Critical"
@@ -76,7 +77,7 @@ export function About({ requestClose }: AboutProps) {
                       radii="300"
                       before={<Icon src={Icons.Heart} size="100" filled />}
                     >
-                      <Text size="B300">Support</Text>
+                      <Text size="B300">Donate to Cinny</Text>
                     </Button>
                   </Box>
                 </Box>
@@ -124,6 +125,35 @@ export function About({ requestClose }: AboutProps) {
                       paddingLeft: config.space.S400,
                     }}
                   >
+                    <li>
+                      <Text size="T300">
+                        Prinny Client is a hard fork of{' '}
+                        <a
+                          href="https://github.com/cinnyapp/cinny"
+                          rel="noreferrer noopener"
+                          target="_blank"
+                        >
+                          Cinny
+                        </a>
+                        {' '}and{' '}
+                        <a
+                          href="https://github.com/cinnyapp/cinny-desktop"
+                          rel="noreferrer noopener"
+                          target="_blank"
+                        >
+                          cinny-desktop
+                        </a>
+                        , packaged with{' '}
+                        <a
+                          href="https://v2.tauri.app"
+                          rel="noreferrer noopener"
+                          target="_blank"
+                        >
+                          Tauri v2
+                        </a>
+                        .
+                      </Text>
+                    </li>
                     <li>
                       <Text size="T300">
                         The{' '}

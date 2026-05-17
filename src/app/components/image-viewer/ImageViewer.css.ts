@@ -4,26 +4,25 @@ import { DefaultReset, color, config } from 'folds';
 export const ImageViewer = style([
   DefaultReset,
   {
-    height: '100%',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 ]);
 
-export const ImageViewerHeader = style([
+export const ImageViewerBarGroup = style([
   DefaultReset,
   {
-    paddingLeft: config.space.S200,
-    paddingRight: config.space.S200,
-    borderBottomWidth: config.borderWidth.B300,
-    flexShrink: 0,
+    display: 'flex',
+    alignItems: 'center',
     gap: config.space.S200,
-  },
-]);
-
-export const ImageViewerContent = style([
-  DefaultReset,
-  {
-    backgroundColor: color.Background.Container,
-    color: color.Background.OnContainer,
+    padding: `6px ${config.space.S300}`,
+    backgroundColor: color.Surface.Container,
+    color: color.Surface.OnContainer,
+    borderRadius: config.radii.R400,
+    boxShadow: '0 2px 12px rgba(0, 0, 0, 0.3)',
+    border: `1px solid ${color.Surface.ContainerLine}`,
+    pointerEvents: 'auto',
     overflow: 'hidden',
   },
 ]);
@@ -31,12 +30,11 @@ export const ImageViewerContent = style([
 export const ImageViewerImg = style([
   DefaultReset,
   {
-    objectFit: 'contain',
-    width: 'auto',
-    height: 'auto',
-    maxWidth: '100%',
-    maxHeight: '100%',
-    backgroundColor: color.Surface.Container,
+    display: 'block',
+    maxWidth: '80vw',
+    maxHeight: '80vh',
     transition: 'transform 100ms linear',
+    cursor: 'zoom-in',
+    userSelect: 'none',
   },
 ]);

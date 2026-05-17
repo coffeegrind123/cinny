@@ -1,8 +1,7 @@
-/* eslint-disable jsx-a11y/no-noninteractive-element-interactions */
 import React from 'react';
 import FileSaver from 'file-saver';
 import classNames from 'classnames';
-import { Box, Chip, Header, Icon, IconButton, Icons, Text, as } from 'folds';
+import { Box, Chip, Icon, IconButton, Icons, Text, as, config } from 'folds';
 import * as css from './ImageViewer.css';
 import { useZoom } from '../../hooks/useZoom';
 import { usePan } from '../../hooks/usePan';
@@ -12,10 +11,15 @@ export type ImageViewerProps = {
   alt: string;
   src: string;
   requestClose: () => void;
+  // Preferred target for the "open in browser" button. When the viewer is
+  // showing an embed preview image, `src` is the raw media URL (often a
+  // blob: or pbs.twimg.com URL the browser can't usefully open in a tab),
+  // so we open the original page/post instead.
+  externalUrl?: string;
 };
 
 export const ImageViewer = as<'div', ImageViewerProps>(
-  ({ className, alt, src, requestClose, ...props }, ref) => {
+  ({ className, alt, src, requestClose, externalUrl, ...props }, ref) => {
     const { zoom, zoomIn, zoomOut, setZoom } = useZoom(0.2);
     const { pan, cursor, onMouseDown } = usePan(zoom !== 1);
 
@@ -24,23 +28,56 @@ export const ImageViewer = as<'div', ImageViewerProps>(
       FileSaver.saveAs(fileContent, alt);
     };
 
+    const handleImageClick = () => {
+      setZoom(zoom === 1 ? 2 : 1);
+    };
+
+    const handleOpenExternal = () => {
+      window.open(externalUrl || src, '_blank', 'noopener,noreferrer');
+    };
+
+    const zoomCursor = zoom === 1 ? 'zoom-in' : 'zoom-out';
+
     return (
       <Box
         className={classNames(css.ImageViewer, className)}
-        direction="Column"
         {...props}
         ref={ref}
       >
-        <Header className={css.ImageViewerHeader} size="400">
-          <Box grow="Yes" alignItems="Center" gap="200">
+        <Box
+          style={{
+            position: 'fixed',
+            top: config.space.S200,
+            left: config.space.S200,
+            zIndex: 2,
+          }}
+        >
+          <Box
+            className={css.ImageViewerBarGroup}
+            alignItems="Center"
+            gap="100"
+            style={{ maxWidth: 'min(60vw, 600px)' }}
+          >
             <IconButton size="300" radii="300" onClick={requestClose}>
               <Icon size="50" src={Icons.ArrowLeft} />
             </IconButton>
-            <Text size="T300" truncate>
+            <Text size="T300" truncate style={{ flex: 1, minWidth: 0 }}>
               {alt}
             </Text>
+            <IconButton size="200" radii="300" onClick={handleOpenExternal} aria-label="Open in browser">
+              <Icon size="50" src={Icons.External} />
+            </IconButton>
           </Box>
-          <Box shrink="No" alignItems="Center" gap="200">
+        </Box>
+        <Box
+          style={{
+            position: 'fixed',
+            top: config.space.S200,
+            right: config.space.S200,
+            zIndex: 2,
+          }}
+        >
+          <Box className={css.ImageViewerBarGroup} alignItems="Center" gap="100">
             <IconButton
               variant={zoom < 1 ? 'Success' : 'SurfaceVariant'}
               outlined={zoom < 1}
@@ -51,7 +88,7 @@ export const ImageViewer = as<'div', ImageViewerProps>(
             >
               <Icon size="50" src={Icons.Minus} />
             </IconButton>
-            <Chip variant="SurfaceVariant" radii="Pill" onClick={() => setZoom(zoom === 1 ? 2 : 1)}>
+            <Chip variant="SurfaceVariant" radii="Pill" onClick={handleImageClick}>
               <Text size="B300">{Math.round(zoom * 100)}%</Text>
             </Chip>
             <IconButton
@@ -73,24 +110,18 @@ export const ImageViewer = as<'div', ImageViewerProps>(
               <Text size="B300">Download</Text>
             </Chip>
           </Box>
-        </Header>
-        <Box
-          grow="Yes"
-          className={css.ImageViewerContent}
-          justifyContent="Center"
-          alignItems="Center"
-        >
-          <img
-            className={css.ImageViewerImg}
-            style={{
-              cursor,
-              transform: `scale(${zoom}) translate(${pan.translateX}px, ${pan.translateY}px)`,
-            }}
-            src={src}
-            alt={alt}
-            onMouseDown={onMouseDown}
-          />
         </Box>
+        <img
+          className={css.ImageViewerImg}
+          style={{
+            cursor: zoomCursor,
+            transform: `scale(${zoom}) translate(${pan.translateX}px, ${pan.translateY}px)`,
+          }}
+          src={src}
+          alt={alt}
+          onClick={handleImageClick}
+          onMouseDown={onMouseDown}
+        />
       </Box>
     );
   }

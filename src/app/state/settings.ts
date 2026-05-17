@@ -27,6 +27,10 @@ export interface Settings {
   pageZoom: number;
   hideActivity: boolean;
 
+  minimizeToTray: boolean;
+
+  unreadDirectsOnly: boolean;
+
   isPeopleDrawer: boolean;
   memberSortFilterIndex: number;
   enterForNewline: boolean;
@@ -47,6 +51,11 @@ export interface Settings {
   dateFormatString: string;
 
   developerTools: boolean;
+  keybinds: Record<string, string>;
+  readReceiptStyle: 'cinny' | 'element';
+  useVxTwitter: boolean;
+  useSoundcloak: boolean;
+  usePiped: boolean;
 }
 
 const defaultSettings: Settings = {
@@ -57,9 +66,13 @@ const defaultSettings: Settings = {
   monochromeMode: false,
   isMarkdown: true,
   editorToolbar: false,
-  twitterEmoji: false,
+  twitterEmoji: true,
   pageZoom: 100,
   hideActivity: false,
+
+  minimizeToTray: true,
+
+  unreadDirectsOnly: false,
 
   isPeopleDrawer: true,
   memberSortFilterIndex: 0,
@@ -70,7 +83,7 @@ const defaultSettings: Settings = {
   hideNickAvatarEvents: true,
   mediaAutoLoad: true,
   urlPreview: true,
-  encUrlPreview: false,
+  encUrlPreview: true,
   showHiddenEvents: false,
   legacyUsernameColor: false,
 
@@ -81,6 +94,11 @@ const defaultSettings: Settings = {
   dateFormatString: 'D MMM YYYY',
 
   developerTools: false,
+  keybinds: {},
+  readReceiptStyle: 'cinny',
+  useVxTwitter: true,
+  useSoundcloak: true,
+  usePiped: true,
 };
 
 export const getSettings = () => {

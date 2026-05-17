@@ -1,20 +1,28 @@
 import { useAtomValue } from 'jotai';
 import React, { ReactNode, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RoomEvent, RoomEventHandlerMap } from 'matrix-js-sdk';
+import { MatrixEventEvent, RoomEvent, RoomEventHandlerMap } from 'matrix-js-sdk';
 import { roomToUnreadAtom, unreadEqual, unreadInfoToUnread } from '../../state/room/roomToUnread';
 import LogoSVG from '../../../../public/res/svg/cinny.svg';
 import LogoUnreadSVG from '../../../../public/res/svg/cinny-unread.svg';
 import LogoHighlightSVG from '../../../../public/res/svg/cinny-highlight.svg';
 import NotificationSound from '../../../../public/sound/notification.ogg';
 import InviteSound from '../../../../public/sound/invite.ogg';
-import { notificationPermission, setFavicon } from '../../utils/dom';
+import { setFavicon } from '../../utils/dom';
+import {
+  isNotificationPermissionGrantedSync,
+  sendDesktopNotification,
+  onNotificationAction,
+  isTauri,
+  primeDesktopNotificationPermission,
+} from '../../utils/desktop-notifications';
 import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
 import { allInvitesAtom } from '../../state/room-list/inviteList';
 import { usePreviousValue } from '../../hooks/usePreviousValue';
+import { useSystemTray } from '../../hooks/useSystemTray';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
-import { getInboxInvitesPath, getInboxNotificationsPath } from '../pathUtils';
+import { getInboxInvitesPath, getInboxNotificationsPath, getHomeRoomPath } from '../pathUtils';
 import {
   getMemberDisplayName,
   getNotificationType,
@@ -26,6 +34,8 @@ import { getMxIdLocalPart, mxcUrlToHttp } from '../../utils/matrix';
 import { useSelectedRoom } from '../../hooks/router/useSelectedRoom';
 import { useInboxNotificationsSelected } from '../../hooks/router/useInbox';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
+import { getCurrentWindow, UserAttentionType } from '@tauri-apps/api/window';
+import { GlobalKeybinds } from '../../components/global-keybinds/GlobalKeybinds';
 
 function SystemEmojiFeature() {
   const [twitterEmoji] = useSetting(settingsAtom, 'twitterEmoji');
@@ -48,6 +58,11 @@ function PageZoomFeature() {
     document.documentElement.style.setProperty('font-size', `calc(1em * ${pageZoom / 100})`);
   }
 
+  return null;
+}
+
+function SystemTray() {
+  useSystemTray();
   return null;
 }
 
@@ -76,6 +91,25 @@ function FaviconUpdater() {
   return null;
 }
 
+function TaskbarBadgeUpdater() {
+  const roomToUnread = useAtomValue(roomToUnreadAtom);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+
+    let totalUnread = 0;
+    roomToUnread.forEach((unread) => {
+      totalUnread += unread.total;
+    });
+
+    import('@tauri-apps/api/core').then(({ invoke }) => {
+      invoke('set_badge_count', { count: totalUnread }).catch(() => {});
+    });
+  }, [roomToUnread]);
+
+  return null;
+}
+
 function InviteNotifications() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const invites = useAtomValue(allInvitesAtom);
@@ -88,17 +122,29 @@ function InviteNotifications() {
 
   const notify = useCallback(
     (count: number) => {
-      const noti = new window.Notification('Invitation', {
+      sendDesktopNotification('Invitation', {
         icon: LogoSVG,
-        badge: LogoSVG,
         body: `You have ${count} new invitation request.`,
-        silent: true,
       });
 
-      noti.onclick = () => {
-        if (!window.closed) navigate(getInboxInvitesPath());
-        noti.close();
-      };
+      // Flash taskbar on Windows
+      if (isTauri()) {
+        getCurrentWindow().requestUserAttention(UserAttentionType.Informational).catch(() => {});
+      }
+
+      // Browser fallback with click handler
+      if (!('__TAURI__' in window || '__TAURI_INTERNALS__' in window) && 'Notification' in window) {
+        const noti = new window.Notification('Invitation', {
+          icon: LogoSVG,
+          badge: LogoSVG,
+          body: `You have ${count} new invitation request.`,
+          silent: true,
+        });
+        noti.onclick = () => {
+          if (!window.closed) navigate(getInboxInvitesPath());
+          noti.close();
+        };
+      }
     },
     [navigate]
   );
@@ -110,7 +156,7 @@ function InviteNotifications() {
 
   useEffect(() => {
     if (invites.length > perviousInviteLen && mx.getSyncState() === 'SYNCING') {
-      if (showNotifications && notificationPermission('granted')) {
+      if (showNotifications && isNotificationPermissionGrantedSync()) {
         notify(invites.length - perviousInviteLen);
       }
 
@@ -143,33 +189,52 @@ function MessageNotifications() {
 
   const notify = useCallback(
     ({
-      roomName,
+      senderName,
       roomAvatar,
-      username,
+      notificationBody,
+      roomId,
+      eventId,
     }: {
-      roomName: string;
+      senderName: string;
       roomAvatar?: string;
-      username: string;
+      notificationBody: string;
       roomId: string;
       eventId: string;
     }) => {
-      const noti = new window.Notification(roomName, {
+      // Authenticated media (Matrix 1.11+ / MSC3916) requires a Bearer
+      // token. The Rust icon cacher fetches the bytes server-side, so
+      // forward the access token when the room avatar URL points at the
+      // authenticated download endpoint.
+      const accessToken = mx.getAccessToken();
+      const iconAuthHeader =
+        useAuthentication && accessToken ? `Bearer ${accessToken}` : undefined;
+
+      sendDesktopNotification(senderName, {
         icon: roomAvatar,
-        badge: roomAvatar,
-        body: `New inbox notification from ${username}`,
-        silent: true,
+        iconAuthHeader,
+        body: notificationBody,
+        roomId,
+        eventId,
       });
 
-      noti.onclick = () => {
-        if (!window.closed) navigate(getInboxNotificationsPath());
-        noti.close();
-        notifRef.current = undefined;
-      };
-
-      notifRef.current?.close();
-      notifRef.current = noti;
+      // Browser fallback with click handler
+      if (!('__TAURI__' in window || '__TAURI_INTERNALS__' in window) && 'Notification' in window) {
+        notifRef.current?.close();
+        const noti = new window.Notification(senderName, {
+          icon: roomAvatar,
+          badge: roomAvatar,
+          body: notificationBody,
+          silent: true,
+        });
+        noti.onclick = () => {
+          if (!window.closed) navigate(getInboxNotificationsPath());
+          noti.close();
+          notifRef.current = undefined;
+        };
+        notifRef.current = noti;
+      }
     },
-    [navigate]
+    [navigate, mx, useAuthentication]
   );
 
   const playSound = useCallback(() => {
@@ -178,6 +243,67 @@ function MessageNotifications() {
   }, []);
 
   useEffect(() => {
+    const sendNotif = (mEvent: any, room: any) => {
+      if (!showNotifications || !isNotificationPermissionGrantedSync()) return;
+      const sender = mEvent.getSender();
+      const eventId = mEvent.getId();
+      if (!sender || !eventId || sender === mx.getUserId()) return;
+
+      const unreadInfo = getUnreadInfo(room);
+      const cachedUnreadInfo = unreadCacheRef.current.get(room.roomId);
+      unreadCacheRef.current.set(room.roomId, unreadInfo);
+      if (unreadInfo.total === 0) return;
+      if (
+        cachedUnreadInfo &&
+        unreadEqual(unreadInfoToUnread(cachedUnreadInfo), unreadInfoToUnread(unreadInfo))
+      ) {
+        return;
+      }
+
+      const senderMember = room.getMember(sender);
+      const avatarMxc = senderMember?.getMxcAvatarUrl()
+        ?? room.getAvatarFallbackMember()?.getMxcAvatarUrl()
+        ?? room.getMxcAvatarUrl();
+      const username = getMemberDisplayName(room, sender) ?? getMxIdLocalPart(sender) ?? sender;
+      const content = (mEvent as any).content ?? mEvent.getContent();
+      const msgtype: string | undefined = content?.msgtype;
+      let rawBody: string = typeof content?.body === 'string' ? content.body : '';
+      if (!rawBody && content?.['m.new_content']?.body) {
+        rawBody = content['m.new_content'].body;
+      }
+
+      // Title is sender name (like Discord), body is just the message
+      let notificationBody: string;
+      if (!rawBody && !msgtype) {
+        notificationBody = 'New message';
+      } else if (msgtype === 'm.image') {
+        notificationBody = rawBody ? `📷 ${rawBody}` : 'Sent an image';
+      } else if (msgtype === 'm.video') {
+        notificationBody = rawBody ? `🎬 ${rawBody}` : 'Sent a video';
+      } else if (msgtype === 'm.audio') {
+        notificationBody = rawBody ? `🎵 ${rawBody}` : 'Sent an audio clip';
+      } else if (msgtype === 'm.file') {
+        notificationBody = rawBody ? `📎 ${rawBody}` : 'Sent a file';
+      } else {
+        notificationBody = rawBody || 'New message';
+      }
+
+      notify({
+        senderName: username,
+        roomAvatar: avatarMxc
+          ? mxcUrlToHttp(mx, avatarMxc, useAuthentication, 96, 96, 'crop') ?? undefined
+          : undefined,
+        notificationBody,
+        roomId: room.roomId,
+        eventId,
+      });
+
+      // Flash taskbar on Windows
+      if (isTauri()) {
+        getCurrentWindow().requestUserAttention(UserAttentionType.Informational).catch(() => {});
+      }
+    };
+
     const handleTimelineEvent: RoomEventHandlerMap[RoomEvent.Timeline] = (
       mEvent,
       room,
@@ -196,39 +322,22 @@ function MessageNotifications() {
       ) {
         return;
       }
+      if (mEvent.getSender() === mx.getUserId()) return;
 
-      const sender = mEvent.getSender();
-      const eventId = mEvent.getId();
-      if (!sender || !eventId || mEvent.getSender() === mx.getUserId()) return;
-      const unreadInfo = getUnreadInfo(room);
-      const cachedUnreadInfo = unreadCacheRef.current.get(room.roomId);
-      unreadCacheRef.current.set(room.roomId, unreadInfo);
-
-      if (unreadInfo.total === 0) return;
-      if (
-        cachedUnreadInfo &&
-        unreadEqual(unreadInfoToUnread(cachedUnreadInfo), unreadInfoToUnread(unreadInfo))
-      ) {
+      // For encrypted messages, the Timeline event fires before decryption
+      // completes. Wait for the Decrypted event to get the real content.
+      if ((mEvent as any).isEncrypted?.()) {
+        const onDecrypted = () => {
+          mEvent.off?.(MatrixEventEvent.Decrypted, onDecrypted);
+          sendNotif(mEvent, room);
+          if (notificationSound) playSound();
+        };
+        mEvent.on?.(MatrixEventEvent.Decrypted, onDecrypted);
         return;
       }
 
-      if (showNotifications && notificationPermission('granted')) {
-        const avatarMxc =
-          room.getAvatarFallbackMember()?.getMxcAvatarUrl() ?? room.getMxcAvatarUrl();
-        notify({
-          roomName: room.name ?? 'Unknown',
-          roomAvatar: avatarMxc
-            ? mxcUrlToHttp(mx, avatarMxc, useAuthentication, 96, 96, 'crop') ?? undefined
-            : undefined,
-          username: getMemberDisplayName(room, sender) ?? getMxIdLocalPart(sender) ?? sender,
-          roomId: room.roomId,
-          eventId,
-        });
-      }
-
-      if (notificationSound) {
-        playSound();
-      }
+      sendNotif(mEvent, room);
+      if (notificationSound) playSound();
     };
     mx.on(RoomEvent.Timeline, handleTimelineEvent);
     return () => {
@@ -244,6 +353,28 @@ function MessageNotifications() {
     selectedRoomId,
     useAuthentication,
   ]);
+
+  // Prime the Tauri-desktop notification permission cache. The plugin's
+  // init-iife.js short-circuits Windows to `denied` without ever asking
+  // Rust, so the Settings UI surfaces the Enable button on every fresh
+  // launch even though Rust's permission_state is hardcoded to Granted.
+  useEffect(() => {
+    primeDesktopNotificationPermission();
+  }, []);
+
+  // Handle notification clicks: bring window to foreground and navigate to room
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    onNotificationAction(({ roomId, eventId }) => {
+      if (roomId) {
+        navigate(getHomeRoomPath(roomId, eventId));
+      }
+      getCurrentWindow().setFocus().catch(() => {});
+      getCurrentWindow().show().catch(() => {});
+      getCurrentWindow().unminimize().catch(() => {});
+    }).then((fn) => { unlisten = fn; });
+    return () => { unlisten?.(); };
+  }, [navigate]);
 
   return (
     // eslint-disable-next-line jsx-a11y/media-has-caption
@@ -263,8 +394,11 @@ export function ClientNonUIFeatures({ children }: ClientNonUIFeaturesProps) {
       <SystemEmojiFeature />
       <PageZoomFeature />
       <FaviconUpdater />
+      <TaskbarBadgeUpdater />
+      <SystemTray />
       <InviteNotifications />
       <MessageNotifications />
+      <GlobalKeybinds />
       {children}
     </>
   );
