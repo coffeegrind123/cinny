@@ -220,6 +220,29 @@ export async function sendDesktopNotification(
       // Fall through to plugin-notification (no avatar) on failure.
     }
 
+    // Windows: bypass tauri-plugin-notification because notify-rust's
+    // Windows backend silently drops the `icon` field — the toast comes
+    // up with no avatar regardless of what we pass. Use our own Rust
+    // command which calls tauri-winrt-notification directly to emit a
+    // proper <image placement="appLogoOverride" hint-crop="circle"> in
+    // the toast XML.
+    if (platform === 'windows') {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('send_windows_message_toast', {
+          title,
+          body: options?.body ?? '',
+          iconPath: resolvedPath ?? null,
+          roomId: options?.roomId ?? '',
+          eventId: options?.eventId ?? '',
+        });
+        return;
+      } catch (err) {
+        console.warn('[notif] send_windows_message_toast failed, falling back:', err);
+        // Fall through to plugin-notification (no avatar) on failure.
+      }
+    }
+
     const mod = await getTauriNotif();
     if (mod) {
       const granted = await mod.isPermissionGranted();
@@ -258,27 +281,59 @@ export async function sendDesktopNotification(
 /**
  * Listen for notification clicks (Tauri action events).
  * Returns an unlisten function for cleanup.
+ *
+ * We register both the plugin-notification `onAction` listener (covers macOS
+ * and Linux, and Android via our custom plugin) AND a `notification://activated`
+ * Tauri event listener (covers Windows, where we bypass plugin-notification
+ * and emit toasts ourselves via tauri-winrt-notification).
  */
 export async function onNotificationAction(
   callback: (extra: NotificationExtra) => void
 ): Promise<() => void> {
-  if (isTauri()) {
-    const mod = await getTauriNotif();
-    if (mod) {
-      try {
-        const listener = await mod.onAction((notification) => {
-          const extra = notification.extra as NotificationExtra | undefined;
-          if (extra?.roomId) {
-            callback(extra);
-          }
-        });
-        return () => listener();
-      } catch (err) {
-        console.error('[notif] Failed to register onAction listener:', err);
-      }
+  if (!isTauri()) return () => {};
+
+  const unlisteners: Array<() => void> = [];
+
+  const mod = await getTauriNotif();
+  if (mod) {
+    try {
+      const listener = await mod.onAction((notification) => {
+        const extra = notification.extra as NotificationExtra | undefined;
+        if (extra?.roomId) {
+          callback(extra);
+        }
+      });
+      unlisteners.push(() => listener());
+    } catch (err) {
+      console.error('[notif] Failed to register onAction listener:', err);
     }
   }
-  return () => {};
+
+  try {
+    const { listen } = await import('@tauri-apps/api/event');
+    const unlisten = await listen<NotificationExtra>(
+      'notification://activated',
+      (event) => {
+        const payload = event.payload;
+        if (payload?.roomId) {
+          callback(payload);
+        }
+      }
+    );
+    unlisteners.push(unlisten);
+  } catch (err) {
+    console.error('[notif] Failed to register notification://activated listener:', err);
+  }
+
+  return () => {
+    unlisteners.forEach((fn) => {
+      try {
+        fn();
+      } catch {
+        // swallow
+      }
+    });
+  };
 }
 
 export function isNotificationPermissionGrantedSync(): boolean {
