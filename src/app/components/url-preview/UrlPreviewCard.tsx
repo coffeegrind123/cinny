@@ -201,8 +201,10 @@ function HlsVideo({
   className?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
+    setErrorMsg(null);
     const video = videoRef.current;
     if (!video || !src) return undefined;
 
@@ -213,35 +215,102 @@ function HlsVideo({
     }
 
     let cancelled = false;
-    let hlsInstance: { destroy: () => void } | null = null;
+    let hlsInstance: any = null;
 
     import('hls.js')
       .then(({ default: Hls }) => {
         if (cancelled) return;
         if (!Hls.isSupported()) {
-          // No MSE either — last-resort direct src so the browser
-          // shows its own "format not supported" UI rather than a
-          // mute placeholder.
-          video.src = src;
+          setErrorMsg('Your browser does not support MSE — required for HLS playback.');
           return;
         }
-        const hls = new Hls({ enableWorker: true });
+
+        // Worker is disabled — under Tauri's `tauri://localhost` scheme
+        // the worker spawn intermittently fails CSP `worker-src` checks
+        // even when blob: is allowed in default-src, and the
+        // single-threaded path works fine for short bsky clips.
+        const hls = new Hls({
+          enableWorker: false,
+          // Strip Referer/Origin where we can — the bsky CDN sometimes
+          // 403s requests with a `tauri://localhost` Origin if a CDN
+          // edge rule is misconfigured. Forces the no-referrer policy.
+          xhrSetup: (xhr) => {
+            try {
+              xhr.withCredentials = false;
+            } catch {
+              // ignore
+            }
+          },
+        });
         hlsInstance = hls;
-        hls.loadSource(src);
-        hls.attachMedia(video);
+
+        hls.on(Hls.Events.ERROR, (_evt: unknown, data: any) => {
+          if (data.fatal) {
+            console.error('[bsky/hls] fatal', data.type, data.details, data);
+            setErrorMsg(
+              `Video error: ${data.details ?? data.type ?? 'unknown'} — open in Bluesky to watch.`
+            );
+            try {
+              hls.destroy();
+            } catch {
+              // ignore
+            }
+          } else {
+            console.warn('[bsky/hls] non-fatal', data.details ?? data.type, data);
+          }
+        });
+
+        try {
+          hls.loadSource(src);
+          hls.attachMedia(video);
+        } catch (err) {
+          console.error('[bsky/hls] loadSource/attachMedia failed:', err);
+          setErrorMsg('Could not initialize HLS player.');
+        }
       })
       .catch((err) => {
-        console.warn('[bsky] failed to load hls.js, falling back to direct src:', err);
-        if (!cancelled) video.src = src;
+        console.error('[bsky/hls] dynamic import of hls.js failed:', err);
+        if (!cancelled) setErrorMsg('Failed to load video player.');
       });
 
     return () => {
       cancelled = true;
-      hlsInstance?.destroy();
+      try {
+        hlsInstance?.destroy();
+      } catch {
+        // ignore
+      }
     };
   }, [src]);
 
   const aspect = width && height ? `${width} / ${height}` : '16 / 9';
+
+  if (errorMsg) {
+    return (
+      <Box
+        direction="Column"
+        gap="100"
+        alignItems="Center"
+        justifyContent="Center"
+        style={{
+          width: '100%',
+          aspectRatio: aspect,
+          backgroundColor: color.SurfaceVariant.Container,
+          padding: config.space.S300,
+        }}
+      >
+        {poster && (
+          <img
+            src={poster}
+            alt=""
+            referrerPolicy="no-referrer"
+            style={{ maxHeight: '60%', borderRadius: 4 }}
+          />
+        )}
+        <Text size="T200" align="Center">{errorMsg}</Text>
+      </Box>
+    );
+  }
 
   return (
     <video
@@ -251,6 +320,7 @@ function HlsVideo({
       playsInline
       preload="metadata"
       referrerPolicy="no-referrer"
+      crossOrigin="anonymous"
       style={{ aspectRatio: aspect, width: '100%' }}
       className={className}
       onClick={(e) => e.stopPropagation()}
