@@ -134,11 +134,17 @@ async function resolveBrowserIcon(url: string): Promise<string | undefined> {
   }
 }
 
-async function resolveTauriIconPath(url: string): Promise<string | undefined> {
+async function resolveTauriIconPath(
+  url: string,
+  authHeader?: string
+): Promise<string | undefined> {
   if (iconCache.has(url)) return iconCache.get(url);
   try {
     const { invoke } = await import('@tauri-apps/api/core');
-    const path = await invoke<string>('cache_notification_icon', { url });
+    const path = await invoke<string>('cache_notification_icon', {
+      url,
+      authHeader: authHeader ?? null,
+    });
     if (typeof path === 'string' && path.length > 0) {
       iconCache.set(url, path);
       return path;
@@ -174,7 +180,13 @@ async function sendAndroidNotification(
 
 export async function sendDesktopNotification(
   title: string,
-  options?: { body?: string; icon?: string; roomId?: string; eventId?: string }
+  options?: {
+    body?: string;
+    icon?: string;
+    iconAuthHeader?: string;
+    roomId?: string;
+    eventId?: string;
+  }
 ): Promise<void> {
   const srcIcon = options?.icon;
   const isHttpIcon =
@@ -187,7 +199,7 @@ export async function sendDesktopNotification(
     // can read real bytes.
     let resolvedPath: string | undefined;
     if (isHttpIcon && srcIcon) {
-      resolvedPath = await resolveTauriIconPath(srcIcon);
+      resolvedPath = await resolveTauriIconPath(srcIcon, options?.iconAuthHeader);
     } else if (srcIcon && !srcIcon.startsWith('data:')) {
       // Already a file path / bundled asset.
       resolvedPath = srcIcon;

@@ -199,8 +199,17 @@ function MessageNotifications() {
       roomId: string;
       eventId: string;
     }) => {
+      // Authenticated media (Matrix 1.11+ / MSC3916) requires a Bearer
+      // token. The Rust icon cacher fetches the bytes server-side, so
+      // forward the access token when the room avatar URL points at the
+      // authenticated download endpoint.
+      const accessToken = mx.getAccessToken();
+      const iconAuthHeader =
+        useAuthentication && accessToken ? `Bearer ${accessToken}` : undefined;
+
       sendDesktopNotification(senderName, {
         icon: roomAvatar,
+        iconAuthHeader,
         body: notificationBody,
         roomId,
         eventId,
@@ -223,7 +232,7 @@ function MessageNotifications() {
         notifRef.current = noti;
       }
     },
-    [navigate]
+    [navigate, mx, useAuthentication]
   );
 
   const playSound = useCallback(() => {

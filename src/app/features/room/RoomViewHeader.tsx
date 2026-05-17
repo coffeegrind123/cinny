@@ -305,7 +305,13 @@ const CallMenu = forwardRef<HTMLDivElement, CallMenuProps>(
   }
 );
 
-function CallButton() {
+function CallButton({
+  livekitSupported,
+  hasCallPermission,
+}: {
+  livekitSupported: boolean;
+  hasCallPermission: boolean;
+}) {
   const room = useRoom();
   const direct = useIsDirectRoom();
 
@@ -315,8 +321,20 @@ function CallButton() {
   const inAnotherCall = callEmbed && !callStarted;
   const [menuAnchor, setMenuAnchor] = useState<RectCords>();
 
+  const callBlocked = !livekitSupported || !hasCallPermission;
+  const disabled = !!(inAnotherCall || callStarted || callBlocked);
+
   const handleOpenMenu: MouseEventHandler<HTMLButtonElement> = (evt) => {
     setMenuAnchor(evt.currentTarget.getBoundingClientRect());
+  };
+
+  const tooltipText = () => {
+    if (inAnotherCall)
+      return 'Already in another call — End the current call to join!';
+    if (!livekitSupported)
+      return 'Your homeserver does not advertise a LiveKit/MatrixRTC focus, so calls cannot be started.';
+    if (!hasCallPermission) return 'You do not have permission to start a call in this room.';
+    return 'Call';
   };
 
   return (
@@ -326,11 +344,7 @@ function CallButton() {
         offset={4}
         tooltip={
           <Tooltip>
-            {inAnotherCall ? (
-              <Text size="L400">Already in another call — End the current call to join!</Text>
-            ) : (
-              <Text>Call</Text>
-            )}
+            <Text size="L400">{tooltipText()}</Text>
           </Tooltip>
         }
       >
@@ -342,13 +356,14 @@ function CallButton() {
             onClick={handleOpenMenu}
             onContextMenu={(evt) => {
               evt.preventDefault();
+              if (disabled) return;
               startCall(room, {
                 microphone: true,
                 video: true,
                 sound: true,
               });
             }}
-            disabled={inAnotherCall || callStarted}
+            disabled={disabled}
             aria-pressed={!!menuAnchor}
           >
             <Icon size="400" src={Icons.VideoCamera} filled={!!menuAnchor} />
@@ -594,8 +609,11 @@ export function RoomViewHeader({ callView }: { callView?: boolean }) {
               </FocusTrap>
             }
           />
-          {!room.isCallRoom() && livekitSupported && rtcSupported && hasCallPermission && (
-            <CallButton />
+          {!room.isCallRoom() && rtcSupported && (
+            <CallButton
+              livekitSupported={livekitSupported}
+              hasCallPermission={hasCallPermission}
+            />
           )}
           {screenSize === ScreenSize.Desktop && (
             <TooltipProvider
