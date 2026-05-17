@@ -3,8 +3,15 @@
 Tracks upstream `cinnyapp/cinny` commits cherry-picked into our fork (`coffeegrind123/cinny`, branch `desktop-notifications`).
 
 **Fork base:** `6a05ff5` (v4.11.1-era)
-**Last sync:** 2026-05-15
+**Last sync:** 2026-05-17 (formal merge of `upstream/dev` @ `e89b8f7` via `-X ours`)
 **Start from:** `e89b8f7` — next time, fetch upstream and check commits AFTER this one
+
+> **2026-05-17:** Did an explicit `git merge upstream/dev -X ours` to bring
+> upstream commit SHAs into our history (every patch was already applied
+> via cherry-pick — see the table below — but GitHub still counted us as
+> 43 commits behind by SHA). Non-conflicting non-code changes from upstream
+> were accepted (CI workflow tweaks, lint config noise); conflicting files
+> retained our cherry-pick versions.
 
 Status: `[x]` backported · `[-]` skipped (CI/deps/docs noise) · `[~]` partial/adapted · `[ ]` pending
 
