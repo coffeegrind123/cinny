@@ -217,30 +217,28 @@ function HlsVideo({
     let cancelled = false;
     let hlsInstance: any = null;
 
-    import('hls.js')
-      .then(({ default: Hls }) => {
+    Promise.all([import('hls.js'), import('../../utils/tauri-hls-loader')])
+      .then(([{ default: Hls }, { TauriHlsLoader }]) => {
         if (cancelled) return;
         if (!Hls.isSupported()) {
           setErrorMsg('Your browser does not support MSE — required for HLS playback.');
           return;
         }
 
-        // Worker is disabled — under Tauri's `tauri://localhost` scheme
-        // the worker spawn intermittently fails CSP `worker-src` checks
-        // even when blob: is allowed in default-src, and the
-        // single-threaded path works fine for short bsky clips.
+        // Route every HLS fetch through Rust when we're inside Tauri.
+        // bsky's video CDN doesn't return Access-Control-Allow-Origin,
+        // so the browser-default XHR loader is blocked by CORS the
+        // moment hls.js asks for the playlist. The Rust IPC command
+        // (`fetch_remote_bytes`) is server-to-server and bypasses CORS.
+        const loader: any =
+          typeof window !== 'undefined' &&
+          ('__TAURI__' in window || '__TAURI_INTERNALS__' in window)
+            ? TauriHlsLoader
+            : (Hls.DefaultConfig as any).loader;
+
         const hls = new Hls({
           enableWorker: false,
-          // Strip Referer/Origin where we can — the bsky CDN sometimes
-          // 403s requests with a `tauri://localhost` Origin if a CDN
-          // edge rule is misconfigured. Forces the no-referrer policy.
-          xhrSetup: (xhr) => {
-            try {
-              xhr.withCredentials = false;
-            } catch {
-              // ignore
-            }
-          },
+          loader,
         });
         hlsInstance = hls;
 
@@ -320,7 +318,6 @@ function HlsVideo({
       playsInline
       preload="metadata"
       referrerPolicy="no-referrer"
-      crossOrigin="anonymous"
       style={{ aspectRatio: aspect, width: '100%' }}
       className={className}
       onClick={(e) => e.stopPropagation()}
