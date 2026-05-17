@@ -7,6 +7,7 @@ export enum KeybindCategory {
   Formatting = 'Formatting',
   Chat = 'Chat',
   Input = 'Input',
+  Call = 'Call',
 }
 
 export interface KeybindDefinition {
@@ -244,19 +245,25 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     id: 'mark-channel-read',
     description: 'Mark channel as read',
     category: KeybindCategory.Chat,
-    defaultKeys: 'escape',
+    // Previously `escape` which collided with focus-textarea. Moved to
+    // `alt+shift+r` so plain Escape stays free for focus / overlay-close.
+    defaultKeys: 'alt+shift+r',
   },
   {
     id: 'toggle-member-list',
     description: 'Toggle member list',
     category: KeybindCategory.Chat,
-    defaultKeys: 'mod+u',
+    // Previously `mod+u` which collided with format-underline. Moved to
+    // `mod+shift+m` (M for Members) so the formatting key stays intact.
+    defaultKeys: 'mod+shift+m',
   },
   {
     id: 'toggle-emoji-picker',
     description: 'Toggle emoji picker',
     category: KeybindCategory.Chat,
-    defaultKeys: 'mod+e',
+    // Previously `mod+e` which collided with format-clear. Moved to
+    // `mod+shift+e` so the formatting key keeps `mod+e`.
+    defaultKeys: 'mod+shift+e',
   },
   {
     id: 'scroll-chat-up',
@@ -315,6 +322,41 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     description: 'Keyboard shortcuts',
     category: KeybindCategory.Navigation,
     defaultKeys: 'mod+/',
+  },
+
+  // ── Call ─────────────────────────────────────────────────
+  // These only fire while an Element Call embed is active (gated by
+  // `useCallEmbed()` in the binding component). Defaults follow the
+  // Discord convention of Mod+Shift+<letter>.
+  {
+    id: 'call-toggle-microphone',
+    description: 'Toggle microphone (in-call)',
+    category: KeybindCategory.Call,
+    defaultKeys: 'mod+shift+a',
+  },
+  {
+    id: 'call-toggle-video',
+    description: 'Toggle camera (in-call)',
+    category: KeybindCategory.Call,
+    defaultKeys: 'mod+shift+v',
+  },
+  {
+    id: 'call-toggle-screenshare',
+    description: 'Toggle screenshare (in-call)',
+    category: KeybindCategory.Call,
+    defaultKeys: 'mod+shift+s',
+  },
+  {
+    id: 'call-toggle-sound',
+    description: 'Toggle outgoing audio (in-call)',
+    category: KeybindCategory.Call,
+    defaultKeys: 'mod+shift+d',
+  },
+  {
+    id: 'call-hangup',
+    description: 'Leave the call',
+    category: KeybindCategory.Call,
+    defaultKeys: 'mod+shift+h',
   },
 ];
 

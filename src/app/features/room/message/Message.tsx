@@ -28,6 +28,7 @@ import React, {
   MouseEventHandler,
   ReactNode,
   useCallback,
+  useEffect,
   useState,
 } from 'react';
 import FocusTrap from 'focus-trap-react';
@@ -59,6 +60,10 @@ import {
   mxcUrlToHttp,
 } from '../../../utils/matrix';
 import { markAsUnread } from '../../../utils/notifications';
+import {
+  clearHoveredMessageEventId,
+  setHoveredMessageEventId,
+} from '../../../state/hoveredMessage';
 import { useElementReadReceipts } from '../../../hooks/useElementReadReceipts';
 import { ReadReceiptAvatars } from '../../../components/read-receipt-avatars/ReadReceiptAvatars';
 import { useSetting } from '../../../state/hooks/settings';
@@ -740,6 +745,16 @@ export const Message = as<'div', MessageProps>(
     const { focusWithinProps } = useFocusWithin({ onFocusWithinChange: setHover });
     const [menuAnchor, setMenuAnchor] = useState<RectCords>();
     const [emojiBoardAnchor, setEmojiBoardAnchor] = useState<RectCords>();
+
+    // Publish hover state to the module-level ref so keybinds bound at
+    // RoomTimeline scope (MessageKeybinds) can act on the message under
+    // the cursor without a context.
+    useEffect(() => {
+      const id = mEvent.getId();
+      if (!id) return undefined;
+      if (hover) setHoveredMessageEventId(id);
+      return () => clearHoveredMessageEventId(id);
+    }, [hover, mEvent]);
 
     const senderDisplayName =
       getMemberDisplayName(room, senderId) ?? getMxIdLocalPart(senderId) ?? senderId;

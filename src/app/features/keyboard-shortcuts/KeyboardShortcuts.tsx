@@ -32,6 +32,7 @@ const CATEGORY_ORDER: KeybindCategory[] = [
   KeybindCategory.Formatting,
   KeybindCategory.Chat,
   KeybindCategory.Input,
+  KeybindCategory.Call,
 ];
 
 function KeyCombo({ keys }: { keys: string[] }) {

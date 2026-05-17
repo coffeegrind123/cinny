@@ -66,6 +66,7 @@ import {
 } from '../../utils/matrix';
 import { useTypingStatusUpdater } from '../../hooks/useTypingStatusUpdater';
 import { useFilePicker } from '../../hooks/useFilePicker';
+import { useKeybind } from '../../hooks/useKeybind';
 import { useFilePasteHandler } from '../../hooks/useFilePasteHandler';
 import { useFileDropZone, setGlobalDropHandler } from '../../hooks/useFileDrop';
 import {
@@ -118,6 +119,14 @@ import { useTheme } from '../../hooks/useTheme';
 import { useRoomCreatorsTag } from '../../hooks/useRoomCreatorsTag';
 import { usePowerLevelTags } from '../../hooks/usePowerLevelTags';
 import { useComposingCheck } from '../../hooks/useComposingCheck';
+
+// Bridges the global `toggle-emoji-picker` keybind into the emoji
+// board's per-instance UseStateProvider scope. Lives as a child of
+// the provider so it can call its setter without lifting state.
+function EmojiPickerKeybind({ onToggle }: { onToggle: () => void }) {
+  useKeybind('toggle-emoji-picker', onToggle);
+  return null;
+}
 
 interface RoomInputProps {
   editor: Editor;
@@ -223,6 +232,27 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
 
     const pickFile = useFilePicker(handleFiles, true);
     const handlePaste = useFilePasteHandler(handleFiles);
+
+    // Upload via `mod+shift+u`. Bound here (not in GlobalKeybinds) because
+    // the file picker dispatches into the active room's handleFiles —
+    // RoomInput is mounted per-room so the binding is implicitly scoped.
+    useKeybind('upload-file', () => {
+      pickFile('*');
+    });
+
+    // Escape from anywhere in the app should refocus the composer so users
+    // can keep typing without re-clicking. ReactEditor.focus is the slate
+    // primitive used elsewhere in this file.
+    useKeybind('focus-textarea', () => {
+      // Don't steal focus from a real OS-level prompt or another input.
+      const active = document.activeElement as HTMLElement | null;
+      if (active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA') return;
+      try {
+        ReactEditor.focus(editor);
+      } catch {
+        // editor might be unmounted; ignore
+      }
+    });
     const handleDrop: React.DragEventHandler = useCallback(
       (evt) => {
         evt.preventDefault();
@@ -633,6 +663,14 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
               </IconButton>
               <UseStateProvider initial={undefined}>
                 {(emojiBoardTab: EmojiBoardTab | undefined, setEmojiBoardTab) => (
+                  <>
+                    <EmojiPickerKeybind
+                      onToggle={() =>
+                        setEmojiBoardTab((t) =>
+                          t === EmojiBoardTab.Emoji ? undefined : EmojiBoardTab.Emoji
+                        )
+                      }
+                    />
                   <PopOut
                     offset={16}
                     alignOffset={-44}
@@ -696,6 +734,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
                       />
                     </IconButton>
                   </PopOut>
+                  </>
                 )}
               </UseStateProvider>
             </>

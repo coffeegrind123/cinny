@@ -53,6 +53,8 @@ import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { useVirtualPaginator, ItemRange } from '../../hooks/useVirtualPaginator';
 import { useAlive } from '../../hooks/useAlive';
 import { editableActiveElement, scrollToBottom } from '../../utils/dom';
+import { setActiveTimelineScrollContainer } from '../../components/global-keybinds/GlobalKeybinds';
+import { MessageKeybinds } from './MessageKeybinds';
 import {
   DefaultPlaceholder,
   CompactPlaceholder,
@@ -503,6 +505,15 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
     count: 0,
     smooth: true,
   });
+
+  // Expose the active timeline's scroll container to the global keybind
+  // layer so PageUp/PageDown/etc. can scroll the current room without
+  // plumbing a context down the tree. Unregister on unmount so a stale
+  // detached node never receives scroll commands.
+  useEffect(() => {
+    setActiveTimelineScrollContainer(scrollRef.current);
+    return () => setActiveTimelineScrollContainer(null);
+  }, []);
 
   const [focusItem, setFocusItem] = useState<
     | {
@@ -1754,6 +1765,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
           </Chip>
         </TimelineFloat>
       )}
+      <MessageKeybinds room={room} onSetEditId={setEditId} />
       <Scroll ref={scrollRef} visibility="Hover">
         <Box
           direction="Column"

@@ -35,6 +35,7 @@ import { useSelectedRoom } from '../../hooks/router/useSelectedRoom';
 import { useInboxNotificationsSelected } from '../../hooks/router/useInbox';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
 import { getCurrentWindow, UserAttentionType } from '@tauri-apps/api/window';
+import { GlobalKeybinds } from '../../components/global-keybinds/GlobalKeybinds';
 
 function SystemEmojiFeature() {
   const [twitterEmoji] = useSetting(settingsAtom, 'twitterEmoji');
@@ -397,6 +398,7 @@ export function ClientNonUIFeatures({ children }: ClientNonUIFeaturesProps) {
       <SystemTray />
       <InviteNotifications />
       <MessageNotifications />
+      <GlobalKeybinds />
       {children}
     </>
   );
