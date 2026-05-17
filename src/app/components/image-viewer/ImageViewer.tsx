@@ -11,10 +11,15 @@ export type ImageViewerProps = {
   alt: string;
   src: string;
   requestClose: () => void;
+  // Preferred target for the "open in browser" button. When the viewer is
+  // showing an embed preview image, `src` is the raw media URL (often a
+  // blob: or pbs.twimg.com URL the browser can't usefully open in a tab),
+  // so we open the original page/post instead.
+  externalUrl?: string;
 };
 
 export const ImageViewer = as<'div', ImageViewerProps>(
-  ({ className, alt, src, requestClose, ...props }, ref) => {
+  ({ className, alt, src, requestClose, externalUrl, ...props }, ref) => {
     const { zoom, zoomIn, zoomOut, setZoom } = useZoom(0.2);
     const { pan, cursor, onMouseDown } = usePan(zoom !== 1);
 
@@ -28,7 +33,7 @@ export const ImageViewer = as<'div', ImageViewerProps>(
     };
 
     const handleOpenExternal = () => {
-      window.open(src, '_blank', 'noopener,noreferrer');
+      window.open(externalUrl || src, '_blank', 'noopener,noreferrer');
     };
 
     const zoomCursor = zoom === 1 ? 'zoom-in' : 'zoom-out';

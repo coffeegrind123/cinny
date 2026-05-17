@@ -327,6 +327,7 @@ export const UrlPreviewCard = as<
               viewer={!!viewerSrc}
               requestClose={() => setViewerSrc(undefined)}
               renderViewer={renderViewer}
+              externalUrl={url}
             />
           )}
           {viewerSrc && !renderViewer && (
@@ -344,6 +345,7 @@ export const UrlPreviewCard = as<
                     src={viewerSrc}
                     alt={vxData.text || 'Image'}
                     requestClose={() => setViewerSrc(undefined)}
+                    externalUrl={url}
                   />
                 </FocusTrap>
               </OverlayCenter>
@@ -621,6 +623,7 @@ export const UrlPreviewCard = as<
             viewer={!!viewerSrc}
             requestClose={() => setViewerSrc(undefined)}
             renderViewer={renderViewer}
+            externalUrl={url}
           />
         )}
         {viewerSrc && !renderViewer && (
@@ -638,6 +641,7 @@ export const UrlPreviewCard = as<
                   src={viewerSrc}
                   alt={title || 'Image'}
                   requestClose={() => setViewerSrc(undefined)}
+                  externalUrl={url}
                 />
               </FocusTrap>
             </OverlayCenter>
