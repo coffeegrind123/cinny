@@ -14,6 +14,7 @@ import {
   sendDesktopNotification,
   onNotificationAction,
   isTauri,
+  primeDesktopNotificationPermission,
 } from '../../utils/desktop-notifications';
 import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
@@ -351,6 +352,14 @@ function MessageNotifications() {
     selectedRoomId,
     useAuthentication,
   ]);
+
+  // Prime the Tauri-desktop notification permission cache. The plugin's
+  // init-iife.js short-circuits Windows to `denied` without ever asking
+  // Rust, so the Settings UI surfaces the Enable button on every fresh
+  // launch even though Rust's permission_state is hardcoded to Granted.
+  useEffect(() => {
+    primeDesktopNotificationPermission();
+  }, []);
 
   // Handle notification clicks: bring window to foreground and navigate to room
   useEffect(() => {

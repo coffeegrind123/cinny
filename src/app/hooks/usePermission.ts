@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { isTauri } from '../utils/desktop-notifications';
+import { isTauri, primeDesktopNotificationPermission } from '../utils/desktop-notifications';
 
 const isTauriRuntime = () => isTauri();
 
@@ -41,6 +41,13 @@ export function usePermissionState(name: PermissionName, initialValue: Permissio
     const checkTauriPermission = async () => {
       if (name === 'notifications' && isTauriRuntime()) {
         try {
+          // Flip the JS-side permission cache before checking — without
+          // this, isPermissionGranted() short-circuits on the wrong value
+          // baked in by the plugin's init-iife (Windows defaults to
+          // 'denied' even though the Rust permission_state is hardcoded
+          // to Granted). primeDesktopNotificationPermission() is
+          // idempotent and a no-op on Android.
+          await primeDesktopNotificationPermission();
           const mod = await import('@tauri-apps/plugin-notification');
           const granted = await mod.isPermissionGranted();
           setPermissionState((prev) => {

@@ -41,6 +41,43 @@ export function isTauri(): boolean {
   return '__TAURI__' in window || '__TAURI_INTERNALS__' in window;
 }
 
+// `tauri-plugin-notification`'s init-iife.js short-circuits the permission
+// check on Windows (it bakes in `__TEMPLATE_windows__` and concludes
+// `denied` without ever calling Rust). The npm-side `isPermissionGranted()`
+// then also short-circuits whenever `window.Notification.permission !==
+// 'default'`, so the polling in usePermissionState never recovers and the
+// Settings → System → Enable button is shown on every fresh launch.
+//
+// On Tauri desktop the Rust `permission_state` and `request_permission`
+// are hardcoded to `Granted` (see tauri-plugin-notification's desktop.rs
+// — they always return PermissionState::Granted), so it's safe to flip
+// the JS-side permission cache to `granted` ourselves at boot. macOS and
+// Linux follow the same code path in plugin-notification, so we prime
+// them all consistently. Android is intentionally skipped — it uses our
+// custom MessageNotificationPlugin where permission is real.
+let desktopPermissionPrimed = false;
+export async function primeDesktopNotificationPermission(): Promise<void> {
+  if (desktopPermissionPrimed) return;
+  if (!isTauri()) return;
+  if (typeof window === 'undefined' || !('Notification' in window)) return;
+  desktopPermissionPrimed = true;
+  try {
+    const { getTauriPlatform } = await import('./platform');
+    const platform = await getTauriPlatform();
+    if (platform !== 'windows' && platform !== 'macos' && platform !== 'linux') {
+      // Android keeps the real permission state — don't override.
+      return;
+    }
+    if (window.Notification.permission === 'granted') return;
+    const mod = await getTauriNotif();
+    if (!mod) return;
+    await mod.requestPermission();
+  } catch (err) {
+    console.warn('[notif] primeDesktopNotificationPermission failed:', err);
+    desktopPermissionPrimed = false; // let a later caller retry
+  }
+}
+
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
   if (isTauri()) {
     const mod = await getTauriNotif();
