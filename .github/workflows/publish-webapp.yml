@@ -1,0 +1,86 @@
+name: Publish webapp
+
+on:
+  push:
+    branches: [desktop-notifications]
+  workflow_dispatch:
+
+concurrency:
+  group: publish-webapp
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Build dist and publish to webapp-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: desktop-notifications
+          path: source
+
+      - name: Setup node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: source/.node-version
+          package-manager-cache: false
+
+      - name: Install dependencies
+        working-directory: source
+        run: npm ci
+
+      - name: Build
+        working-directory: source
+        env:
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        run: npm run build
+
+      - name: Stage publish contents
+        run: |
+          mkdir publish
+          cp -a source/dist/. publish/
+          cp -a source/.github/webapp-release-template/. publish/
+
+      - name: Read source metadata
+        id: meta
+        run: |
+          VERSION=$(node -p "require('./source/package.json').version")
+          SOURCE_SHORT=$(cd source && git rev-parse --short HEAD)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "source_short=$SOURCE_SHORT" >> $GITHUB_OUTPUT
+
+      - name: Prepare webapp-release working tree
+        run: |
+          git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" release
+          cd release
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin webapp-release > /dev/null; then
+            git checkout webapp-release
+            # Drop every tracked file so removals propagate (keep .git).
+            git ls-files -z | xargs -0r rm -f
+            find . -mindepth 1 -type d -empty -not -path './.git*' -delete 2>/dev/null || true
+          else
+            echo "webapp-release branch missing — creating as orphan"
+            git checkout --orphan webapp-release
+            git rm -rf . 2>/dev/null || true
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Copy build into release tree
+        run: cp -a publish/. release/
+
+      - name: Commit and push
+        working-directory: release
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes vs. previous publish — skipping commit"
+            exit 0
+          fi
+          git commit -m "Build v${{ steps.meta.outputs.version }} (source ${{ steps.meta.outputs.source_short }})"
+          git push origin webapp-release
