@@ -1,2 +1,0 @@
-import{d as e}from"./index-Dx71T2P2.js";async function t(t=0){await e(`plugin:process|exit`,{code:t})}async function n(){await e(`plugin:process|restart`)}export{t as exit,n as relaunch};
-//# sourceMappingURL=dist-js-BQj_eIB5.js.map
