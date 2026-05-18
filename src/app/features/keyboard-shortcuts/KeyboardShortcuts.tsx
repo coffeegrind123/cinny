@@ -10,7 +10,7 @@ import {
   Scroll,
   Text,
 } from 'folds';
-import FocusTrap from 'focus-trap-react';
+import { FocusTrap } from 'focus-trap-react';
 import { useAtom } from 'jotai';
 import { useKeyDown } from '../../hooks/useKeyDown';
 import { useSetting } from '../../state/hooks/settings';

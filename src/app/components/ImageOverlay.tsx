@@ -1,4 +1,4 @@
-import FocusTrap from 'focus-trap-react';
+import { FocusTrap } from 'focus-trap-react';
 import { as, Modal, Overlay, OverlayBackdrop, OverlayCenter } from 'folds';
 import React, { ReactNode } from 'react';
 import { ModalWide } from '../styles/Modal.css';

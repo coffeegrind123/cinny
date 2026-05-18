@@ -14,7 +14,7 @@ import {
   OverlayCenter,
   Text,
 } from 'folds';
-import FocusTrap from 'focus-trap-react';
+import { FocusTrap } from 'focus-trap-react';
 import { General } from './general';
 import { PageNav, PageNavContent, PageNavHeader, PageRoot } from '../../components/page';
 import { ScreenSize, useScreenSizeContext } from '../../hooks/useScreenSize';

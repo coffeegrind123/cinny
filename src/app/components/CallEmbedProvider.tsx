@@ -2,7 +2,7 @@
 import React, { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { MatrixRTCSession } from 'matrix-js-sdk/lib/matrixrtc/MatrixRTCSession';
-import FocusTrap from 'focus-trap-react';
+import { FocusTrap } from 'focus-trap-react';
 import {
   Avatar,
   Box,

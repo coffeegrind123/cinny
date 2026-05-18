@@ -19,7 +19,7 @@ import {
   Text,
   config,
 } from 'folds';
-import FocusTrap from 'focus-trap-react';
+import { FocusTrap } from 'focus-trap-react';
 
 import { useDebounce } from '../../hooks/useDebounce';
 import { stopPropagation } from '../../utils/keyboard';

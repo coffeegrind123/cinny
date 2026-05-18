@@ -16,7 +16,7 @@ import {
   toRem,
 } from 'folds';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import FocusTrap from 'focus-trap-react';
+import { FocusTrap } from 'focus-trap-react';
 import { useNavigate } from 'react-router-dom';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { factoryRoomIdByActivity } from '../../../utils/sort';

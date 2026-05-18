@@ -28,7 +28,7 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { JoinRule, Room } from 'matrix-js-sdk';
 import { RoomJoinRulesEventContent } from 'matrix-js-sdk/lib/types';
-import FocusTrap from 'focus-trap-react';
+import { FocusTrap } from 'focus-trap-react';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { mDirectAtom } from '../../../state/mDirectList';
 import {

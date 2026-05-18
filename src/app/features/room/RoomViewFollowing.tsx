@@ -13,7 +13,7 @@ import {
 } from 'folds';
 import { Room } from 'matrix-js-sdk';
 import classNames from 'classnames';
-import FocusTrap from 'focus-trap-react';
+import { FocusTrap } from 'focus-trap-react';
 
 import { getMemberDisplayName } from '../../utils/room';
 import { getMxIdLocalPart } from '../../utils/matrix';

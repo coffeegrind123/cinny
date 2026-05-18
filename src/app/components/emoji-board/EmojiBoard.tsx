@@ -10,7 +10,7 @@ import React, {
   useRef,
 } from 'react';
 import { Box, config, Icons, Scroll } from 'folds';
-import FocusTrap from 'focus-trap-react';
+import { FocusTrap } from 'focus-trap-react';
 import { isKeyHotkey } from 'is-hotkey';
 import { Room } from 'matrix-js-sdk';
 import { atom, PrimitiveAtom, useAtom, useSetAtom } from 'jotai';

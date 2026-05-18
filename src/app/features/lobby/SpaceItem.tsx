@@ -16,7 +16,7 @@ import {
   RectCords,
   config,
 } from 'folds';
-import FocusTrap from 'focus-trap-react';
+import { FocusTrap } from 'focus-trap-react';
 import classNames from 'classnames';
 import { MatrixError, Room } from 'matrix-js-sdk';
 import { IHierarchyRoom } from 'matrix-js-sdk/lib/@types/spaces';

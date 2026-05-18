@@ -21,7 +21,7 @@ import {
   Line,
   Chip,
 } from 'folds';
-import FocusTrap from 'focus-trap-react';
+import { FocusTrap } from 'focus-trap-react';
 import { useAtomValue } from 'jotai';
 import { Room } from 'matrix-js-sdk';
 import { useGlobalImagePacks, useRoomsImagePacks } from '../../../hooks/useImagePacks';

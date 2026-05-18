@@ -15,7 +15,7 @@ import {
   Icon,
   Icons,
 } from 'folds';
-import FocusTrap from 'focus-trap-react';
+import { FocusTrap } from 'focus-trap-react';
 import { MatrixError, Method } from 'matrix-js-sdk';
 import { RoomTombstoneEventContent } from 'matrix-js-sdk/lib/types';
 import { SequenceCard } from '../../../components/sequence-card';

@@ -2,7 +2,7 @@ import React, { MouseEventHandler, forwardRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Icon, Icons, Menu, MenuItem, PopOut, RectCords, Text, config, toRem } from 'folds';
 import { useAtomValue } from 'jotai';
-import FocusTrap from 'focus-trap-react';
+import { FocusTrap } from 'focus-trap-react';
 import { useOrphanRooms } from '../../../state/hooks/roomList';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { mDirectAtom } from '../../../state/mDirectList';

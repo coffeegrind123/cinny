@@ -13,7 +13,7 @@ import {
   Scroll,
   Text,
 } from 'folds';
-import FocusTrap from 'focus-trap-react';
+import { FocusTrap } from 'focus-trap-react';
 import { useAllJoinedRoomsSet, useGetRoom } from '../../hooks/useGetRoom';
 import { SpaceProvider } from '../../hooks/useSpace';
 import { CreateSpaceForm } from './CreateSpace';

@@ -18,7 +18,7 @@ import {
   color,
   toRem,
 } from 'folds';
-import FocusTrap from 'focus-trap-react';
+import { FocusTrap } from 'focus-trap-react';
 import { JoinRule, MatrixError, Room } from 'matrix-js-sdk';
 import { IHierarchyRoom } from 'matrix-js-sdk/lib/@types/spaces';
 import { RoomAvatar, RoomIcon } from '../../components/room-avatar';

@@ -28,7 +28,7 @@ import {
   toRem,
 } from 'folds';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import FocusTrap from 'focus-trap-react';
+import { FocusTrap } from 'focus-trap-react';
 import { useAtomValue } from 'jotai';
 import { useQuery } from '@tanstack/react-query';
 import { MatrixClient, Method, RoomType } from 'matrix-js-sdk';

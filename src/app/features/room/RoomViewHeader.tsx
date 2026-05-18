@@ -1,5 +1,5 @@
 import React, { MouseEventHandler, forwardRef, useState } from 'react';
-import FocusTrap from 'focus-trap-react';
+import { FocusTrap } from 'focus-trap-react';
 import {
   Box,
   Avatar,

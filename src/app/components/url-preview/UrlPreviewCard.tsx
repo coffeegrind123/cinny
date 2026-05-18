@@ -16,7 +16,7 @@ import {
   config,
   Button,
 } from 'folds';
-import FocusTrap from 'focus-trap-react';
+import { FocusTrap } from 'focus-trap-react';
 import { RenderViewerProps, ImageOverlay } from '../ImageOverlay';
 import { AsyncStatus, useAsyncCallback } from '../../hooks/useAsyncCallback';
 import { useMatrixClient } from '../../hooks/useMatrixClient';

@@ -16,7 +16,7 @@ import {
   toRem,
 } from 'folds';
 import { CallMembership } from 'matrix-js-sdk/lib/matrixrtc/CallMembership';
-import FocusTrap from 'focus-trap-react';
+import { FocusTrap } from 'focus-trap-react';
 import { Room } from 'matrix-js-sdk';
 import * as css from './styles.css';
 import { stopPropagation } from '../../utils/keyboard';
