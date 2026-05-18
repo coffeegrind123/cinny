@@ -1,2 +1,0 @@
-import{d as e,t}from"./index-Ch8VSu3B.js";var n;(function(e){e.Nsis=`nsis`,e.Msi=`msi`,e.Deb=`deb`,e.Rpm=`rpm`,e.AppImage=`appimage`,e.App=`app`})(n||={});async function r(){return e(`plugin:app|default_window_icon`).then(e=>e?new t(e):null)}export{r as defaultWindowIcon};
-//# sourceMappingURL=app-x_F6se-E.js.map
