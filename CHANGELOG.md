@@ -4,6 +4,7 @@ User-facing changes per commit. Most recent at the top.
 
 ## 18.05.2026
 
+- `2b24087` Added README download link for the web client zip — `prinny-webapp.zip` is now uploaded with a stable filename alongside the versioned one so `releases/latest/download/prinny-webapp.zip` resolves.
 - `d047dd6` Added platform notification for update banner — `useUpdateCheck` fires `sendDesktopNotification` the first time each new version becomes available; deduped per-version so a dismissed banner doesn't re-notify on repeat polls. Android Tauri skipped (UpdateChecker.kt's own DownloadManager notification covers it).
 - `09cc5ee` Added web client dist zip to GitHub releases — new `webapp-zip` job in prinny-client's `build.yml` attaches `prinny-webapp-vX.Y.Z.zip` (rebrand + `npm run build` output) to every release for self-hosters who'd rather download than `git pull`.
 - `6932b32` Replaced welcome splash with bundled changelog viewer — empty-state screen now reads `cinny/CHANGELOG.md` baked in at build time (Vite `?raw` import) and renders the latest dated bullets, links each SHA to the cinny commit page.
