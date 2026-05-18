@@ -88,3 +88,23 @@ jobs:
           fi
           git commit -m "Build v${{ steps.meta.outputs.version }} (source ${{ steps.meta.outputs.source_short }})"
           git push origin webapp-release
+
+      # Reactive submodule bump for prinny-client. PAT must have `Contents:
+      # write` on coffeegrind123/prinny-client (fine-grained) or `repo` scope
+      # (classic). Stored as a secret in this repo. If unset, this step
+      # quietly skips so the workflow still passes for the webapp-release
+      # publish.
+      - name: Notify prinny-client to bump submodule
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.PRINNY_CLIENT_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::warning::PRINNY_CLIENT_DISPATCH_TOKEN secret not set — skipping dispatch"
+            exit 0
+          fi
+          gh api repos/coffeegrind123/prinny-client/dispatches \
+            -f event_type=cinny-pushed \
+            -f "client_payload[sha]=$GITHUB_SHA" \
+            -f "client_payload[short]=${GITHUB_SHA:0:8}"
+          echo "Dispatched cinny-pushed event with SHA ${GITHUB_SHA:0:8}"
