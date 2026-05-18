@@ -1,0 +1,2 @@
+import{d as e,t}from"./index-DohGEXXT.js";var n;(function(e){e.Nsis=`nsis`,e.Msi=`msi`,e.Deb=`deb`,e.Rpm=`rpm`,e.AppImage=`appimage`,e.App=`app`})(n||={});async function r(){return e(`plugin:app|default_window_icon`).then(e=>e?new t(e):null)}export{r as defaultWindowIcon};
+//# sourceMappingURL=app-C9R7ZUKf.js.map
