@@ -29,7 +29,6 @@ import { AutoDiscoveryInfoProvider } from '../../hooks/useAutoDiscoveryInfo';
 import { AuthFlowsLoader } from '../../components/AuthFlowsLoader';
 import { AuthFlowsProvider } from '../../hooks/useAuthFlows';
 import { AuthServerProvider } from '../../hooks/useAuthServer';
-import { tryDecodeURIComponent } from '../../utils/dom';
 
 const currentAuthPath = (pathname: string): string => {
   if (matchPath(LOGIN_PATH, pathname)) {
@@ -68,12 +67,12 @@ function AuthLayoutError({ message }: { message: string }) {
 export function AuthLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { server: urlEncodedServer } = useParams();
+  const { server: urlServer } = useParams();
 
   const clientConfig = useClientConfig();
 
   const defaultServer = clientDefaultServer(clientConfig);
-  let server: string = urlEncodedServer ? tryDecodeURIComponent(urlEncodedServer) : defaultServer;
+  let server: string = urlServer || defaultServer;
 
   if (!clientAllowedServer(clientConfig, server)) {
     server = defaultServer;
@@ -95,15 +94,15 @@ export function AuthLayout() {
 
   // if server is mismatches with path server, update path
   useEffect(() => {
-    if (!urlEncodedServer || tryDecodeURIComponent(urlEncodedServer) !== server) {
+    if (!urlServer || urlServer !== server) {
       navigate(
         generatePath(currentAuthPath(location.pathname), {
-          server: encodeURIComponent(server),
+          server,
         }),
         { replace: true }
       );
     }
-  }, [urlEncodedServer, navigate, location, server]);
+  }, [urlServer, navigate, location, server]);
 
   const selectServer = useCallback(
     (newServer: string) => {
@@ -113,7 +112,7 @@ export function AuthLayout() {
         return;
       }
       navigate(
-        generatePath(currentAuthPath(location.pathname), { server: encodeURIComponent(newServer) })
+        generatePath(currentAuthPath(location.pathname), { server: newServer })
       );
     },
     [navigate, location, discoveryState, server, discoverServer]

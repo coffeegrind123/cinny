@@ -1,7 +1,7 @@
 import { useMatch, useParams } from 'react-router-dom';
 import { getCanonicalAliasRoomId, isRoomAlias } from '../../utils/matrix';
 import { useMatrixClient } from '../useMatrixClient';
-import { getSpaceLobbyPath, getSpaceSearchPath } from '../../pages/pathUtils';
+import { SPACE_LOBBY_PATH, SPACE_SEARCH_PATH } from '../../pages/paths';
 
 export const useSelectedSpace = (): string | undefined => {
   const mx = useMatrixClient();
@@ -18,20 +18,20 @@ export const useSelectedSpace = (): string | undefined => {
 
 export const useSpaceLobbySelected = (spaceIdOrAlias: string): boolean => {
   const match = useMatch({
-    path: decodeURIComponent(getSpaceLobbyPath(spaceIdOrAlias)),
+    path: SPACE_LOBBY_PATH,
     caseSensitive: true,
     end: false,
   });
 
-  return !!match;
+  return !!match && match.params.spaceIdOrAlias === spaceIdOrAlias;
 };
 
 export const useSpaceSearchSelected = (spaceIdOrAlias: string): boolean => {
   const match = useMatch({
-    path: decodeURIComponent(getSpaceSearchPath(spaceIdOrAlias)),
+    path: SPACE_SEARCH_PATH,
     caseSensitive: true,
     end: false,
   });
 
-  return !!match;
+  return !!match && match.params.spaceIdOrAlias === spaceIdOrAlias;
 };
