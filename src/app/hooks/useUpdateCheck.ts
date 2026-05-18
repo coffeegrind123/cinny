@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
-import { isTauri } from '../utils/desktop-notifications';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { isTauri, sendDesktopNotification } from '../utils/desktop-notifications';
 import { isMobile as isMobileTauri } from '../utils/platform';
+import LogoSVG from '../../../public/res/svg/cinny.svg';
 
 type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'installing' | 'error' | 'no-update';
 
@@ -23,6 +24,12 @@ export function useUpdateCheck(): UpdateCheckState {
   const [error, setError] = useState<string | null>(null);
   // Keep a ref to the Update object so we can call .downloadAndInstall() later
   const [updateObj, setUpdateObj] = useState<any>(null);
+  // Track which versions we've already fired a notification for so a
+  // banner that's dismissed and re-shown (or a repeat poll that returns
+  // the same version) doesn't notify twice. Empty string is the web
+  // sentinel — we only notify once per session for SW-detected updates
+  // since we don't have a version to dedupe against.
+  const notifiedVersions = useRef<Set<string>>(new Set());
 
   const checkForUpdate = useCallback(async () => {
     if (!isTauri()) return;
@@ -98,6 +105,36 @@ export function useUpdateCheck(): UpdateCheckState {
     window.addEventListener('cinny:web-update-available', handler);
     return () => window.removeEventListener('cinny:web-update-available', handler);
   }, []);
+
+  // Fire a platform notification the first time we see each new version
+  // become available. Tauri desktop: OS toast via plugin-notification.
+  // Web: window.Notification (permission-gated). Android Tauri: skipped —
+  // UpdateChecker.kt already shows the DownloadManager system notification
+  // when it starts pulling the APK, so a second toast would be noise.
+  useEffect(() => {
+    if (status !== 'available' || !update) return;
+    const key = update.version || 'web-update';
+    if (notifiedVersions.current.has(key)) return;
+    notifiedVersions.current.add(key);
+
+    (async () => {
+      if (isTauri() && (await isMobileTauri())) return; // Android handles itself
+      const title = update.version
+        ? `Cinny ${update.version} available`
+        : 'New version available';
+      const body = update.version
+        ? 'Click the banner to download and install.'
+        : 'Click the banner to reload and load the new build.';
+      try {
+        await sendDesktopNotification(title, {
+          icon: LogoSVG,
+          body,
+        });
+      } catch {
+        // Notification permission may be denied — banner still shows.
+      }
+    })();
+  }, [status, update]);
 
   return { status, update, error, checkForUpdate, downloadAndInstall };
 }
