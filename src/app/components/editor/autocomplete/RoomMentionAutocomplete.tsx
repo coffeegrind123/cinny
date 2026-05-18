@@ -5,7 +5,7 @@ import { Avatar, Icon, Icons, MenuItem, Text } from 'folds';
 import { JoinRule, MatrixClient } from 'matrix-js-sdk';
 import { useAtomValue } from 'jotai';
 
-import { createMentionElement, moveCursor, replaceWithElement } from '../utils';
+import { createMentionElement, moveCursor, replaceWithElement, safeFocusEditor } from '../utils';
 import { getDirectRoomAvatarUrl } from '../../../utils/room';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { AutocompleteQuery } from './autocompleteQuery';
@@ -115,7 +115,7 @@ export function RoomMentionAutocomplete({
     );
     replaceWithElement(editor, query.range, mentionEl);
     moveCursor(editor, true);
-    ReactEditor.focus(editor);
+    safeFocusEditor(editor);
     requestClose();
   };
 

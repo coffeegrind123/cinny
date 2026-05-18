@@ -9,7 +9,7 @@ import { AutocompleteMenu } from './AutocompleteMenu';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { UseAsyncSearchOptions, useAsyncSearch } from '../../../hooks/useAsyncSearch';
 import { onTabPress } from '../../../utils/keyboard';
-import { createEmoticonElement, moveCursor, replaceWithElement } from '../utils';
+import { createEmoticonElement, moveCursor, replaceWithElement, safeFocusEditor } from '../utils';
 import { useRecentEmoji } from '../../../hooks/useRecentEmoji';
 import { useRelevantImagePacks } from '../../../hooks/useImagePacks';
 import { IEmoji, emojis } from '../../../plugins/emoji';
@@ -71,7 +71,7 @@ export function EmoticonAutocomplete({
     const emoticonEl = createEmoticonElement(key, shortcode);
     replaceWithElement(editor, query.range, emoticonEl);
     moveCursor(editor, true);
-    ReactEditor.focus(editor);
+    safeFocusEditor(editor);
     requestClose();
   };
 

@@ -39,6 +39,7 @@ import {
   htmlToEditorInput,
   moveCursor,
   plainToEditorInput,
+  safeFocusEditor,
   toMatrixCustomHTML,
   toPlainText,
   trimCustomHtml,
@@ -197,7 +198,7 @@ export const MessageEditor = as<'div', MessageEditorProps>(
     );
 
     const handleCloseAutocomplete = useCallback(() => {
-      ReactEditor.focus(editor);
+      safeFocusEditor(editor);
       setAutocompleteQuery(undefined);
     }, [editor]);
 
@@ -220,7 +221,7 @@ export const MessageEditor = as<'div', MessageEditorProps>(
       });
 
       editor.insertFragment(initialValue);
-      if (!mobileOrTablet()) ReactEditor.focus(editor);
+      if (!mobileOrTablet()) safeFocusEditor(editor);
     }, [editor, getPrevBodyAndFormattedBody, isMarkdown]);
 
     useEffect(() => {
@@ -312,7 +313,7 @@ export const MessageEditor = as<'div', MessageEditorProps>(
                             requestClose={() => {
                               setAnchor((v) => {
                                 if (v) {
-                                  if (!mobileOrTablet()) ReactEditor.focus(editor);
+                                  if (!mobileOrTablet()) safeFocusEditor(editor);
                                   return undefined;
                                 }
                                 return v;

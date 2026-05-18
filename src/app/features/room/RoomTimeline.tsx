@@ -102,7 +102,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { getResizeObserverEntry, useResizeObserver } from '../../hooks/useResizeObserver';
 import * as css from './RoomTimeline.css';
 import { inSameDay, minuteDifference, timeDayMonthYear, today, yesterday } from '../../utils/time';
-import { createMentionElement, isEmptyEditor, moveCursor } from '../../components/editor';
+import { createMentionElement, isEmptyEditor, moveCursor, safeFocusEditor } from '../../components/editor';
 import { roomIdToReplyDraftAtomFamily } from '../../state/room/roomInputDrafts';
 import { usePowerLevelsContext } from '../../hooks/usePowerLevels';
 import { GetContentCallback, MessageEvent, StateEvent } from '../../../types/matrix/room';
@@ -958,7 +958,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
           userId === mx.getUserId()
         )
       );
-      ReactEditor.focus(editor);
+      safeFocusEditor(editor);
       moveCursor(editor);
     },
     [mx, room, editor]
@@ -988,7 +988,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
           formattedBody,
           relation,
         });
-        setTimeout(() => ReactEditor.focus(editor), 100);
+        setTimeout(() => safeFocusEditor(editor), 100);
       }
     },
     [room, setReplyDraft, editor]
@@ -1024,7 +1024,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
         return;
       }
       setEditId(undefined);
-      ReactEditor.focus(editor);
+      safeFocusEditor(editor);
     },
     [editor]
   );

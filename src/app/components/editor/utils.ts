@@ -1,4 +1,5 @@
 import { BasePoint, BaseRange, Editor, Element, Point, Range, Text, Transforms } from 'slate';
+import { ReactEditor } from 'slate-react';
 import { BlockType, MarkType } from './types';
 import {
   CommandElement,
@@ -204,6 +205,41 @@ export const replaceWithElement = (editor: Editor, selectRange: BaseRange, eleme
 export const moveCursor = (editor: Editor, withSpace?: boolean) => {
   Transforms.move(editor);
   if (withSpace) editor.insertText(' ');
+};
+
+/**
+ * Focus the slate editor without crashing when the recorded selection
+ * no longer matches the DOM tree. ReactEditor.focus uses
+ * `toDOMRange(editor.selection)` internally; if the selection points at
+ * a text node that was just removed (e.g. an autocomplete trigger like
+ * `:emoji:` that was replaced with an emoticon element, or a focus
+ * restore that fires after the edit-message dialog re-renders), that
+ * call throws "Cannot resolve a DOM node from Slate node" and the whole
+ * tree crashes to the React Router error boundary.
+ *
+ * The recovery is to deselect first so ReactEditor.focus skips the
+ * range restore, then focus the editor DOM node directly. If even that
+ * fails the slate tree has been detached entirely (component
+ * unmounting) — silently bail.
+ */
+export const safeFocusEditor = (editor: Editor) => {
+  try {
+    ReactEditor.focus(editor as ReactEditor);
+    return;
+  } catch {
+    // fall through to deselect + DOM focus
+  }
+  try {
+    Transforms.deselect(editor);
+  } catch {
+    // already detached
+  }
+  try {
+    const el = ReactEditor.toDOMNode(editor as ReactEditor, editor);
+    el.focus({ preventScroll: true });
+  } catch {
+    // editor DOM node is gone — nothing more we can do
+  }
 };
 
 interface PointUntilCharOptions {

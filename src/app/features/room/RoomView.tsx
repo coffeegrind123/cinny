@@ -7,7 +7,7 @@ import { useStateEvent } from '../../hooks/useStateEvent';
 import { StateEvent } from '../../../types/matrix/room';
 import { usePowerLevelsContext } from '../../hooks/usePowerLevels';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
-import { useEditor } from '../../components/editor';
+import { safeFocusEditor, useEditor } from '../../components/editor';
 import { RoomInputPlaceholder } from './RoomInputPlaceholder';
 import { RoomTimeline } from './RoomTimeline';
 import { RoomViewTyping } from './RoomViewTyping';
@@ -83,7 +83,7 @@ export function RoomView({ eventId }: { eventId?: string }) {
           return;
         }
         if (shouldFocusMessageField(evt) || isKeyHotkey('mod+v', evt)) {
-          ReactEditor.focus(editor);
+          safeFocusEditor(editor);
         }
       },
       [editor]

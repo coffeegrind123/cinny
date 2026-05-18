@@ -47,6 +47,7 @@ import {
   EmoticonAutocomplete,
   createEmoticonElement,
   moveCursor,
+  safeFocusEditor,
   resetEditorHistory,
   customHtmlEqualsPlainText,
   trimCustomHtml,
@@ -248,7 +249,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
       const active = document.activeElement as HTMLElement | null;
       if (active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA') return;
       try {
-        ReactEditor.focus(editor);
+        safeFocusEditor(editor);
       } catch {
         // editor might be unmounted; ignore
       }
@@ -468,7 +469,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
 
     const handleCloseAutocomplete = useCallback(() => {
       setAutocompleteQuery(undefined);
-      ReactEditor.focus(editor);
+      safeFocusEditor(editor);
     }, [editor]);
 
     const handleEmoticonSelect = (key: string, shortcode: string) => {
@@ -681,7 +682,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
                         requestClose={() => {
                           setEmojiBoardTab((t) => {
                             if (t) {
-                              if (!mobileOrTablet()) ReactEditor.focus(editor);
+                              if (!mobileOrTablet()) safeFocusEditor(editor);
                               return undefined;
                             }
                             return t;

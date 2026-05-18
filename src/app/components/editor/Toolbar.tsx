@@ -25,6 +25,7 @@ import {
   isBlockActive,
   isMarkActive,
   removeAllMark,
+  safeFocusEditor,
   toggleBlock,
   toggleMark,
 } from './utils';
@@ -78,7 +79,7 @@ export function MarkButton({ format, icon, tooltip }: MarkButtonProps) {
 
   const handleClick = () => {
     toggleMark(editor, format);
-    ReactEditor.focus(editor);
+    safeFocusEditor(editor);
   };
 
   return (
@@ -110,7 +111,7 @@ export function BlockButton({ format, icon, tooltip }: BlockButtonProps) {
 
   const handleClick = () => {
     toggleBlock(editor, format, { level: 1 });
-    ReactEditor.focus(editor);
+    safeFocusEditor(editor);
   };
 
   return (
@@ -140,7 +141,7 @@ export function HeadingBlockButton() {
   const handleMenuSelect = (selectedLevel: HeadingLevel) => {
     setAnchor(undefined);
     toggleBlock(editor, BlockType.Heading, { level: selectedLevel });
-    ReactEditor.focus(editor);
+    safeFocusEditor(editor);
   };
 
   const handleMenuOpen: MouseEventHandler<HTMLButtonElement> = (evt) => {
@@ -244,7 +245,7 @@ export function ExitFormatting({ tooltip }: ExitFormattingProps) {
     } else if (!isBlockActive(editor, BlockType.Paragraph)) {
       toggleBlock(editor, BlockType.Paragraph);
     }
-    ReactEditor.focus(editor);
+    safeFocusEditor(editor);
   };
 
   return (

@@ -14,7 +14,7 @@ import {
   useAsyncSearch,
 } from '../../../hooks/useAsyncSearch';
 import { onTabPress } from '../../../utils/keyboard';
-import { createMentionElement, moveCursor, replaceWithElement } from '../utils';
+import { createMentionElement, moveCursor, replaceWithElement, safeFocusEditor } from '../utils';
 import { getMxIdLocalPart, getMxIdServer, isUserId } from '../../../utils/matrix';
 import { getMemberDisplayName, getMemberSearchStr } from '../../../utils/room';
 import { UserAvatar } from '../../user-avatar';
@@ -114,7 +114,7 @@ export function UserMentionAutocomplete({
     );
     replaceWithElement(editor, query.range, mentionEl);
     moveCursor(editor, true);
-    ReactEditor.focus(editor);
+    safeFocusEditor(editor);
     requestClose();
   };
 
