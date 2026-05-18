@@ -4,6 +4,8 @@ User-facing changes per commit. Most recent at the top.
 
 ## 19.05.2026
 
+- `380ca1a` Fixed Element-style read receipts duplicating across many old messages — `useElementReadReceipts` was memoizing once per Message instance and never invalidating, so as receipts moved forward older mounted Messages kept showing the indicator at their original position. Now subscribes to `RoomEvent.Receipt` and `RoomEvent.Timeline` and rebuilds the receipt map consistently across every Message.
+- `380ca1a` Made message hover effect more subtle — `selected` background (when the right-click menu / emoji board / reaction picker is anchored on a message) was using `Surface.ContainerActive`, the same intensity the theme reserves for pressed states. Demoted to `Surface.ContainerHover` and added a faint hover tint at the same tone so plain hover and right-click feel continuous.
 - `f3e6d88` Improved multi-link embeds — multiple URL preview cards in one message now stack vertically (Discord-style) on every viewport. Previously the desktop layout was a horizontal scroller; the column layout was mobile-only.
 - `f3e6d88` Improved embed image rendering — tiny favicon-style images (`og:image:width` ≤ 96 AND `og:image:height` ≤ 96) are no longer rendered as the embed's main image. The text-only card (title / description / siteName) still shows. Article hero shots / post media render as before.
 

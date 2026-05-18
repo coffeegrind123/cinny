@@ -65,9 +65,28 @@ const HighlightVariant = styleVariants({
   },
 });
 
+// "Selected" fires when a popover/context-menu is open against the
+// message (right-click menu, emoji-board anchor, reaction picker). It
+// previously used `Surface.ContainerActive` which is the same intensity
+// the theme reserves for held/pressed states — too loud for a passive
+// "I'm pointing at this message" tint. `ContainerHover` is the lighter
+// sibling and matches the user's request for a more subtle effect.
 const SelectedVariant = styleVariants({
   true: {
-    backgroundColor: color.Surface.ContainerActive,
+    backgroundColor: color.Surface.ContainerHover,
+  },
+});
+
+// Plain hover wasn't styled at all upstream — only the options bar
+// appearing above the message signaled hover. Add a faint tint so the
+// pointer target is obvious without competing with reply highlights or
+// jump-highlight animations. Uses the SAME tone as the (now-lighter)
+// selected state, so hover→right-click transitions feel continuous.
+const MessageHover = style({
+  selectors: {
+    '&:hover': {
+      backgroundColor: color.Surface.ContainerHover,
+    },
   },
 });
 
@@ -82,6 +101,7 @@ const AutoCollapse = style({
 export const MessageBase = recipe({
   base: [
     DefaultReset,
+    MessageHover,
     {
       marginTop: SpacingVar,
       padding: `${config.space.S100} ${config.space.S200} ${config.space.S100} ${config.space.S400}`,
