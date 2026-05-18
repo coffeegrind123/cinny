@@ -12,6 +12,7 @@ import {
   config,
   color,
 } from 'folds';
+import { RoomAccountDataEvents } from 'matrix-js-sdk';
 import { Page, PageContent, PageHeader } from '../../../components/page';
 import { SequenceCard } from '../../../components/sequence-card';
 import { SequenceCardStyle } from '../styles.css';
@@ -58,7 +59,11 @@ export function DeveloperTools({ requestClose }: DeveloperToolsProps) {
 
   const submitAccountData: AccountDataSubmitCallback = useCallback(
     async (type, content) => {
-      await mx.setRoomAccountData(room.roomId, type, content);
+      await mx.setRoomAccountData(
+        room.roomId,
+        type as keyof RoomAccountDataEvents,
+        content as never
+      );
     },
     [mx, room.roomId]
   );

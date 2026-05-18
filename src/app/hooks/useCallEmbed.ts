@@ -36,17 +36,20 @@ export const useCallEmbedRef = (): RefObject<HTMLDivElement> => {
   return ref;
 };
 
-export const createCallEmbed = (
+export const createCallEmbed = async (
   mx: MatrixClient,
   room: Room,
   dm: boolean,
   themeKind: ElementCallThemeKind,
   container: HTMLElement,
   pref?: CallPreferences
-): CallEmbed => {
+): Promise<CallEmbed> => {
   const rtcSession = mx.matrixRTC.getRoomSession(room);
-  const ongoing =
-    MatrixRTCSession.sessionMembershipsForRoom(room, rtcSession.sessionDescription).length > 0;
+  const memberships = await MatrixRTCSession.sessionMembershipsForSlot(
+    room,
+    rtcSession.slotDescription
+  );
+  const ongoing = memberships.length > 0;
 
   const intent = CallEmbed.getIntent(dm, ongoing, pref?.video);
   const widget = CallEmbed.getWidget(mx, room, intent, themeKind);
@@ -64,12 +67,12 @@ export const useCallStart = (dm = false) => {
   const callEmbedRef = useCallEmbedRef();
 
   const startCall = useCallback(
-    (room: Room, pref?: CallPreferences) => {
+    async (room: Room, pref?: CallPreferences) => {
       const container = callEmbedRef.current;
       if (!container) {
         throw new Error('Failed to start call, No embed container element found!');
       }
-      const callEmbed = createCallEmbed(mx, room, dm, theme.kind, container, pref);
+      const callEmbed = await createCallEmbed(mx, room, dm, theme.kind, container, pref);
 
       setCallEmbed(callEmbed);
     },

@@ -131,6 +131,7 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
     copyPublicDir: false,
+    target: 'esnext',
     rollupOptions: {
       plugins: [inject({ Buffer: ['buffer', 'Buffer'] })],
     },

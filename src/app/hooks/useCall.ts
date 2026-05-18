@@ -34,19 +34,21 @@ export const useCallSession = (room: Room): MatrixRTCSession => {
 };
 
 export const useCallMembers = (room: Room, session: MatrixRTCSession): CallMembership[] => {
-  const [memberships, setMemberships] = useState<CallMembership[]>(
-    MatrixRTCSession.sessionMembershipsForRoom(room, session.sessionDescription)
-  );
+  const [memberships, setMemberships] = useState<CallMembership[]>([]);
 
   useEffect(() => {
+    let cancelled = false;
     const updateMemberships = () => {
-      setMemberships(MatrixRTCSession.sessionMembershipsForRoom(room, session.sessionDescription));
+      MatrixRTCSession.sessionMembershipsForSlot(room, session.slotDescription).then((result) => {
+        if (!cancelled) setMemberships(result);
+      });
     };
 
     updateMemberships();
 
     session.on(MatrixRTCSessionEvent.MembershipsChanged, updateMemberships);
     return () => {
+      cancelled = true;
       session.removeListener(MatrixRTCSessionEvent.MembershipsChanged, updateMemberships);
     };
   }, [session, room]);

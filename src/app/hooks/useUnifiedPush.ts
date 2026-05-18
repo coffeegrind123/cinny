@@ -93,7 +93,7 @@ export function useUnifiedPush(mx: MatrixClient | undefined) {
 
       // 4. Listen for push messages — trigger sync
       onPushMessage(() => {
-        mx.sync();
+        mx.retryImmediately();
       }).then((unsub) => { unsubMessage = unsub; });
 
       // 5. Listen for unregistration
