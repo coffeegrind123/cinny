@@ -362,6 +362,39 @@ export async function onNotificationAction(
     console.error('[notif] Failed to register notification://activated listener:', err);
   }
 
+  // Android dispatches notification clicks through our custom
+  // MessageNotificationPlugin: MainActivity.onCreate / onNewIntent picks up
+  // the PendingIntent extras and the plugin emits this event. Listen for
+  // it in addition to the Windows-style global event above. Tauri plugin
+  // trigger() emits the bare event name globally — matches the convention
+  // used by UnifiedPushPlugin (`endpoint-received`, `message-received`).
+  try {
+    const { listen } = await import('@tauri-apps/api/event');
+    const unlisten = await listen<NotificationExtra>(
+      'message-notification-clicked',
+      (event) => {
+        const payload = event.payload;
+        if (payload?.roomId) {
+          callback(payload);
+        }
+      }
+    );
+    unlisteners.push(unlisten);
+
+    // Signal the plugin that we're listening. On Android cold start the
+    // PendingIntent extras arrive before React mounts; the plugin stashes
+    // the click and replays it on this command. No-op on other platforms
+    // (the command isn't registered there — invoke rejects silently).
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('plugin:messageNotification|js_ready');
+    } catch {
+      // Plugin not present (desktop / non-Android) — ignore.
+    }
+  } catch (err) {
+    console.error('[notif] Failed to register message-notification-clicked listener:', err);
+  }
+
   return () => {
     unlisteners.forEach((fn) => {
       try {
@@ -374,6 +407,20 @@ export async function onNotificationAction(
 }
 
 export function isNotificationPermissionGrantedSync(): boolean {
+  // On Tauri Android the WebView never marks window.Notification.permission
+  // as 'granted' — tauri-plugin-notification doesn't override the WebView's
+  // builtin Notification object on Android, so it stays at the WebView
+  // default ('denied') even after the user grants POST_NOTIFICATIONS via
+  // the OS dialog. usePermission.ts caches the real granted state in
+  // localStorage; trust the cache so the JS dispatch gate doesn't suppress
+  // foreground notifications.
+  if (isTauri()) {
+    try {
+      if (localStorage.getItem('notifPermissionGranted') === '1') return true;
+    } catch {
+      // localStorage unavailable — fall through to Notification check.
+    }
+  }
   if ('Notification' in window) {
     return window.Notification.permission === 'granted';
   }

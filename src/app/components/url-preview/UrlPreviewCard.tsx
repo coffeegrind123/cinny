@@ -171,7 +171,7 @@ function ProxiedVideo({
       poster={poster}
       controls={!isGif}
       autoPlay={isGif}
-      loop={isGif}
+      loop
       muted={isGif}
       playsInline
       preload="metadata"
@@ -315,6 +315,7 @@ function HlsVideo({
       ref={videoRef}
       poster={poster}
       controls
+      loop
       playsInline
       preload="metadata"
       referrerPolicy="no-referrer"
@@ -1094,7 +1095,7 @@ export const UrlPreviewHolder = as<'div'>(({ children, ...props }, ref) => {
       style={{ marginTop: config.space.S200, position: 'relative' }}
     >
       <Scroll ref={scrollRef} direction="Horizontal" size="0" visibility="Hover" hideTrack>
-        <Box shrink="No" alignItems="Center">
+        <Box shrink="No" alignItems="Center" className={css.UrlPreviewHolderInner}>
           <div ref={backAnchorRef} />
           {!backVisible && (
             <>
@@ -1111,7 +1112,7 @@ export const UrlPreviewHolder = as<'div'>(({ children, ...props }, ref) => {
               </IconButton>
             </>
           )}
-          <Box alignItems="Inherit" gap="200">
+          <Box alignItems="Inherit" gap="200" className={css.UrlPreviewHolderRow}>
             {children}
 
             {!frontVisible && (

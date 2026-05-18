@@ -40,6 +40,7 @@ type RenderVideoProps = {
   onError: () => void;
   autoPlay: boolean;
   controls: boolean;
+  loop: boolean;
 };
 type VideoContentProps = {
   body: string;
@@ -152,6 +153,7 @@ export const VideoContent = as<'div', VideoContentProps>(
               onError: handleError,
               autoPlay: true,
               controls: true,
+              loop: true,
             })}
           </Box>
         )}

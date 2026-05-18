@@ -21,6 +21,7 @@ export function MobileSwipeBack({ children }: { children: React.ReactNode }) {
 
   useSwipeGesture(ref, {
     edge: 'left',
+    anywhere: true,
     threshold: 80,
     onSwipe: handleSwipe,
   });

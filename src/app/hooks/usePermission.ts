@@ -3,13 +3,50 @@ import { isTauri, primeDesktopNotificationPermission } from '../utils/desktop-no
 
 const isTauriRuntime = () => isTauri();
 
+// Persist the granted notification permission across app restarts. Tauri's
+// WebView resets `window.Notification.permission` to 'denied'/'default' on
+// every launch, so without a cache the Settings → Notifications UI flashes
+// the "Enable" button until the async OS check completes — and if the
+// async check fails silently the button persists, forcing the user to
+// re-click Enable on every startup. Cache the granted state so the initial
+// render shows the Switch immediately; the live polling will still
+// downgrade to 'prompt'/'denied' if the OS revokes it later.
+const NOTIF_PERM_CACHE_KEY = 'notifPermissionGranted';
+
+const readCachedGranted = (): boolean => {
+  try {
+    return localStorage.getItem(NOTIF_PERM_CACHE_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
+const writeCachedGranted = (granted: boolean) => {
+  try {
+    if (granted) {
+      localStorage.setItem(NOTIF_PERM_CACHE_KEY, '1');
+    } else {
+      localStorage.removeItem(NOTIF_PERM_CACHE_KEY);
+    }
+  } catch {
+    // localStorage unavailable (private mode etc.) — fall through.
+  }
+};
+
 export const getNotificationState = (): PermissionState => {
   if ('Notification' in window) {
     if (isTauriRuntime()) {
-      return window.Notification.permission === 'granted' ? 'granted' : 'prompt';
+      if (window.Notification.permission === 'granted') return 'granted';
+      if (readCachedGranted()) return 'granted';
+      return 'prompt';
     }
     if (window.Notification.permission === 'default') {
       return 'prompt';
+    }
+    if (window.Notification.permission === 'granted') {
+      writeCachedGranted(true);
+    } else if (window.Notification.permission === 'denied') {
+      writeCachedGranted(false);
     }
     return window.Notification.permission;
   }
@@ -50,6 +87,9 @@ export function usePermissionState(name: PermissionName, initialValue: Permissio
           await primeDesktopNotificationPermission();
           const mod = await import('@tauri-apps/plugin-notification');
           const granted = await mod.isPermissionGranted();
+          if (name === 'notifications') {
+            writeCachedGranted(granted);
+          }
           setPermissionState((prev) => {
             const mapped: PermissionState = granted ? 'granted' : 'prompt';
             return prev !== mapped ? mapped : prev;
@@ -68,6 +108,8 @@ export function usePermissionState(name: PermissionName, initialValue: Permissio
         await checkTauriPermission();
       } else if (name === 'notifications' && 'Notification' in window) {
         const current = window.Notification.permission as PermissionState;
+        if (current === 'granted') writeCachedGranted(true);
+        else if (current === 'denied') writeCachedGranted(false);
         setPermissionState((prev) => (prev !== current ? current : prev));
       }
     }, 500);

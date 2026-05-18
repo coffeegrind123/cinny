@@ -16,6 +16,14 @@ export const UrlPreview = style([
     ':hover': {
       filter: 'brightness(0.8)',
     },
+
+    '@media': {
+      '(max-width: 640px)': {
+        maxWidth: '100%',
+        width: '100%',
+        minWidth: 0,
+      },
+    },
   },
 ]);
 

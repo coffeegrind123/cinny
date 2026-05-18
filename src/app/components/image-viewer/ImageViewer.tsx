@@ -47,8 +47,8 @@ export const ImageViewer = as<'div', ImageViewerProps>(
         <Box
           style={{
             position: 'fixed',
-            top: config.space.S200,
-            left: config.space.S200,
+            top: `calc(${config.space.S200} + env(safe-area-inset-top))`,
+            left: `calc(${config.space.S200} + env(safe-area-inset-left))`,
             zIndex: 2,
           }}
         >
@@ -72,8 +72,8 @@ export const ImageViewer = as<'div', ImageViewerProps>(
         <Box
           style={{
             position: 'fixed',
-            top: config.space.S200,
-            right: config.space.S200,
+            top: `calc(${config.space.S200} + env(safe-area-inset-top))`,
+            right: `calc(${config.space.S200} + env(safe-area-inset-right))`,
             zIndex: 2,
           }}
         >

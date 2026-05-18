@@ -48,6 +48,7 @@ export function MobileSwipeOpen({ children }: { children: React.ReactNode }) {
 
   const { isTracking } = useSwipeGesture(ref, {
     edge: 'right',
+    anywhere: true,
     threshold: 80,
     onSwipe: handleSwipe,
   });

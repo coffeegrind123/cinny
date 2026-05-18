@@ -1,10 +1,21 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 
 interface SwipeGestureOptions {
-  /** Which edge to detect swipe from */
+  /** Which edge defines the inward direction */
   edge: 'left' | 'right';
-  /** How close to the edge (in px) the touch must start */
+  /**
+   * How close to the edge (in px) the touch must start. Ignored when
+   * `anywhere` is true.
+   */
   edgeWidth?: number;
+  /**
+   * Allow the touch to start anywhere on the element instead of only at
+   * the named edge. On Android, the system back-gesture region (typically
+   * 24–48dp from each side in gesture-nav mode) consumes edge touches
+   * before they reach the WebView — set this to true to keep the gesture
+   * usable. Horizontal-dominance + threshold still gate false positives.
+   */
+  anywhere?: boolean;
   /** Minimum horizontal distance to trigger the swipe */
   threshold?: number;
   /** Called when a valid swipe completes. direction: 1 = inward from edge, -1 = outward toward edge */
@@ -19,7 +30,7 @@ interface SwipeGestureOptions {
  */
 export function useSwipeGesture(
   ref: React.RefObject<HTMLElement | null>,
-  { edge, edgeWidth = 32, threshold = 80, onSwipe }: SwipeGestureOptions
+  { edge, edgeWidth = 32, anywhere = false, threshold = 80, onSwipe }: SwipeGestureOptions
 ): { isTracking: boolean } {
   const startX = useRef(0);
   const startY = useRef(0);
@@ -30,8 +41,9 @@ export function useSwipeGesture(
     (e: TouchEvent) => {
       if (e.touches.length !== 1) return;
       const touch = e.touches[0];
-      const atEdge =
-        edge === 'left'
+      const atEdge = anywhere
+        ? true
+        : edge === 'left'
           ? touch.clientX <= edgeWidth
           : touch.clientX >= window.innerWidth - edgeWidth;
 
@@ -42,7 +54,7 @@ export function useSwipeGesture(
         setIsTracking(true);
       }
     },
-    [edge, edgeWidth]
+    [edge, edgeWidth, anywhere]
   );
 
   const handleTouchMove = useCallback(
