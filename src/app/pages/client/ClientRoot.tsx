@@ -37,6 +37,7 @@ import { AuthMetadataProvider } from '../../hooks/useAuthMetadata';
 import { getFallbackSession } from '../../state/sessions';
 import { AutoDiscovery } from './AutoDiscovery';
 import { useUnifiedPush } from '../../hooks/useUnifiedPush';
+import { useWebPush } from '../../hooks/useWebPush';
 
 function ClientRootLoading() {
   return (
@@ -185,6 +186,7 @@ export function ClientRoot({ children }: ClientRootProps) {
   );
 
   useUnifiedPush(mx);
+  useWebPush(mx);
 
   return (
     <AutoDiscovery userId={userId!} baseUrl={baseUrl!}>

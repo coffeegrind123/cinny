@@ -384,6 +384,18 @@ function MessageNotifications() {
     return () => { unlisten?.(); };
   }, [navigate]);
 
+  // Web push notification clicks: the SW posts a message picked up in
+  // src/index.tsx and re-broadcast as a window CustomEvent.
+  useEffect(() => {
+    const handler = (ev: Event) => {
+      const detail = (ev as CustomEvent).detail as { roomId?: string; eventId?: string } | undefined;
+      if (!detail?.roomId) return;
+      navigate(getHomeRoomPath(detail.roomId, detail.eventId));
+    };
+    window.addEventListener('cinny:notification-click', handler);
+    return () => window.removeEventListener('cinny:notification-click', handler);
+  }, [navigate]);
+
   return (
     // eslint-disable-next-line jsx-a11y/media-has-caption
     <audio ref={audioRef} style={{ display: 'none' }}>

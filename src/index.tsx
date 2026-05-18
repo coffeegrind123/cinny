@@ -62,6 +62,18 @@ if ('serviceWorker' in navigator) {
     if (type === 'requestSession') {
       sendSessionToSW();
     }
+
+    if (type === 'notificationClick' && ev.data.roomId) {
+      // Surface to the React tree as a window event. ClientNonUIFeatures
+      // (and a small handler on the auth shell) listens for this and
+      // routes via React Router — we can't navigate() from here because
+      // the router isn't mounted yet at this file's scope.
+      window.dispatchEvent(
+        new CustomEvent('cinny:notification-click', {
+          detail: { roomId: ev.data.roomId, eventId: ev.data.eventId },
+        })
+      );
+    }
   });
 }
 

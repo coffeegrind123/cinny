@@ -98,7 +98,7 @@ const defaultSettings: Settings = {
   readReceiptStyle: 'cinny',
   useVxTwitter: true,
   useSoundcloak: true,
-  usePiped: true,
+  usePiped: false,
 };
 
 export const getSettings = () => {

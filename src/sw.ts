@@ -131,6 +131,96 @@ function fetchConfig(token: string): RequestInit {
   };
 }
 
+// ── Web Push ──────────────────────────────────────────────────────────
+//
+// Triggered when a Matrix push gateway (e.g. Sygnal's webpush pushkin)
+// delivers a notification while the tab is closed/backgrounded. The
+// payload shape depends on the gateway — we cover the common cases:
+//
+//   {                                       // Sygnal webpush format
+//     notification: { event_id, room_id, sender, room_name, content: { body }, ... }
+//   }
+//
+//   { title, body, roomId, eventId }        // flat custom-gateway format
+//
+// With Matrix's `format: "event_id_only"` pusher option, the gateway
+// strips the message body for privacy — we show "New message" instead.
+
+interface MatrixPushNotification {
+  event_id?: string;
+  room_id?: string;
+  sender?: string;
+  sender_display_name?: string;
+  room_name?: string;
+  room_alias?: string;
+  content?: { body?: string; msgtype?: string };
+  counts?: { unread?: number; missed_calls?: number };
+}
+
+self.addEventListener('push', (event: PushEvent) => {
+  event.waitUntil(handlePush(event));
+});
+
+async function handlePush(event: PushEvent) {
+  let payload: any = {};
+  try {
+    payload = event.data?.json() ?? {};
+  } catch {
+    // Some gateways send plain text or empty payload
+    payload = { title: 'New message' };
+  }
+
+  const notif: MatrixPushNotification = payload.notification ?? payload;
+  const sender = notif.sender_display_name || notif.sender || '';
+  const title = notif.room_name || notif.room_alias || sender || payload.title || 'New message';
+  const body =
+    notif.content?.body ||
+    payload.body ||
+    (sender && notif.room_name ? `${sender}: …` : 'You have a new message');
+
+  await self.registration.showNotification(title, {
+    body,
+    icon: '/public/res/svg/cinny.svg',
+    badge: '/public/res/svg/cinny.svg',
+    tag: notif.event_id || payload.eventId || 'matrix-push',
+    renotify: true,
+    data: {
+      roomId: notif.room_id || payload.roomId,
+      eventId: notif.event_id || payload.eventId,
+    },
+  } as NotificationOptions);
+}
+
+self.addEventListener('notificationclick', (event: NotificationEvent) => {
+  event.notification.close();
+  const { roomId, eventId } = (event.notification.data || {}) as { roomId?: string; eventId?: string };
+
+  event.waitUntil(
+    (async () => {
+      const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+
+      // Focus an existing tab and let it route — avoids opening duplicates.
+      const existing = allClients.find((c) => c.url.startsWith(self.registration.scope));
+      if (existing) {
+        try {
+          await (existing as WindowClient).focus();
+        } catch {
+          // focus() can reject on some browsers if not user-activated
+        }
+        existing.postMessage({ type: 'notificationClick', roomId, eventId });
+        return;
+      }
+
+      // No open tab — launch fresh. Pass the roomId via hash so the
+      // bootstrapping app code can route once it's mounted.
+      const url = roomId
+        ? `${self.registration.scope}#/notification-target?roomId=${encodeURIComponent(roomId)}`
+        : self.registration.scope;
+      await self.clients.openWindow(url);
+    })()
+  );
+});
+
 self.addEventListener('fetch', (event: FetchEvent) => {
   const { url, method } = event.request;
 

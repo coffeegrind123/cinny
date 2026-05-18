@@ -18,6 +18,16 @@ export type ClientConfig = {
   };
 
   hashRouter?: HashRouterConfig;
+
+  // Web Push (background notifications when the tab is closed). Both
+  // fields are required for registration — leaving either unset disables
+  // background push and falls back to foreground-only notifications.
+  // pushGateway:        Sygnal-compatible push gateway URL
+  //                     (e.g. https://sygnal.example.org/_matrix/push/v1/notify)
+  // pushVapidPublicKey: base64url-encoded VAPID public key matching the
+  //                     private key configured on the gateway
+  pushGateway?: string;
+  pushVapidPublicKey?: string;
 };
 
 const ClientConfigContext = createContext<ClientConfig | null>(null);
