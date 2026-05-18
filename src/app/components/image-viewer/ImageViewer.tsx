@@ -24,14 +24,49 @@ export const ImageViewer = as<'div', ImageViewerProps>(
     const { zoom, zoomIn, zoomOut, setZoom } = useZoom(0.2);
     const { pan, cursor, onMouseDown } = usePan(zoom !== 1);
     const isMobile = useScreenSizeContext() === ScreenSize.Mobile;
+    // Pinch-zoom state for touch devices. Tracks the initial distance and
+    // zoom level at the start of a two-finger gesture so subsequent
+    // touchmove deltas scale relative to the gesture origin.
+    const pinchRef = React.useRef<{ baseDist: number; baseZoom: number } | null>(null);
 
     const handleDownload = async () => {
       const fileContent = await downloadMedia(src);
       FileSaver.saveAs(fileContent, alt);
     };
 
-    const handleImageClick = () => {
-      setZoom(zoom === 1 ? 2 : 1);
+    // Click/tap zoom is desktop-only. On mobile the same gesture
+    // double-fires (tap → click → tap) and the explicit +/- buttons +
+    // pinch handle zoom intent without ambiguity.
+    const handleImageClick = isMobile
+      ? undefined
+      : () => setZoom(zoom === 1 ? 2 : 1);
+
+    const handleTouchStart = (e: React.TouchEvent<HTMLImageElement>) => {
+      if (e.touches.length !== 2) return;
+      const [t1, t2] = [e.touches[0], e.touches[1]];
+      const dx = t2.clientX - t1.clientX;
+      const dy = t2.clientY - t1.clientY;
+      pinchRef.current = { baseDist: Math.hypot(dx, dy), baseZoom: zoom };
+    };
+
+    const handleTouchMove = (e: React.TouchEvent<HTMLImageElement>) => {
+      if (!pinchRef.current || e.touches.length !== 2) return;
+      // preventDefault to suppress the browser's native page pinch-zoom.
+      e.preventDefault();
+      const [t1, t2] = [e.touches[0], e.touches[1]];
+      const dx = t2.clientX - t1.clientX;
+      const dy = t2.clientY - t1.clientY;
+      const dist = Math.hypot(dx, dy);
+      const ratio = dist / pinchRef.current.baseDist;
+      const next = pinchRef.current.baseZoom * ratio;
+      // Mirror useZoom's bounds (min 0.1, max 5).
+      setZoom(Math.max(0.1, Math.min(5, next)));
+    };
+
+    const handleTouchEnd = (e: React.TouchEvent<HTMLImageElement>) => {
+      if (e.touches.length < 2) {
+        pinchRef.current = null;
+      }
     };
 
     const handleOpenExternal = () => {
@@ -143,11 +178,18 @@ export const ImageViewer = as<'div', ImageViewerProps>(
           style={{
             cursor: zoomCursor,
             transform: `scale(${zoom}) translate(${pan.translateX}px, ${pan.translateY}px)`,
+            // Disable browser's native double-tap-zoom + pinch-zoom so our
+            // gesture handlers own the interaction on touch devices.
+            touchAction: isMobile ? 'none' : undefined,
           }}
           src={src}
           alt={alt}
           onClick={handleImageClick}
           onMouseDown={onMouseDown}
+          onTouchStart={isMobile ? handleTouchStart : undefined}
+          onTouchMove={isMobile ? handleTouchMove : undefined}
+          onTouchEnd={isMobile ? handleTouchEnd : undefined}
+          onTouchCancel={isMobile ? handleTouchEnd : undefined}
         />
       </Box>
     );

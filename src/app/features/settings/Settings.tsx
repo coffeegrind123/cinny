@@ -52,8 +52,9 @@ type SettingsMenuItem = {
   icon: IconSrc;
 };
 
-const useSettingsMenuItems = (): SettingsMenuItem[] =>
-  useMemo(
+const useSettingsMenuItems = (): SettingsMenuItem[] => {
+  const isMobile = useScreenSizeContext() === ScreenSize.Mobile;
+  return useMemo(
     () => [
       {
         page: SettingsPages.GeneralPage,
@@ -85,19 +86,21 @@ const useSettingsMenuItems = (): SettingsMenuItem[] =>
         name: 'Developer Tools',
         icon: Icons.Terminal,
       },
-      {
+      // Keybinds are physical-keyboard-only — hide on mobile entirely.
+      ...(isMobile ? [] : [{
         page: SettingsPages.KeybindsPage,
         name: 'Keybinds',
         icon: Icons.Alphabet,
-      },
+      }]),
       {
         page: SettingsPages.AboutPage,
         name: 'About',
         icon: Icons.Info,
       },
     ],
-    []
+    [isMobile]
   );
+};
 
 type SettingsProps = {
   initialPage?: SettingsPages;

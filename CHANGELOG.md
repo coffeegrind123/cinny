@@ -4,6 +4,11 @@ User-facing changes per commit. Most recent at the top.
 
 ## 18.05.2026
 
+- `9c481ba` Improved mobile layout — nav pane (Home / Direct / Search / Inbox indices) now stretches to the full viewport on mobile via inline `width: 100%` override on `PageNav` so the changelog-side empty-state doesn't leave whitespace.
+- `9c481ba` Improved mobile settings modal — fills viewport (`100vw` × `100dvh`), square corners, safe-area-inset padding so notch/home-bar don't obscure controls. Keybinds tab hidden on mobile (physical-keyboard only).
+- `9c481ba` Fixed `body { height: 100% }` keyboard breakage — switched to `100dvh` with `100%` fallback so the on-screen keyboard pushes the layout up instead of leaving inputs hidden behind it.
+- `9c481ba` Fixed gallery tap-out reopening viewer — overlay's `onDeactivate` now plants a transparent full-screen blocker for 350ms that swallows the next pointerdown/click, preventing the tap from bubbling through to the underlying message image.
+- `9c481ba` Mobile image viewer: tap-to-zoom replaced with pinch-to-zoom — two-finger gesture tracks distance ratio from initial pinch and scales accordingly (bounds 0.1×–5× matching the +/- buttons). Single-tap zoom kept on desktop where double-firing isn't an issue.
 - `47f158f` Followed up on draft-release fix — passed `draft: true` to all softprops/action-gh-release uploads (was defaulting to false and flipping the release to published on the first upload, defeating the whole point of staging as a draft); dropped the versioned `prinny-webapp-vX.Y.Z.zip` variant since the release tag already versions it and every other platform asset is single-named.
 - `ec98378` Fixed release-pipeline window where `/latest/download/*.apk` 404'd during Android cross-compile — releases now stay drafts until every platform build (windows + linux + macos + android + webapp-zip + archive) has uploaded its artifacts, then publish atomically. Old versioned releases are deleted after publish, not before, so the previous tag stays "latest" until the new one is fully assembled.
 - `2b24087` Added README download link for the web client zip — `prinny-webapp.zip` is now uploaded with a stable filename alongside the versioned one so `releases/latest/download/prinny-webapp.zip` resolves.

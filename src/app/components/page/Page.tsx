@@ -36,6 +36,11 @@ export function PageNav({ size, children }: ClientDrawerLayoutProps & css.PageNa
       grow={isMobile ? 'Yes' : undefined}
       className={css.PageNav({ size })}
       shrink={isMobile ? 'Yes' : 'No'}
+      // The recipe sets a fixed width (256/222rem) intended for desktop
+      // sidebars. On mobile the index route doesn't render a right pane,
+      // so the nav should span the whole viewport — inline override beats
+      // the recipe's specificity.
+      style={isMobile ? { width: '100%' } : undefined}
     >
       <Box grow="Yes" direction="Column">
         {children}

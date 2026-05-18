@@ -4,6 +4,42 @@ import React, { ReactNode } from 'react';
 import { ModalWide } from '../styles/Modal.css';
 import { stopPropagation } from '../utils/keyboard';
 
+// When the overlay closes via `clickOutsideDeactivates`, focus-trap-react
+// fires onDeactivate but the original touch/mousedown that triggered it
+// also keeps bubbling — on mobile that means the underlying image
+// receives the tap and immediately reopens the viewer. Plant a
+// transparent full-screen layer that swallows the next pointerdown/
+// click for ~350ms so the original gesture finishes harmlessly.
+function swallowNextTap(): void {
+  const blocker = document.createElement('div');
+  blocker.style.cssText =
+    'position:fixed;inset:0;z-index:2147483646;background:transparent;touch-action:none;';
+  const cleanup = () => {
+    blocker.remove();
+  };
+  blocker.addEventListener(
+    'pointerdown',
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      cleanup();
+    },
+    { capture: true, once: true }
+  );
+  blocker.addEventListener(
+    'click',
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    { capture: true, once: true }
+  );
+  document.body.appendChild(blocker);
+  // Fallback cleanup if no tap arrives within the window (e.g. the close
+  // was triggered by the X button rather than an outside click).
+  setTimeout(cleanup, 350);
+}
+
 export type RenderViewerProps = {
   src: string;
   alt: string;
@@ -26,7 +62,10 @@ export const ImageOverlay = as<'div', ImageOverlayProps>(
         <FocusTrap
           focusTrapOptions={{
             initialFocus: false,
-            onDeactivate: () => requestClose(),
+            onDeactivate: () => {
+              swallowNextTap();
+              requestClose();
+            },
             clickOutsideDeactivates: true,
             escapeDeactivates: stopPropagation,
           }}
