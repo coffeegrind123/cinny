@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'folds';
 import * as css from './styles.css';
-import { version } from '../../../../../package.json';
+import { version } from '../../../../package.json';
 
 export function AuthFooter() {
   return (

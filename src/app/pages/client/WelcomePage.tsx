@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Button, Icon, Icons, Text, config, toRem } from 'folds';
 import { Page, PageHero, PageHeroSection } from '../../components/page';
 import CinnySVG from '../../../../public/res/svg/cinny.svg';
-import { version } from '../../../../../package.json';
+import { version } from '../../../../package.json';
 
 export function WelcomePage() {
   return (
