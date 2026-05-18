@@ -4,6 +4,7 @@ User-facing changes per commit. Most recent at the top.
 
 ## 18.05.2026
 
+- `ec98378` Fixed release-pipeline window where `/latest/download/*.apk` 404'd during Android cross-compile — releases now stay drafts until every platform build (windows + linux + macos + android + webapp-zip + archive) has uploaded its artifacts, then publish atomically. Old versioned releases are deleted after publish, not before, so the previous tag stays "latest" until the new one is fully assembled.
 - `2b24087` Added README download link for the web client zip — `prinny-webapp.zip` is now uploaded with a stable filename alongside the versioned one so `releases/latest/download/prinny-webapp.zip` resolves.
 - `d047dd6` Added platform notification for update banner — `useUpdateCheck` fires `sendDesktopNotification` the first time each new version becomes available; deduped per-version so a dismissed banner doesn't re-notify on repeat polls. Android Tauri skipped (UpdateChecker.kt's own DownloadManager notification covers it).
 - `09cc5ee` Added web client dist zip to GitHub releases — new `webapp-zip` job in prinny-client's `build.yml` attaches `prinny-webapp-vX.Y.Z.zip` (rebrand + `npm run build` output) to every release for self-hosters who'd rather download than `git pull`.
