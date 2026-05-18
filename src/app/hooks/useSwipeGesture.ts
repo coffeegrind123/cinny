@@ -20,6 +20,13 @@ interface SwipeGestureOptions {
   threshold?: number;
   /** Called when a valid swipe completes. direction: 1 = inward from edge, -1 = outward toward edge */
   onSwipe: (info: { startY: number; direction: number }) => void;
+  /**
+   * Optional element to translateX with the finger during the gesture so
+   * the screen visibly follows the touch. Resets via a short CSS transition
+   * if the swipe is cancelled. We mutate transform directly (ref-based)
+   * rather than via React state to avoid re-rendering on every touchmove.
+   */
+  trackElement?: React.RefObject<HTMLElement | null>;
 }
 
 /**
@@ -30,12 +37,26 @@ interface SwipeGestureOptions {
  */
 export function useSwipeGesture(
   ref: React.RefObject<HTMLElement | null>,
-  { edge, edgeWidth = 32, anywhere = false, threshold = 80, onSwipe }: SwipeGestureOptions
+  { edge, edgeWidth = 32, anywhere = false, threshold = 80, onSwipe, trackElement }: SwipeGestureOptions
 ): { isTracking: boolean } {
   const startX = useRef(0);
   const startY = useRef(0);
   const tracking = useRef(false);
+  // Lock horizontal vs vertical intent on the first decisive move so a
+  // scroll-then-swipe never gets reinterpreted as a swipe mid-gesture.
+  const lockedAxis = useRef<'h' | 'v' | null>(null);
   const [isTracking, setIsTracking] = useState(false);
+
+  // Apply translateX to the tracked element (inline-style mutation, no
+  // React re-render per frame). `transitioning` toggles a smooth ease on
+  // release while we settle back to 0.
+  const setTrackTransform = useCallback((px: number, transitioning: boolean) => {
+    const el = trackElement?.current;
+    if (!el) return;
+    el.style.transition = transitioning ? 'transform 180ms ease-out' : 'none';
+    el.style.transform = px === 0 ? '' : `translate3d(${px}px, 0, 0)`;
+    el.style.willChange = px === 0 && !transitioning ? '' : 'transform';
+  }, [trackElement]);
 
   const handleTouchStart = useCallback(
     (e: TouchEvent) => {
@@ -51,6 +72,7 @@ export function useSwipeGesture(
         startX.current = touch.clientX;
         startY.current = touch.clientY;
         tracking.current = true;
+        lockedAxis.current = null;
         setIsTracking(true);
       }
     },
@@ -60,9 +82,33 @@ export function useSwipeGesture(
   const handleTouchMove = useCallback(
     (e: TouchEvent) => {
       if (!tracking.current || e.touches.length !== 1) return;
-      // Don't preventDefault — let scrolling happen. We only care about the final swipe.
+      const touch = e.touches[0];
+      const dx = touch.clientX - startX.current;
+      const dy = touch.clientY - startY.current;
+      const adx = Math.abs(dx);
+      const ady = Math.abs(dy);
+
+      // Lock axis after ~10px of motion so a tap-then-scroll doesn't
+      // jiggle the swipe surface.
+      if (lockedAxis.current === null && (adx > 10 || ady > 10)) {
+        lockedAxis.current = adx > ady ? 'h' : 'v';
+      }
+      if (lockedAxis.current !== 'h') return;
+
+      // Only follow the finger in the inward direction (left-edge → right,
+      // right-edge → left). Outward dragging stays at 0 — no visual
+      // feedback for the wrong direction.
+      const inwardDx = edge === 'left' ? Math.max(0, dx) : Math.min(0, dx);
+      // Light rubber-band beyond the threshold so the screen doesn't slide
+      // arbitrarily far on a fast flick.
+      const max = 220;
+      const clamped =
+        Math.abs(inwardDx) <= max
+          ? inwardDx
+          : (Math.sign(inwardDx) * (max + Math.log2(Math.abs(inwardDx) - max + 1) * 8));
+      setTrackTransform(clamped, false);
     },
-    []
+    [edge, setTrackTransform]
   );
 
   const handleTouchEnd = useCallback(
@@ -75,20 +121,32 @@ export function useSwipeGesture(
       const dx = touch.clientX - startX.current;
       const dy = Math.abs(touch.clientY - startY.current);
 
-      // Require horizontal movement to dominate (not a diagonal scroll)
-      if (Math.abs(dx) < threshold || Math.abs(dx) < dy * 1.5) return;
-
+      const horizDominant = Math.abs(dx) >= dy * 1.5;
+      const passedThreshold = Math.abs(dx) >= threshold;
       const direction =
         edge === 'left'
           ? dx > 0 ? 1 : -1   // left edge: right = inward
           : dx < 0 ? 1 : -1;  // right edge: left = inward
 
-      if (direction > 0) {
+      // Always settle the visual transform back to 0 with a transition.
+      // The navigate() that follows on commit will unmount this view, so
+      // the user sees the screen finish its slide and then the next view
+      // takes over.
+      setTrackTransform(0, true);
+
+      if (horizDominant && passedThreshold && direction > 0) {
         onSwipe({ startY: startY.current, direction });
       }
     },
-    [edge, threshold, onSwipe]
+    [edge, threshold, onSwipe, setTrackTransform]
   );
+
+  const handleTouchCancel = useCallback(() => {
+    if (!tracking.current) return;
+    tracking.current = false;
+    setIsTracking(false);
+    setTrackTransform(0, true);
+  }, [setTrackTransform]);
 
   useEffect(() => {
     const el = ref.current;
@@ -97,13 +155,15 @@ export function useSwipeGesture(
     el.addEventListener('touchstart', handleTouchStart, { passive: true });
     el.addEventListener('touchmove', handleTouchMove, { passive: true });
     el.addEventListener('touchend', handleTouchEnd, { passive: true });
+    el.addEventListener('touchcancel', handleTouchCancel, { passive: true });
 
     return () => {
       el.removeEventListener('touchstart', handleTouchStart);
       el.removeEventListener('touchmove', handleTouchMove);
       el.removeEventListener('touchend', handleTouchEnd);
+      el.removeEventListener('touchcancel', handleTouchCancel);
     };
-  }, [ref, handleTouchStart, handleTouchMove, handleTouchEnd]);
+  }, [ref, handleTouchStart, handleTouchMove, handleTouchEnd, handleTouchCancel]);
 
   return { isTracking };
 }

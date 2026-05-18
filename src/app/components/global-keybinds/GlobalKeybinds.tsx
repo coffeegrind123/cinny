@@ -63,8 +63,14 @@ export function GlobalKeybinds() {
   });
 
   // ── Shortcuts panel (Mod+/) ──────────────────────────────────
+  // Toggle — the same hotkey should close the modal it just opened. The
+  // KeyboardShortcutsRenderer in Router.tsx used to mirror this binding
+  // with its own window-level `setOpen(v => !v)`, but having two window
+  // listeners both react to mod+/ produced a (true → toggled-false) race
+  // inside a single keydown tick and the modal silently closed itself.
+  // Source of truth is here so user rebinds in settings still apply.
   useKeybind('keyboard-shortcuts', () => {
-    setKeyboardShortcutsOpen(true);
+    setKeyboardShortcutsOpen((v) => !v);
   });
 
   // ── Quick switcher (Mod+K) ───────────────────────────────────

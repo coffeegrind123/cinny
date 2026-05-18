@@ -630,29 +630,17 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
             )
           }
           before={
-            <IconButton onClick={submit} variant="Primary" size="300" radii="300">
-              <Icon src={Icons.Send} />
+            <IconButton
+              onClick={() => pickFile('*')}
+              variant="SurfaceVariant"
+              size="300"
+              radii="300"
+            >
+              <Icon src={Icons.PlusCircle} />
             </IconButton>
           }
           after={
             <>
-              <IconButton
-                onClick={() => pickFile('*')}
-                variant="SurfaceVariant"
-                size="300"
-                radii="300"
-              >
-                <Icon src={Icons.PlusCircle} />
-              </IconButton>
-              <Box
-                style={{
-                  width: '1px',
-                  height: '24px',
-                  backgroundColor: color.SurfaceVariant.ContainerLine,
-                  marginLeft: '6px',
-                  marginRight: '6px',
-                }}
-              />
               <IconButton
                 variant="SurfaceVariant"
                 size="300"
@@ -737,6 +725,18 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
                   </>
                 )}
               </UseStateProvider>
+              <Box
+                style={{
+                  width: '1px',
+                  height: '24px',
+                  backgroundColor: color.SurfaceVariant.ContainerLine,
+                  marginLeft: '6px',
+                  marginRight: '6px',
+                }}
+              />
+              <IconButton onClick={submit} variant="Primary" size="300" radii="300">
+                <Icon src={Icons.Send} />
+              </IconButton>
             </>
           }
           bottom={

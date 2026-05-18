@@ -6,6 +6,7 @@ import * as css from './ImageViewer.css';
 import { useZoom } from '../../hooks/useZoom';
 import { usePan } from '../../hooks/usePan';
 import { downloadMedia } from '../../utils/matrix';
+import { ScreenSize, useScreenSizeContext } from '../../hooks/useScreenSize';
 
 export type ImageViewerProps = {
   alt: string;
@@ -22,6 +23,7 @@ export const ImageViewer = as<'div', ImageViewerProps>(
   ({ className, alt, src, requestClose, externalUrl, ...props }, ref) => {
     const { zoom, zoomIn, zoomOut, setZoom } = useZoom(0.2);
     const { pan, cursor, onMouseDown } = usePan(zoom !== 1);
+    const isMobile = useScreenSizeContext() === ScreenSize.Mobile;
 
     const handleDownload = async () => {
       const fileContent = await downloadMedia(src);
@@ -38,25 +40,51 @@ export const ImageViewer = as<'div', ImageViewerProps>(
 
     const zoomCursor = zoom === 1 ? 'zoom-in' : 'zoom-out';
 
+    // On mobile, both control rows go full-width — controls (zoom/download)
+    // stay at the top, title/back/external moves to the bottom for thumb
+    // reachability.
+    const navBarPos = isMobile
+      ? {
+          position: 'fixed' as const,
+          bottom: `calc(${config.space.S200} + env(safe-area-inset-bottom))`,
+          left: `calc(${config.space.S200} + env(safe-area-inset-left))`,
+          right: `calc(${config.space.S200} + env(safe-area-inset-right))`,
+          zIndex: 2,
+        }
+      : {
+          position: 'fixed' as const,
+          top: `calc(${config.space.S200} + env(safe-area-inset-top))`,
+          left: `calc(${config.space.S200} + env(safe-area-inset-left))`,
+          zIndex: 2,
+        };
+    const toolsBarPos = isMobile
+      ? {
+          position: 'fixed' as const,
+          top: `calc(${config.space.S200} + env(safe-area-inset-top))`,
+          left: `calc(${config.space.S200} + env(safe-area-inset-left))`,
+          right: `calc(${config.space.S200} + env(safe-area-inset-right))`,
+          zIndex: 2,
+        }
+      : {
+          position: 'fixed' as const,
+          top: `calc(${config.space.S200} + env(safe-area-inset-top))`,
+          right: `calc(${config.space.S200} + env(safe-area-inset-right))`,
+          zIndex: 2,
+        };
+
     return (
       <Box
         className={classNames(css.ImageViewer, className)}
         {...props}
         ref={ref}
       >
-        <Box
-          style={{
-            position: 'fixed',
-            top: `calc(${config.space.S200} + env(safe-area-inset-top))`,
-            left: `calc(${config.space.S200} + env(safe-area-inset-left))`,
-            zIndex: 2,
-          }}
-        >
+        <Box style={navBarPos}>
           <Box
             className={css.ImageViewerBarGroup}
             alignItems="Center"
             gap="100"
-            style={{ maxWidth: 'min(60vw, 600px)' }}
+            justifyContent={isMobile ? 'SpaceBetween' : undefined}
+            style={isMobile ? { width: '100%' } : { maxWidth: 'min(60vw, 600px)' }}
           >
             <IconButton size="300" radii="300" onClick={requestClose}>
               <Icon size="50" src={Icons.ArrowLeft} />
@@ -69,15 +97,14 @@ export const ImageViewer = as<'div', ImageViewerProps>(
             </IconButton>
           </Box>
         </Box>
-        <Box
-          style={{
-            position: 'fixed',
-            top: `calc(${config.space.S200} + env(safe-area-inset-top))`,
-            right: `calc(${config.space.S200} + env(safe-area-inset-right))`,
-            zIndex: 2,
-          }}
-        >
-          <Box className={css.ImageViewerBarGroup} alignItems="Center" gap="100">
+        <Box style={toolsBarPos}>
+          <Box
+            className={css.ImageViewerBarGroup}
+            alignItems="Center"
+            gap="100"
+            justifyContent={isMobile ? 'SpaceBetween' : undefined}
+            style={isMobile ? { width: '100%' } : undefined}
+          >
             <IconButton
               variant={zoom < 1 ? 'Success' : 'SurfaceVariant'}
               outlined={zoom < 1}

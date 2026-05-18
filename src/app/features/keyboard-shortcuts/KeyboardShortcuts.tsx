@@ -12,7 +12,6 @@ import {
 } from 'folds';
 import { FocusTrap } from 'focus-trap-react';
 import { useAtom } from 'jotai';
-import { useKeyDown } from '../../hooks/useKeyDown';
 import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
 import {
@@ -21,7 +20,6 @@ import {
   keyboardShortcutsAtom,
 } from '../../state/keybinds';
 import { formatKeyComboSplit } from '../../utils/key-display';
-import { isKeyHotkey } from 'is-hotkey';
 import { isMacOS } from '../../utils/user-agent';
 import { KeySymbol } from '../../utils/key-symbol';
 import { stopPropagation } from '../../utils/keyboard';
@@ -160,18 +158,10 @@ export function KeyboardShortcutsRenderer() {
 
   const close = useCallback(() => setOpen(false), [setOpen]);
 
-  useKeyDown(
-    window,
-    useCallback(
-      (event) => {
-        if (isKeyHotkey('mod+/', event)) {
-          event.preventDefault();
-          setOpen((v) => !v);
-        }
-      },
-      [setOpen]
-    )
-  );
+  // The mod+/ toggle lives in GlobalKeybinds via useKeybind('keyboard-shortcuts')
+  // so user rebinds apply. Don't register a second window listener here — two
+  // handlers fighting over the same atom in one keydown tick (set-true vs.
+  // toggle) cancelled each other out and the modal never showed.
 
   if (!opened) return null;
   return <KeyboardShortcuts requestClose={close} />;

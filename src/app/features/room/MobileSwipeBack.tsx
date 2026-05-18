@@ -24,6 +24,7 @@ export function MobileSwipeBack({ children }: { children: React.ReactNode }) {
     anywhere: true,
     threshold: 80,
     onSwipe: handleSwipe,
+    trackElement: ref,
   });
 
   if (screenSize !== ScreenSize.Mobile) {

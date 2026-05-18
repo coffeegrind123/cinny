@@ -122,10 +122,12 @@ function InviteNotifications() {
 
   const notify = useCallback(
     (count: number) => {
-      sendDesktopNotification('Invitation', {
-        icon: LogoSVG,
-        body: `You have ${count} new invitation request.`,
-      });
+      if (isTauri()) {
+        sendDesktopNotification('Invitation', {
+          icon: LogoSVG,
+          body: `You have ${count} new invitation request.`,
+        });
+      }
 
       // Flash taskbar on Windows
       if (isTauri()) {
@@ -209,13 +211,19 @@ function MessageNotifications() {
       const iconAuthHeader =
         useAuthentication && accessToken ? `Bearer ${accessToken}` : undefined;
 
-      sendDesktopNotification(senderName, {
-        icon: roomAvatar,
-        iconAuthHeader,
-        body: notificationBody,
-        roomId,
-        eventId,
-      });
+      // sendDesktopNotification's own browser fallback fires a *second*
+      // toast with no click handler, which doubles up notifications on
+      // web. Only call it in Tauri; the explicit browser fallback below
+      // owns the web path and adds the navigate-on-click behaviour.
+      if (isTauri()) {
+        sendDesktopNotification(senderName, {
+          icon: roomAvatar,
+          iconAuthHeader,
+          body: notificationBody,
+          roomId,
+          eventId,
+        });
+      }
 
       // Browser fallback with click handler
       if (!('__TAURI__' in window || '__TAURI_INTERNALS__' in window) && 'Notification' in window) {

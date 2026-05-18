@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAtomValue } from 'jotai';
 import { useSwipeGesture } from '../hooks/useSwipeGesture';
@@ -24,17 +24,27 @@ export function MobileSwipeOpen({ children }: { children: React.ReactNode }) {
   const selectedRoomId = useSelectedRoom();
   const mDirects = useAtomValue(mDirectAtom);
 
+  // Remember the last room the user was in. After a back-swipe out, the URL
+  // no longer has a roomId, so `selectedRoomId` is undefined and a fresh
+  // forward-swipe would have nowhere to navigate to. Persisting the last
+  // value lets the user toggle in/out of the same DM via swipe.
+  const [lastRoomId, setLastRoomId] = useState<string | undefined>(selectedRoomId);
+  useEffect(() => {
+    if (selectedRoomId) setLastRoomId(selectedRoomId);
+  }, [selectedRoomId]);
+
   const handleSwipe = useCallback(
     () => {
-      if (!selectedRoomId) return;
+      const target = selectedRoomId ?? lastRoomId;
+      if (!target) return;
 
-      const room = mx.getRoom(selectedRoomId);
+      const room = mx.getRoom(target);
       if (!room) return;
 
-      const aliasOrId = getCanonicalAliasOrRoomId(mx, selectedRoomId);
+      const aliasOrId = getCanonicalAliasOrRoomId(mx, target);
 
       const isDM = Array.from(mDirects.values()).some((roomIds) =>
-        roomIds.includes(selectedRoomId)
+        roomIds.includes(target)
       );
 
       const path = isDM
@@ -43,7 +53,7 @@ export function MobileSwipeOpen({ children }: { children: React.ReactNode }) {
 
       navigate(path);
     },
-    [selectedRoomId, mx, mDirects, navigate]
+    [selectedRoomId, lastRoomId, mx, mDirects, navigate]
   );
 
   const { isTracking } = useSwipeGesture(ref, {
@@ -51,6 +61,7 @@ export function MobileSwipeOpen({ children }: { children: React.ReactNode }) {
     anywhere: true,
     threshold: 80,
     onSwipe: handleSwipe,
+    trackElement: ref,
   });
 
   if (screenSize !== ScreenSize.Mobile) {

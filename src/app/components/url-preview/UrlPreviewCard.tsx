@@ -448,8 +448,14 @@ export const UrlPreviewCard = as<
   );
 
   useEffect(() => {
+    // Skip OG metadata fetch for direct-audio URLs (soundcloak restream,
+    // raw mp3/ogg etc.). Homeservers commonly reject non-text content
+    // types from preview_url with 502 ("content type not allowed"),
+    // which spams the console and leaves an error toast for nothing —
+    // the audio renderer below doesn't need OG data anyway.
+    if (isDirectAudioUrl(embedUrl) || isAudioUrl(url)) return;
     loadPreview();
-  }, [loadPreview]);
+  }, [loadPreview, embedUrl, url]);
 
   if (twId && dismissed) return null;
   // vxtwitter path — render directly from API response
@@ -838,7 +844,7 @@ export const UrlPreviewCard = as<
                 ? `https://piped.private.coffee/embed/${ytVideoId}`
                 : `https://www.youtube.com/embed/${ytVideoId}`}
               title={title || 'YouTube video'}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; gyroscope; picture-in-picture"
               allowFullScreen
             />
           </Box>
