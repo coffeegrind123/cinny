@@ -14,13 +14,14 @@ import buildConfig from './build.config';
 const copyFiles = {
   targets: [
     {
-      src: 'node_modules/@element-hq/element-call-embedded/dist/*',
+      src: 'node_modules/@element-hq/element-call-embedded/dist/**/*',
       dest: 'public/element-call',
+      rename: { stripBase: 4 },
     },
     {
       src: 'node_modules/pdfjs-dist/build/pdf.worker.min.mjs',
       dest: '',
-      rename: 'pdf.worker.min.js',
+      rename: { stripBase: true, name: 'pdf.worker.min.js' },
     },
     {
       src: 'netlify.toml',
@@ -33,14 +34,17 @@ const copyFiles = {
     {
       src: 'public/manifest.json',
       dest: '',
+      rename: { stripBase: 1 },
     },
     {
-      src: 'public/res/android',
-      dest: 'public/',
+      src: 'public/res/android/**/*',
+      dest: 'public/android',
+      rename: { stripBase: 3 },
     },
     {
-      src: 'public/locales',
-      dest: 'public/',
+      src: 'public/locales/**/*',
+      dest: 'public/locales',
+      rename: { stripBase: 2 },
     },
   ],
 };
