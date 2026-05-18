@@ -2,6 +2,11 @@
 
 User-facing changes per commit. Most recent at the top.
 
+## 19.05.2026
+
+- `f3e6d88` Improved multi-link embeds — multiple URL preview cards in one message now stack vertically (Discord-style) on every viewport. Previously the desktop layout was a horizontal scroller; the column layout was mobile-only.
+- `f3e6d88` Improved embed image rendering — tiny favicon-style images (`og:image:width` ≤ 96 AND `og:image:height` ≤ 96) are no longer rendered as the embed's main image. The text-only card (title / description / siteName) still shows. Article hero shots / post media render as before.
+
 ## 18.05.2026
 
 - `9c481ba` Improved mobile layout — nav pane (Home / Direct / Search / Inbox indices) now stretches to the full viewport on mobile via inline `width: 100%` override on `PageNav` so the changelog-side empty-state doesn't leave whitespace.

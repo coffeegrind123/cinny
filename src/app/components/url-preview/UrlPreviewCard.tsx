@@ -795,6 +795,17 @@ export const UrlPreviewCard = as<
     const isVideo = isVideoUrl(url) || (prev['og:type'] as string)?.startsWith('video');
     const isAudio = isAudioUrl(url) || (prev['og:type'] as string)?.startsWith('music');
 
+    // Sites that ship a tiny favicon-style og:image (48×48, 64×64 logo) want
+    // a text-only embed, not a card with an awkwardly-stretched icon. If both
+    // declared dimensions are ≤ 96px we treat the image as decorative and
+    // skip rendering it; the title/description/siteName cluster still shows.
+    // Larger images (article hero shots, post media) render as before.
+    const ogImageWidth = Number(prev['og:image:width']) || 0;
+    const ogImageHeight = Number(prev['og:image:height']) || 0;
+    const imageIsTinyFavicon =
+      ogImageWidth > 0 && ogImageHeight > 0 &&
+      ogImageWidth <= 96 && ogImageHeight <= 96;
+
     // og:video data (Bandcamp etc.)
     const ogVideoUrl = (prev['og:video'] || prev['og:video:url']) as string | undefined;
     const hasOgVideo = !!ogVideoUrl;
@@ -907,8 +918,9 @@ export const UrlPreviewCard = as<
           </audio>
         )}
 
-        {/* Preview image (only if no video/audio player showing) */}
-        {!isYt && !hasOgVideo && !isVideo && !isAudio && thumbUrl && (
+        {/* Preview image (only if no video/audio player showing and the
+            image isn't a tiny favicon-style icon). */}
+        {!isYt && !hasOgVideo && !isVideo && !isAudio && thumbUrl && !imageIsTinyFavicon && (
           <UrlPreviewImg
             src={thumbUrl}
             alt={title || ''}
