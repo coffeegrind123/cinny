@@ -47,11 +47,13 @@ export function UpdateBanner() {
         <Box grow="Yes" gap="100" alignItems="Center">
           <Icon src={Icons.Info} size="200" />
           <Text size="T300">
-            Cinny {update.version} available — tap to update
+            {update.version
+              ? `Cinny ${update.version} available — tap to update`
+              : 'New version available — reload to apply'}
           </Text>
         </Box>
         <Button variant="Primary" size="300" onClick={downloadAndInstall}>
-          <Text size="T300">Update</Text>
+          <Text size="T300">{update.version ? 'Update' : 'Reload'}</Text>
         </Button>
       </Box>
     );

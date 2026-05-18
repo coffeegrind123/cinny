@@ -33,7 +33,27 @@ if ('serviceWorker' in navigator) {
     pushSessionToSW(session?.baseUrl, session?.accessToken);
   };
 
-  navigator.serviceWorker.register(swUrl).then(sendSessionToSW);
+  navigator.serviceWorker.register(swUrl).then((registration) => {
+    sendSessionToSW();
+
+    // SW update detection — the web equivalent of the Tauri auto-updater.
+    // When the server has a new sw.js (i.e. someone ran `git pull` on the
+    // host), `updatefound` fires after the next `registration.update()` call.
+    // The SW does `skipWaiting + clients.claim` on install, so the new
+    // worker takes over immediately; the page just needs to reload to load
+    // the new JS bundle. Surface the event so useUpdateCheck can show a
+    // banner.
+    registration.addEventListener('updatefound', () => {
+      // First install (no existing controller) is not an update.
+      if (!navigator.serviceWorker.controller) return;
+      window.dispatchEvent(new CustomEvent('cinny:web-update-available'));
+    });
+
+    // Browsers only auto-check for SW updates on navigation or once per
+    // day. A SPA that stays loaded for hours won't see updates without
+    // explicit polling.
+    setInterval(() => registration.update().catch(() => {}), 30 * 60 * 1000);
+  });
   navigator.serviceWorker.ready.then(sendSessionToSW);
 
   navigator.serviceWorker.addEventListener('message', (ev) => {

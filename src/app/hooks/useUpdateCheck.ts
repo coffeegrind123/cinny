@@ -52,6 +52,15 @@ export function useUpdateCheck(): UpdateCheckState {
   }, []);
 
   const downloadAndInstall = useCallback(async () => {
+    if (!isTauri()) {
+      // Web: the SW already activated (skipWaiting + clients.claim on
+      // install), so reloading is enough to load the new JS bundle the
+      // new SW now serves. Server admin's `git pull` deploys the dist;
+      // this just applies it client-side.
+      setStatus('installing');
+      window.location.reload();
+      return;
+    }
     if (!updateObj) return;
     setStatus('downloading');
     setError(null);
@@ -75,6 +84,20 @@ export function useUpdateCheck(): UpdateCheckState {
     }, 5000);
     return () => clearTimeout(timer);
   }, [checkForUpdate]);
+
+  // Web: listen for SW update events dispatched from src/index.tsx
+  useEffect(() => {
+    if (isTauri()) return;
+    if (typeof window === 'undefined') return;
+    const handler = () => {
+      // Version unknown for web (we only know "a new sw.js exists").
+      setUpdate({ version: '', body: undefined });
+      setError(null);
+      setStatus('available');
+    };
+    window.addEventListener('cinny:web-update-available', handler);
+    return () => window.removeEventListener('cinny:web-update-available', handler);
+  }, []);
 
   return { status, update, error, checkForUpdate, downloadAndInstall };
 }
