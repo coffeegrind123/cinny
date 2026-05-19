@@ -2,6 +2,21 @@ import React from 'react';
 import { Box, Text, Button, Icon, Icons, IconButton, Spinner, color, toRem } from 'folds';
 import { useUpdateCheck } from '../../hooks/useUpdateCheck';
 
+// Shared layout for every banner variant. `width: 100%` forces the Box
+// to span the parent column (folds Boxes don't stretch their cross-axis
+// without it on every platform — the user saw the banner ending after
+// the text on mobile). `minHeight` is the size-300 Button height +
+// vertical padding so the action button never spills out of the banner.
+const containerStyle: React.CSSProperties = {
+  backgroundColor: color.SurfaceVariant.Container,
+  borderBottom: `1px solid ${color.Secondary.Container}`,
+  padding: `${toRem(8)} ${toRem(16)}`,
+  width: '100%',
+  minHeight: toRem(48),
+  flexShrink: 0,
+  boxSizing: 'border-box',
+};
+
 export function UpdateBanner() {
   const { status, update, error, downloadAndInstall, checkForUpdate } = useUpdateCheck();
 
@@ -12,18 +27,14 @@ export function UpdateBanner() {
   if (status === 'error') {
     return (
       <Box
-        style={{
-          backgroundColor: color.SurfaceVariant.Container,
-          borderBottom: `1px solid ${color.Secondary.Container}`,
-          padding: `${toRem(8)} ${toRem(16)}`,
-        }}
+        style={containerStyle}
         alignItems="Center"
         justifyContent="SpaceBetween"
         gap="200"
       >
-        <Box grow="Yes" gap="100" alignItems="Center">
+        <Box grow="Yes" gap="100" alignItems="Center" style={{ minWidth: 0 }}>
           <Icon src={Icons.Warning} size="200" />
-          <Text size="T300">Update check failed: {error}</Text>
+          <Text size="T300" truncate>Update check failed: {error}</Text>
         </Box>
         <IconButton size="300" variant="SurfaceVariant" onClick={checkForUpdate}>
           <Icon src={Icons.Reload} />
@@ -35,18 +46,14 @@ export function UpdateBanner() {
   if (status === 'available' && update) {
     return (
       <Box
-        style={{
-          backgroundColor: color.SurfaceVariant.Container,
-          borderBottom: `1px solid ${color.Secondary.Container}`,
-          padding: `${toRem(8)} ${toRem(16)}`,
-        }}
+        style={containerStyle}
         alignItems="Center"
         justifyContent="SpaceBetween"
         gap="200"
       >
-        <Box grow="Yes" gap="100" alignItems="Center">
+        <Box grow="Yes" gap="100" alignItems="Center" style={{ minWidth: 0 }}>
           <Icon src={Icons.Info} size="200" />
-          <Text size="T300">
+          <Text size="T300" truncate>
             {update.version
               ? `Cinny ${update.version} available — tap to update`
               : 'New version available — reload to apply'}
@@ -61,15 +68,7 @@ export function UpdateBanner() {
 
   if (status === 'downloading') {
     return (
-      <Box
-        style={{
-          backgroundColor: color.SurfaceVariant.Container,
-          borderBottom: `1px solid ${color.Secondary.Container}`,
-          padding: `${toRem(8)} ${toRem(16)}`,
-        }}
-        alignItems="Center"
-        gap="200"
-      >
+      <Box style={containerStyle} alignItems="Center" gap="200">
         <Spinner size="200" />
         <Text size="T300">Downloading update...</Text>
       </Box>
