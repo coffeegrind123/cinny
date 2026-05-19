@@ -1,0 +1,2 @@
+import{d as e}from"./index-BNdWgwq1.js";async function t(t=0){await e(`plugin:process|exit`,{code:t})}async function n(){await e(`plugin:process|restart`)}export{t as exit,n as relaunch};
+//# sourceMappingURL=dist-js-BdvDrdg7.js.map
