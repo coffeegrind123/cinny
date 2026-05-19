@@ -16,6 +16,12 @@ export function Modal500({ requestClose, children }: Modal500Props) {
   // `100dvh` (dynamic viewport height) so when the on-screen keyboard
   // opens the modal shrinks instead of pushing the bottom controls
   // off-screen the way `100vh` would.
+  //
+  // `display: flex` + `flex-direction: column` is critical: the Modal
+  // recipe's base styles cap `max-width`/`max-height` but don't make it
+  // a flex container, so without these the inner PageRoot (which uses
+  // `grow="Yes"`) has nothing to grow against and the content collapses
+  // to its intrinsic size — looking tiny and anchored top-left.
   const mobileStyle: React.CSSProperties = {
     width: '100vw',
     height: '100dvh',
@@ -27,6 +33,8 @@ export function Modal500({ requestClose, children }: Modal500Props) {
     paddingLeft: 'env(safe-area-inset-left)',
     paddingRight: 'env(safe-area-inset-right)',
     boxSizing: 'border-box',
+    display: 'flex',
+    flexDirection: 'column',
   };
 
   return (

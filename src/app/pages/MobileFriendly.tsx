@@ -28,6 +28,18 @@ type MobileFriendlyPageNavProps = {
   path: string;
   children: ReactNode;
 };
+/**
+ * Renders the page-nav (room list) for the given parent path.
+ *
+ * - Desktop: always rendered inline.
+ * - Mobile, on the parent path (e.g. `/home`): rendered inline as the
+ *   sole visible content.
+ * - Mobile, on a sub-path (e.g. `/home/r/<roomId>`): rendered as an
+ *   absolute backdrop at z-index 0 so a swipe-back from the room view
+ *   reveals it underneath (MobileSwipeBack sits on top at z-index 1).
+ *   This is what gives the user the visual continuity of "the main view
+ *   sliding to view" during the gesture.
+ */
 export function MobileFriendlyPageNav({ path, children }: MobileFriendlyPageNavProps) {
   const screenSize = useScreenSizeContext();
   const exactPath = useMatch({
@@ -36,9 +48,29 @@ export function MobileFriendlyPageNav({ path, children }: MobileFriendlyPageNavP
     end: true,
   });
 
-  if (screenSize === ScreenSize.Mobile && !exactPath) {
-    return null;
+  if (screenSize !== ScreenSize.Mobile) {
+    return children;
   }
 
-  return children;
+  if (exactPath) {
+    return children;
+  }
+
+  // Sub-route on mobile — backdrop mode. `aria-hidden` keeps it out of
+  // assistive-tech focus order since it's purely a visual reveal target
+  // and not interactive while the foreground (room) is on top.
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: 'absolute',
+        inset: 0,
+        zIndex: 0,
+        display: 'flex',
+        pointerEvents: 'none',
+      }}
+    >
+      {children}
+    </div>
+  );
 }

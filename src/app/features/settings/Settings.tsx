@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Avatar,
   Box,
@@ -18,6 +18,7 @@ import { FocusTrap } from 'focus-trap-react';
 import { General } from './general';
 import { PageNav, PageNavContent, PageNavHeader, PageRoot } from '../../components/page';
 import { ScreenSize, useScreenSizeContext } from '../../hooks/useScreenSize';
+import { useSwipeGesture } from '../../hooks/useSwipeGesture';
 import { Account } from './account';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
@@ -122,6 +123,7 @@ export function Settings({ initialPage, requestClose }: SettingsProps) {
     return screenSize === ScreenSize.Mobile ? undefined : SettingsPages.GeneralPage;
   });
   const menuItems = useSettingsMenuItems();
+  const swipeRef = useRef<HTMLDivElement>(null);
 
   const handlePageRequestClose = () => {
     if (screenSize === ScreenSize.Mobile) {
@@ -131,7 +133,38 @@ export function Settings({ initialPage, requestClose }: SettingsProps) {
     requestClose();
   };
 
+  // Mobile: left-to-right swipe acts as the X button. If we're on a
+  // subpage, go back to the menu list (matching the per-page X behavior).
+  // If we're already on the menu list, close the modal entirely.
+  const handleSwipeBack = useCallback(() => {
+    if (screenSize !== ScreenSize.Mobile) return;
+    if (activePage !== undefined) {
+      setActivePage(undefined);
+    } else {
+      requestClose();
+    }
+  }, [screenSize, activePage, requestClose]);
+
+  useSwipeGesture(swipeRef, {
+    edge: 'left',
+    anywhere: true,
+    threshold: 80,
+    onSwipe: handleSwipeBack,
+    trackElement: swipeRef,
+    commitOffset: typeof window !== 'undefined' ? window.innerWidth : 0,
+  });
+
   return (
+    <div
+      ref={swipeRef}
+      style={{
+        flex: '1 1 0%',
+        minWidth: 0,
+        minHeight: 0,
+        display: 'flex',
+        touchAction: 'pan-y',
+      }}
+    >
     <PageRoot
       nav={
         screenSize === ScreenSize.Mobile && activePage !== undefined ? undefined : (
@@ -243,5 +276,6 @@ export function Settings({ initialPage, requestClose }: SettingsProps) {
       )}
       {activePage === SettingsPages.AboutPage && <About requestClose={handlePageRequestClose} />}
     </PageRoot>
+    </div>
   );
 }

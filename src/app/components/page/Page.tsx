@@ -13,8 +13,16 @@ type PageRootProps = {
 export function PageRoot({ nav, children }: PageRootProps) {
   const screenSize = useScreenSizeContext();
 
+  // `position: relative` provides the containing block for the
+  // `position: absolute` swipe layers (MobileSwipeBack, and the
+  // mobile-only backdrop in MobileFriendlyPageNav). Without this, the
+  // absolute layers escape to the viewport.
   return (
-    <Box grow="Yes" className={ContainerColor({ variant: 'Background' })}>
+    <Box
+      grow="Yes"
+      className={ContainerColor({ variant: 'Background' })}
+      style={{ position: 'relative' }}
+    >
       {nav}
       {screenSize !== ScreenSize.Mobile && (
         <Line variant="Background" size="300" direction="Vertical" />

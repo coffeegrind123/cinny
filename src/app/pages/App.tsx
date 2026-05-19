@@ -13,6 +13,7 @@ import { createRouter } from './Router';
 import { ScreenSizeProvider, useScreenSize } from '../hooks/useScreenSize';
 import { useCompositionEndTracking } from '../hooks/useComposingCheck';
 import { useGlobalDropListener, useTauriDragDropListener } from '../hooks/useFileDrop';
+import { useKeyboardInset } from '../hooks/useKeyboardInset';
 
 const queryClient = new QueryClient();
 
@@ -21,6 +22,7 @@ function App() {
   useCompositionEndTracking();
   useGlobalDropListener();
   useTauriDragDropListener();
+  useKeyboardInset();
 
   const portalContainer = document.getElementById('portalContainer') ?? undefined;
 

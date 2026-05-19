@@ -21,12 +21,26 @@ interface SwipeGestureOptions {
   /** Called when a valid swipe completes. direction: 1 = inward from edge, -1 = outward toward edge */
   onSwipe: (info: { startY: number; direction: number }) => void;
   /**
+   * Consulted at touchstart. If it returns false, the gesture never
+   * engages — no visual feedback, no commit. Use this to prevent the
+   * screen from following the finger when there is nowhere to navigate
+   * to (e.g. an empty room list).
+   */
+  canSwipe?: () => boolean;
+  /**
    * Optional element to translateX with the finger during the gesture so
    * the screen visibly follows the touch. Resets via a short CSS transition
    * if the swipe is cancelled. We mutate transform directly (ref-based)
    * rather than via React state to avoid re-rendering on every touchmove.
    */
   trackElement?: React.RefObject<HTMLElement | null>;
+  /**
+   * Slide-off distance in pixels on a committed swipe. When set (>0), the
+   * tracked element animates fully off-screen in the inward direction
+   * before navigation, instead of snapping back to 0. This makes the
+   * gesture feel like a real page transition.
+   */
+  commitOffset?: number;
 }
 
 /**
@@ -37,7 +51,16 @@ interface SwipeGestureOptions {
  */
 export function useSwipeGesture(
   ref: React.RefObject<HTMLElement | null>,
-  { edge, edgeWidth = 32, anywhere = false, threshold = 80, onSwipe, trackElement }: SwipeGestureOptions
+  {
+    edge,
+    edgeWidth = 32,
+    anywhere = false,
+    threshold = 80,
+    onSwipe,
+    canSwipe,
+    trackElement,
+    commitOffset = 0,
+  }: SwipeGestureOptions
 ): { isTracking: boolean } {
   const startX = useRef(0);
   const startY = useRef(0);
@@ -69,6 +92,11 @@ export function useSwipeGesture(
           : touch.clientX >= window.innerWidth - edgeWidth;
 
       if (atEdge) {
+        // canSwipe guard: refuse to engage if the caller can't service
+        // the resulting navigation (e.g. empty list, no fallback target).
+        // This keeps the screen from following the finger when there is
+        // nothing to slide to.
+        if (canSwipe && !canSwipe()) return;
         startX.current = touch.clientX;
         startY.current = touch.clientY;
         tracking.current = true;
@@ -76,7 +104,7 @@ export function useSwipeGesture(
         setIsTracking(true);
       }
     },
-    [edge, edgeWidth, anywhere]
+    [edge, edgeWidth, anywhere, canSwipe]
   );
 
   const handleTouchMove = useCallback(
@@ -128,17 +156,25 @@ export function useSwipeGesture(
           ? dx > 0 ? 1 : -1   // left edge: right = inward
           : dx < 0 ? 1 : -1;  // right edge: left = inward
 
-      // Always settle the visual transform back to 0 with a transition.
-      // The navigate() that follows on commit will unmount this view, so
-      // the user sees the screen finish its slide and then the next view
-      // takes over.
-      setTrackTransform(0, true);
+      const committed = horizDominant && passedThreshold && direction > 0;
 
-      if (horizDominant && passedThreshold && direction > 0) {
+      if (committed && commitOffset > 0) {
+        // Slide the foreground fully off-screen in the inward direction
+        // before navigating. The new route mounts at translateX(0), so
+        // the user perceives the old view leaving and the new view
+        // taking its place, rather than a snap-back.
+        const offTarget = edge === 'left' ? commitOffset : -commitOffset;
+        setTrackTransform(offTarget, true);
+      } else {
+        // Cancelled or no commitOffset configured — settle back to 0.
+        setTrackTransform(0, true);
+      }
+
+      if (committed) {
         onSwipe({ startY: startY.current, direction });
       }
     },
-    [edge, threshold, onSwipe, setTrackTransform]
+    [edge, threshold, onSwipe, setTrackTransform, commitOffset]
   );
 
   const handleTouchCancel = useCallback(() => {

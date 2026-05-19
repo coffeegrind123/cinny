@@ -75,6 +75,16 @@ body {
   /*Why font-variant-ligatures => https://github.com/rsms/inter/issues/222 */
   font-variant-ligatures: no-contextual;
 }
+
+/* When the on-screen keyboard is open, the home bar is occluded by the
+   keyboard — the reserved `safe-area-inset-bottom` padding becomes a
+   useless gap between the chat input and the keyboard's top edge, which
+   the user perceives as the chat "extending over" the safe inset.
+   Drop the bottom padding while the keyboard is open. `useKeyboardInset`
+   toggles `data-keyboard-open` via VisualViewport tracking. */
+body[data-keyboard-open] {
+  padding-bottom: 0;
+}
 #root {
   width: 100%;
   height: 100%;
