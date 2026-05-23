@@ -1,7 +1,6 @@
 /* eslint-disable jsx-a11y/media-has-caption */
 import React, { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { MatrixRTCSession } from 'matrix-js-sdk/lib/matrixrtc/MatrixRTCSession';
 import { FocusTrap } from 'focus-trap-react';
 import {
   Avatar,
@@ -94,13 +93,14 @@ function IncomingCall({ dm, info, onIgnore, onAnswer, onReject }: IncomingCallPr
   const session = useCallSession(room);
   useCallMembersChange(
     session,
-    useCallback(() => {
-      MatrixRTCSession.sessionMembershipsForSlot(room, session.slotDescription).then((members) => {
+    useCallback(
+      (members) => {
         if (members.length === 0) {
           onIgnore();
         }
-      });
-    }, [room, session, onIgnore])
+      },
+      [onIgnore]
+    )
   );
 
   const playSound = useCallback(() => {

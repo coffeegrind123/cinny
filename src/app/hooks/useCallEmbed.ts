@@ -1,5 +1,4 @@
 import { createContext, RefObject, useCallback, useContext, useEffect, useState } from 'react';
-import { MatrixRTCSession } from 'matrix-js-sdk/lib/matrixrtc/MatrixRTCSession';
 import { MatrixClient, Room } from 'matrix-js-sdk';
 import { useSetAtom } from 'jotai';
 import {
@@ -45,11 +44,7 @@ export const createCallEmbed = async (
   pref?: CallPreferences
 ): Promise<CallEmbed> => {
   const rtcSession = mx.matrixRTC.getRoomSession(room);
-  const memberships = await MatrixRTCSession.sessionMembershipsForSlot(
-    room,
-    rtcSession.slotDescription
-  );
-  const ongoing = memberships.length > 0;
+  const ongoing = rtcSession.memberships.length > 0;
 
   const intent = CallEmbed.getIntent(dm, ongoing, pref?.video);
   const widget = CallEmbed.getWidget(mx, room, intent, themeKind);
