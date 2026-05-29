@@ -13,7 +13,7 @@ import {
 import { UseAsyncSearchOptions, useAsyncSearch } from '../../hooks/useAsyncSearch';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { useKeyDown } from '../../hooks/useKeyDown';
-import { onTabPress } from '../../utils/keyboard';
+import { clickFocusedAutocompleteItem, onTabPress } from '../../utils/keyboard';
 
 type CommandAutoCompleteHandler = (commandName: string) => void;
 
@@ -65,8 +65,7 @@ export function CommandAutocomplete({
       if (autoCompleteNames.length === 0) {
         return;
       }
-      const cmdName = autoCompleteNames[0];
-      handleAutocomplete(cmdName);
+      if (!clickFocusedAutocompleteItem()) handleAutocomplete(autoCompleteNames[0]);
     });
   });
 
@@ -74,7 +73,7 @@ export function CommandAutocomplete({
     if (evt.key === 'Enter' && autoCompleteNames.length > 0) {
       evt.preventDefault();
       evt.stopPropagation();
-      handleAutocomplete(autoCompleteNames[0]);
+      if (!clickFocusedAutocompleteItem()) handleAutocomplete(autoCompleteNames[0]);
     }
   });
 
@@ -87,11 +86,12 @@ export function CommandAutocomplete({
       }
       requestClose={requestClose}
     >
-      {autoCompleteNames.map((commandName) => (
+      {autoCompleteNames.map((commandName, index) => (
         <MenuItem
           key={commandName}
           as="button"
           radii="300"
+          data-autocomplete-index={index}
           style={{ height: 'unset' }}
           onKeyDown={(evt: ReactKeyboardEvent<HTMLButtonElement>) =>
             onTabPress(evt, () => handleAutocomplete(commandName))

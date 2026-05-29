@@ -8,7 +8,7 @@ import { AutocompleteQuery } from './autocompleteQuery';
 import { AutocompleteMenu } from './AutocompleteMenu';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { UseAsyncSearchOptions, useAsyncSearch } from '../../../hooks/useAsyncSearch';
-import { onTabPress } from '../../../utils/keyboard';
+import { clickFocusedAutocompleteItem, onTabPress } from '../../../utils/keyboard';
 import { createEmoticonElement, moveCursor, replaceWithElement, safeFocusEditor } from '../utils';
 import { useRecentEmoji } from '../../../hooks/useRecentEmoji';
 import { useRelevantImagePacks } from '../../../hooks/useImagePacks';
@@ -75,15 +75,22 @@ export function EmoticonAutocomplete({
     requestClose();
   };
 
+  const commitSelected = () => {
+    // Prefer the arrowed-to item; otherwise commit the first result.
+    if (clickFocusedAutocompleteItem()) return;
+    if (autoCompleteEmoticon.length === 0) return;
+    const emoticon = autoCompleteEmoticon[0];
+    const key = 'url' in emoticon ? emoticon.url : emoticon.unicode;
+    handleAutocomplete(key, emoticon.shortcode);
+  };
+
   // Capture phase — fires before the editor's keydown so we can stopPropagation
   // and prevent the editor from ever seeing Enter/Tab when autocomplete is open.
   useEffect(() => {
     const handleTab = (evt: KeyboardEvent) => {
       onTabPress(evt, () => {
         if (autoCompleteEmoticon.length === 0) return;
-        const emoticon = autoCompleteEmoticon[0];
-        const key = 'url' in emoticon ? emoticon.url : emoticon.unicode;
-        handleAutocomplete(key, emoticon.shortcode);
+        commitSelected();
       });
     };
     window.addEventListener('keydown', handleTab, true);
@@ -95,9 +102,7 @@ export function EmoticonAutocomplete({
       if (evt.key === 'Enter' && !evt.metaKey && !evt.ctrlKey && autoCompleteEmoticon.length > 0) {
         evt.preventDefault();
         evt.stopPropagation();
-        const emoticon = autoCompleteEmoticon[0];
-        const key = 'url' in emoticon ? emoticon.url : emoticon.unicode;
-        handleAutocomplete(key, emoticon.shortcode);
+        commitSelected();
       }
     };
     window.addEventListener('keydown', handleEnter, true);
@@ -116,6 +121,7 @@ export function EmoticonAutocomplete({
             key={emoticon.shortcode + key}
             as="button"
             radii="300"
+            data-autocomplete-index={index}
             aria-pressed={index === 0}
             onKeyDown={(evt: ReactKeyboardEvent<HTMLButtonElement>) =>
               onTabPress(evt, () => handleAutocomplete(key, emoticon.shortcode))

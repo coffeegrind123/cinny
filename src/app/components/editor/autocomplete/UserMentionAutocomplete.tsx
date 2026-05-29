@@ -13,7 +13,7 @@ import {
   UseAsyncSearchOptions,
   useAsyncSearch,
 } from '../../../hooks/useAsyncSearch';
-import { onTabPress } from '../../../utils/keyboard';
+import { clickFocusedAutocompleteItem, onTabPress } from '../../../utils/keyboard';
 import { createMentionElement, moveCursor, replaceWithElement, safeFocusEditor } from '../utils';
 import { getMxIdLocalPart, getMxIdServer, isUserId } from '../../../utils/matrix';
 import { getMemberDisplayName, getMemberSearchStr } from '../../../utils/room';
@@ -134,7 +134,9 @@ export function UserMentionAutocomplete({
 
   useEffect(() => {
     const handleTab = (evt: KeyboardEvent) => {
-      onTabPress(evt, () => handleAutocompleteFirst());
+      onTabPress(evt, () => {
+        if (!clickFocusedAutocompleteItem()) handleAutocompleteFirst();
+      });
     };
     window.addEventListener('keydown', handleTab, true);
     return () => window.removeEventListener('keydown', handleTab, true);
@@ -145,7 +147,7 @@ export function UserMentionAutocomplete({
       if (evt.key === 'Enter' && !evt.metaKey && !evt.ctrlKey) {
         evt.preventDefault();
         evt.stopPropagation();
-        handleAutocompleteFirst();
+        if (!clickFocusedAutocompleteItem()) handleAutocompleteFirst();
       }
     };
     window.addEventListener('keydown', handleEnter, true);
@@ -181,6 +183,7 @@ export function UserMentionAutocomplete({
               key={roomMember.userId}
               as="button"
               radii="300"
+              data-autocomplete-index={index}
               aria-pressed={index === 0}
               onKeyDown={(evt: ReactKeyboardEvent<HTMLButtonElement>) =>
                 onTabPress(evt, () => handleAutocomplete(roomMember.userId, getName(roomMember)))

@@ -34,6 +34,14 @@ export const getAutocompleteQueryText = (
   prefix: string
 ): string => Editor.string(editor, queryRange).slice(prefix.length);
 
+// Emoji shortcodes only ever contain word characters plus `+`/`-`
+// (e.g. `+1`, `-1`, `e-mail`, `crossed_fingers`). Punctuation like the `)`
+// in a typed-out smiley `:)` must NOT trigger the emoji autocomplete — doing
+// so silently auto-inserts an unrelated emoji on Enter instead of sending the
+// literal text. Anchored to the start so a trailing stray char rejects the
+// whole query.
+const EMOTICON_QUERY_RE = /^[a-zA-Z0-9_+-]*$/;
+
 export const getAutocompleteQuery = <TPrefix extends string>(
   editor: Editor,
   queryRange: BaseRange,
@@ -41,9 +49,13 @@ export const getAutocompleteQuery = <TPrefix extends string>(
 ): AutocompleteQuery<TPrefix> | undefined => {
   const prefix = getAutocompletePrefix(editor, queryRange, validPrefixes);
   if (!prefix) return undefined;
+  const text = getAutocompleteQueryText(editor, queryRange, prefix);
+  if (prefix === AutocompletePrefix.Emoticon && !EMOTICON_QUERY_RE.test(text)) {
+    return undefined;
+  }
   return {
     range: queryRange,
     prefix,
-    text: getAutocompleteQueryText(editor, queryRange, prefix),
+    text,
   };
 };

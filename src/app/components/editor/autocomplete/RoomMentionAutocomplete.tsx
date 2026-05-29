@@ -12,7 +12,7 @@ import { AutocompleteQuery } from './autocompleteQuery';
 import { AutocompleteMenu } from './AutocompleteMenu';
 import { getMxIdServer, isRoomAlias } from '../../../utils/matrix';
 import { UseAsyncSearchOptions, useAsyncSearch } from '../../../hooks/useAsyncSearch';
-import { onTabPress } from '../../../utils/keyboard';
+import { clickFocusedAutocompleteItem, onTabPress } from '../../../utils/keyboard';
 import { mDirectAtom } from '../../../state/mDirectList';
 import { allRoomsAtom } from '../../../state/room-list/roomList';
 import { factoryRoomIdByActivity } from '../../../utils/sort';
@@ -133,7 +133,9 @@ export function RoomMentionAutocomplete({
 
   useEffect(() => {
     const handleTab = (evt: KeyboardEvent) => {
-      onTabPress(evt, () => handleAutocompleteFirst());
+      onTabPress(evt, () => {
+        if (!clickFocusedAutocompleteItem()) handleAutocompleteFirst();
+      });
     };
     window.addEventListener('keydown', handleTab, true);
     return () => window.removeEventListener('keydown', handleTab, true);
@@ -144,7 +146,7 @@ export function RoomMentionAutocomplete({
       if (evt.key === 'Enter' && !evt.metaKey && !evt.ctrlKey) {
         evt.preventDefault();
         evt.stopPropagation();
-        handleAutocompleteFirst();
+        if (!clickFocusedAutocompleteItem()) handleAutocompleteFirst();
       }
     };
     window.addEventListener('keydown', handleEnter, true);
@@ -168,6 +170,7 @@ export function RoomMentionAutocomplete({
               key={rId}
               as="button"
               radii="300"
+              data-autocomplete-index={index}
               aria-pressed={index === 0}
               onKeyDown={(evt: ReactKeyboardEvent<HTMLButtonElement>) =>
                 onTabPress(evt, handleSelect)

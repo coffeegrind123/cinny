@@ -1,10 +1,12 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
+import { isKeyHotkey } from 'is-hotkey';
 import { useNavigate } from 'react-router-dom';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useKeybind } from '../../hooks/useKeybind';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { useSelectedRoom } from '../../hooks/router/useSelectedRoom';
 import { useSelectedSpace } from '../../hooks/router/useSelectedSpace';
+import { useDirectSelected } from '../../hooks/router/useDirectSelected';
 import { useRoomNavigate } from '../../hooks/useRoomNavigate';
 import { settingsAtom } from '../../state/settings';
 import { useSetSetting, useSetting } from '../../state/hooks/settings';
@@ -45,6 +47,7 @@ export function GlobalKeybinds() {
   const mx = useMatrixClient();
   const selectedRoomId = useSelectedRoom();
   const selectedSpaceId = useSelectedSpace();
+  const directSelected = useDirectSelected();
   const { navigateRoom, navigateSpace } = useRoomNavigate();
 
   const setKeyboardShortcutsOpen = useSetAtom(keyboardShortcutsAtom);
@@ -73,6 +76,21 @@ export function GlobalKeybinds() {
     setKeyboardShortcutsOpen((v) => !v);
   });
 
+  // Discord parity — Ctrl+? (i.e. Ctrl+Shift+/) also toggles the shortcuts
+  // panel, in addition to the rebindable `mod+/` above. Fixed (not in the
+  // keybind registry) so it stays available regardless of rebinds; `mod`
+  // covers Cmd+Shift+/ on macOS.
+  useEffect(() => {
+    const onKey = (evt: KeyboardEvent) => {
+      if (isKeyHotkey('ctrl+shift+/', evt) || isKeyHotkey('mod+shift+/', evt)) {
+        evt.preventDefault();
+        setKeyboardShortcutsOpen((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [setKeyboardShortcutsOpen]);
+
   // ── Quick switcher (Mod+K) ───────────────────────────────────
   // Search.tsx already opens this on Mod+K via its own listener, but
   // duplicating here keeps the binding configurable through the registry
@@ -91,9 +109,12 @@ export function GlobalKeybinds() {
 
   // ── Sibling rooms within the current view ────────────────────
   // Pick the ordered list of rooms that are siblings of the currently
-  // selected one. If we're inside a space, that's the rooms of that
-  // space. If we're at the top-level Home view, that's orphan rooms
-  // and DMs. Falls back to the global ordered list.
+  // selected one, matching whichever sidebar is open:
+  //   • inside a space  → that space's rooms
+  //   • Direct Messages → DMs only (previously this fell through to the
+  //     all-rooms branch below, so Alt+Up/Down jumped to arbitrary
+  //     non-DM rooms instead of the next/previous DM)
+  //   • Home            → orphan rooms (non-space, non-DM, no parent space)
   const visibleRoomIds = useCallback((): string[] => {
     if (selectedSpaceId) {
       return allRooms.filter((rid) => {
@@ -103,11 +124,16 @@ export function GlobalKeybinds() {
         return parents?.has(selectedSpaceId) ?? false;
       });
     }
+    if (directSelected) {
+      return allRooms.filter((rid) => mDirects.has(rid));
+    }
     return allRooms.filter((rid) => {
       const room = mx.getRoom(rid);
-      return !!room && !isSpace(room);
+      if (!room || isSpace(room)) return false;
+      if (mDirects.has(rid)) return false;
+      return !roomToParents.has(rid);
     });
-  }, [allRooms, mx, roomToParents, selectedSpaceId]);
+  }, [allRooms, mx, roomToParents, selectedSpaceId, directSelected, mDirects]);
 
   useKeybind('nav-channels-up', () => {
     const list = visibleRoomIds();

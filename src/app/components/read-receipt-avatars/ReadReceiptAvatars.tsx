@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Box, Text, toRem } from 'folds';
+import { Box, color, Text, toRem } from 'folds';
 import { Room } from 'matrix-js-sdk';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { getMemberDisplayName } from '../../utils/room';
 import { getMxIdLocalPart, mxcUrlToHttp } from '../../utils/matrix';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
+import colorMXID from '../../../util/colorMXID';
 
 type ReadReceiptAvatarsProps = {
   room: Room;
@@ -47,7 +48,11 @@ export function ReadReceiptAvatars({ room, userIds, maxVisible = 3 }: ReadReceip
               height: toRem(AVATAR_SIZE),
               borderRadius: '50%',
               overflow: 'hidden',
-              backgroundColor: avatarUrl ? 'transparent' : 'var(--folds-color-surface-variant)',
+              // Match the user's placeholder avatar (UserAvatar): a circle in
+              // the colorMXID-derived colour with the initial centred inside,
+              // rather than a bare grey letter that reads like a newline glyph.
+              backgroundColor: avatarUrl ? 'transparent' : colorMXID(userId),
+              color: color.Surface.Container,
               marginLeft: i > 0 ? toRem(-OVERLAP) : 0,
               flexShrink: 0,
               display: 'inline-flex',
