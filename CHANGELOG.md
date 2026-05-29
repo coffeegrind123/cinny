@@ -2,6 +2,14 @@
 
 User-facing changes per commit. Most recent at the top.
 
+## 30.05.2026
+
+- `32c880f` Fixed emoji/mention autocomplete arrow-key selection — pressing Up/Down moved the highlight (via the focus-trap) but Enter/Tab always inserted the *top* item and the caret jumped to the start of the composer. A window-level capture handler in `EmoticonAutocomplete`, `UserMentionAutocomplete`, `RoomMentionAutocomplete` and `CommandAutocomplete` was hardcoded to commit index 0. Each menu item now carries a `data-autocomplete-index`, and Enter/Tab click the focused item (reusing the mouse-click path, so the selected emoji/mention inserts and the cursor stays put); falls back to the first result when focus is still in the editor.
+- `32c880f` Fixed typing `:)` (and other punctuation smileys) auto-inserting an unrelated emoji on Enter — the emoji shortcode trigger matched any non-space text after `:`. `getAutocompleteQuery` now only treats `:` as an emoji query when the following text matches `[a-zA-Z0-9_+-]` (real shortcodes like `+1`, `e-mail`), so `:)`, `:(`, etc. send as literal text.
+- `32c880f` Improved Element-style read receipts for users without an avatar — the bare grey initial (which read like a stray newline glyph) is now centred inside a circle tinted with the user's `colorMXID` placeholder colour, matching how `UserAvatar` renders avatar fallbacks.
+- `32c880f` Fixed Alt+Up / Alt+Down not moving between DMs — outside a space the handler fell through to "all non-space rooms", so in the Direct Messages list it jumped to arbitrary non-DM rooms. It now matches the open sidebar: space → that space's rooms, Direct → DMs only, Home → orphan rooms.
+- `32c880f` Added `Ctrl+?` (Ctrl+Shift+/) as a second shortcut to toggle the keyboard-shortcuts panel, alongside the existing rebindable `Ctrl+/` (Discord parity; `Cmd+Shift+/` on macOS).
+
 ## 19.05.2026
 
 - `5694870` Fixed Android updater re-downloading every launch and never installing — `UpdateChecker.kt` now (1) checks for an existing APK on disk and a previously-enqueued DownloadManager job before queueing a fresh download, so a downloaded-but-uninstalled APK is reused instead of re-pulled; (2) registers a `BroadcastReceiver` for `ACTION_DOWNLOAD_COMPLETE` and fires the install intent itself with a FileProvider `content://` URI — DownloadManager's built-in tap-the-notification handler still generates a `file://` URI that crashes Android 7+ with `FileUriExposedException`, which was the silent failure when the user tried to install; (3) cleans up stale APKs once the new version is the installed one; (4) targets `Context.RECEIVER_EXPORTED` on Android 14+ so the dynamic receiver actually fires; (5) auto-prompts install at most once per cold start when the APK is already downloaded, so a dismissed dialog isn't re-shown on every relaunch.
