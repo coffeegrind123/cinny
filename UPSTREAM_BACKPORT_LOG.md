@@ -65,14 +65,17 @@ Status: `[x]` backported · `[-]` skipped (CI/deps/docs noise) · `[~]` partial/
 | `f7f4a41` | `[-]` | Revert "chore: Update GITHUB_TOKEN to CLA_PAT" (#2941) | CI noise |
 | `c05a6be` | `[-]` | chore(release): 4.12.0 [skip ci] | Release tag bump |
 | `9bc1e7e` | `[-]` | fix: null edit for another release (#2942) | Empty after resolution (already covered) |
-| `e89b8f7` | `[-]` | chore(release): 4.12.1 [skip ci] | Release tag bump — **START HERE next sync** |
+| `e89b8f7` | `[-]` | chore(release): 4.12.1 [skip ci] | Release tag bump |
+| `4916efa9` | `[x]` | fix: call drop (#2954) | Conflicts in useCall.ts/useCallEmbed.ts/CallEmbedProvider.tsx/CallMemberCard.tsx/RoomTimeline.tsx/package.json/lock — took upstream (reverts slot-based membership API back to `rtcSession.memberships`), kept our named `{ FocusTrap }` import + our newer deps/lockfile |
+| `cf2810b3` | `[-]` | chore: remove semantic-release and keep script (#2946) | Dormant tooling — our fork uses prinny-client's own release pipeline, not semantic-release; skipped to avoid ~9.8k-line lockfile churn on devDeps that never ship |
+| `80fd8863` | `[-]` | chore: Release v4.12.2 (#2956) | Release/version stamp — we maintain an independent version line (4.11.x); skipped — **START HERE next sync** |
 
 ---
 
 ## Summary
 
-- **Backported:** 16 commits (4 features + 9 bugfixes + 1 security merge + 1 dep bump + 1 UI)
-- **Skipped:** 27 commits (18 CI/deps + 5 release chore + 2 docs + 2 other noise)
+- **Backported:** 17 commits (4 features + 10 bugfixes + 1 security merge + 1 dep bump + 1 UI)
+- **Skipped:** 29 commits (18 CI/deps + 6 release chore + 2 docs + 3 other noise)
 - **Conflicts resolved:** UrlPreviewCard.tsx (×2), RoomNavItem.tsx, Room.tsx, package-lock.json
 
 ## Process (reference for future syncs)
@@ -82,7 +85,7 @@ Status: `[x]` backported · `[-]` skipped (CI/deps/docs noise) · `[~]` partial/
 git fetch upstream --tags
 
 # 2. Check what's new since last sync (start from the "START HERE" marker above)
-git log --oneline e89b8f7..upstream/dev --reverse --no-merges
+git log --oneline 80fd8863..upstream/dev --reverse --no-merges
 
 # 3. Filter out noise (chore, CI deps, docs)
 # 4. Cherry-pick meaningful commits oldest-first

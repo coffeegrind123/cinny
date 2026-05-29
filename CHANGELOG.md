@@ -9,6 +9,7 @@ User-facing changes per commit. Most recent at the top.
 - `32c880f` Improved Element-style read receipts for users without an avatar — the bare grey initial (which read like a stray newline glyph) is now centred inside a circle tinted with the user's `colorMXID` placeholder colour, matching how `UserAvatar` renders avatar fallbacks.
 - `32c880f` Fixed Alt+Up / Alt+Down not moving between DMs — outside a space the handler fell through to "all non-space rooms", so in the Direct Messages list it jumped to arbitrary non-DM rooms. It now matches the open sidebar: space → that space's rooms, Direct → DMs only, Home → orphan rooms.
 - `32c880f` Added `Ctrl+?` (Ctrl+Shift+/) as a second shortcut to toggle the keyboard-shortcuts panel, alongside the existing rebindable `Ctrl+/` (Discord parity; `Cmd+Shift+/` on macOS).
+- `c32d959` Fixed calls dropping — backported upstream's call-drop fix (#2954). Membership counting in `useCall`, `useCallEmbed` and `CallEmbedProvider` was using the experimental slot-based `MatrixRTCSession.sessionMembershipsForSlot()` API (carried over from an earlier backport), which could miss active participants and tear the call down. Reverted to the stable synchronous `rtcSession.memberships`, restoring reliable "call ongoing" detection and incoming-call dismissal.
 
 ## 19.05.2026
 
