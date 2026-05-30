@@ -219,6 +219,7 @@ function MessageNotifications() {
         sendDesktopNotification(senderName, {
           icon: roomAvatar,
           iconAuthHeader,
+          iconHomeserver: mx.baseUrl,
           body: notificationBody,
           roomId,
           eventId,

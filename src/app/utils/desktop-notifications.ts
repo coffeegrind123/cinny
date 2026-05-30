@@ -173,7 +173,8 @@ async function resolveBrowserIcon(url: string): Promise<string | undefined> {
 
 async function resolveTauriIconPath(
   url: string,
-  authHeader?: string
+  authHeader?: string,
+  homeserver?: string
 ): Promise<string | undefined> {
   if (iconCache.has(url)) return iconCache.get(url);
   try {
@@ -181,6 +182,10 @@ async function resolveTauriIconPath(
     const path = await invoke<string>('cache_notification_icon', {
       url,
       authHeader: authHeader ?? null,
+      // The Rust side only forwards `authHeader` when `url` is under this
+      // homeserver's `/_matrix/` media endpoint — prevents the access token
+      // leaking to any non-homeserver URL.
+      homeserver: homeserver ?? null,
     });
     if (typeof path === 'string' && path.length > 0) {
       iconCache.set(url, path);
@@ -221,6 +226,7 @@ export async function sendDesktopNotification(
     body?: string;
     icon?: string;
     iconAuthHeader?: string;
+    iconHomeserver?: string;
     roomId?: string;
     eventId?: string;
   }
@@ -236,7 +242,11 @@ export async function sendDesktopNotification(
     // can read real bytes.
     let resolvedPath: string | undefined;
     if (isHttpIcon && srcIcon) {
-      resolvedPath = await resolveTauriIconPath(srcIcon, options?.iconAuthHeader);
+      resolvedPath = await resolveTauriIconPath(
+        srcIcon,
+        options?.iconAuthHeader,
+        options?.iconHomeserver
+      );
     } else if (srcIcon && !srcIcon.startsWith('data:')) {
       // Already a file path / bundled asset.
       resolvedPath = srcIcon;
