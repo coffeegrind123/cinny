@@ -448,6 +448,9 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
   const showUrlPreview = room.hasEncryptionStateEvent() ? encUrlPreview : urlPreview;
   const [showHiddenEvents] = useSetting(settingsAtom, 'showHiddenEvents');
   const [showDeveloperTools] = useSetting(settingsAtom, 'developerTools');
+  const [scrollOnSend] = useSetting(settingsAtom, 'scrollOnSend');
+  const scrollOnSendRef = useRef(scrollOnSend);
+  scrollOnSendRef.current = scrollOnSend;
 
   const [hour24Clock] = useSetting(settingsAtom, 'hour24Clock');
   const [dateFormatString] = useSetting(settingsAtom, 'dateFormatString');
@@ -645,6 +648,20 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
               end: ct.range.end + 1,
             },
           }));
+          return;
+        }
+        // User is scrolled up. If they just sent a message themselves and the
+        // "scroll on send" setting is on, jump back to the live edge so their
+        // own message comes into view — mirrors handleJumpToLatest. Other
+        // people's messages must NOT yank the viewport, so this is gated on the
+        // sender being us.
+        if (scrollOnSendRef.current && mEvt.getSender() === mx.getUserId()) {
+          setTimeline(getInitialTimeline(room));
+          scrollToBottomRef.current.count += 1;
+          scrollToBottomRef.current.smooth = false;
+          if (document.hasFocus()) {
+            requestAnimationFrame(() => markAsRead(mx, mEvt.getRoomId()!, hideActivity));
+          }
           return;
         }
         setTimeline((ct) => ({ ...ct }));

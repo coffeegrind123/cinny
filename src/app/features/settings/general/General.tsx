@@ -710,6 +710,7 @@ function DateAndTime() {
 
 function Editor() {
   const [enterForNewline, setEnterForNewline] = useSetting(settingsAtom, 'enterForNewline');
+  const [scrollOnSend, setScrollOnSend] = useSetting(settingsAtom, 'scrollOnSend');
   const [isMarkdown, setIsMarkdown] = useSetting(settingsAtom, 'isMarkdown');
   const [hideActivity, setHideActivity] = useSetting(settingsAtom, 'hideActivity');
   const [readReceiptStyle, setReadReceiptStyle] = useSetting(settingsAtom, 'readReceiptStyle');
@@ -728,6 +729,13 @@ function Editor() {
             isMacOS() ? KeySymbol.Command : 'Ctrl'
           } + ENTER to send message and ENTER for newline.`}
           after={<Switch variant="Primary" value={enterForNewline} onChange={setEnterForNewline} />}
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Scroll to Bottom on Send"
+          description="When you send a message while scrolled up, jump back down to the live timeline so your message comes into view."
+          after={<Switch variant="Primary" value={scrollOnSend} onChange={setScrollOnSend} />}
         />
       </SequenceCard>
       <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">

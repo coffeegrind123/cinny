@@ -34,6 +34,7 @@ export interface Settings {
   isPeopleDrawer: boolean;
   memberSortFilterIndex: number;
   enterForNewline: boolean;
+  scrollOnSend: boolean;
   messageLayout: MessageLayout;
   messageSpacing: MessageSpacing;
   hideMembershipEvents: boolean;
@@ -77,6 +78,7 @@ const defaultSettings: Settings = {
   isPeopleDrawer: true,
   memberSortFilterIndex: 0,
   enterForNewline: false,
+  scrollOnSend: true,
   messageLayout: 0,
   messageSpacing: '400',
   hideMembershipEvents: false,
