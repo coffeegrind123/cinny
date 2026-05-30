@@ -40,7 +40,13 @@ export const getAutocompleteQueryText = (
 // so silently auto-inserts an unrelated emoji on Enter instead of sending the
 // literal text. Anchored to the start so a trailing stray char rejects the
 // whole query.
-const EMOTICON_QUERY_RE = /^[a-zA-Z0-9_+-]*$/;
+//
+// `{2,}` mirrors Discord: the menu only opens once there are at least two
+// characters after the `:`. This stops common kaomoji/emoticons that are a
+// colon plus a single char — `:3`, `:p`, `:D`, `:o` — from popping the picker
+// and auto-replacing on Enter. `:12` (two chars) still triggers, so a
+// shortcode like `:1234:` remains completable.
+const EMOTICON_QUERY_RE = /^[a-zA-Z0-9_+-]{2,}$/;
 
 export const getAutocompleteQuery = <TPrefix extends string>(
   editor: Editor,
