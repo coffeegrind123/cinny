@@ -15,6 +15,7 @@ import {
   color,
   config,
   Button,
+  toRem,
 } from 'folds';
 import { FocusTrap } from 'focus-trap-react';
 import { RenderViewerProps, ImageOverlay } from '../ImageOverlay';
@@ -156,6 +157,7 @@ function ProxiedVideo({
         style={{
           width: '100%',
           aspectRatio: aspect,
+          maxHeight: toRem(320),
           backgroundColor: color.SurfaceVariant.Container,
         }}
       >
@@ -293,6 +295,7 @@ function HlsVideo({
         style={{
           width: '100%',
           aspectRatio: aspect,
+          maxHeight: toRem(320),
           backgroundColor: color.SurfaceVariant.Container,
           padding: config.space.S300,
         }}

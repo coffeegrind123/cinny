@@ -79,6 +79,8 @@ import { EmojiBoard } from '../../../components/emoji-board';
 import { ReactionViewer } from '../reaction-viewer';
 import { MessageEditor } from './MessageEditor';
 import { UserAvatar } from '../../../components/user-avatar';
+import { AvatarPresence, PresenceBadge } from '../../../components/presence';
+import { useUserPresence } from '../../../hooks/useUserPresence';
 import { copyToClipboard } from '../../../utils/dom';
 import { stopPropagation } from '../../../utils/keyboard';
 import { getMatrixToRoomEvent } from '../../../plugins/matrix-to';
@@ -759,6 +761,7 @@ export const Message = as<'div', MessageProps>(
     const senderDisplayName =
       getMemberDisplayName(room, senderId) ?? getMxIdLocalPart(senderId) ?? senderId;
     const senderAvatarMxc = getMemberAvatarMxc(room, senderId);
+    const senderPresence = useUserPresence(senderId);
 
     const tagColor = memberPowerTag?.color
       ? accessibleTagColors?.get(memberPowerTag.color)
@@ -817,24 +820,36 @@ export const Message = as<'div', MessageProps>(
       <AvatarBase
         className={messageLayout === MessageLayout.Bubble ? css.BubbleAvatarBase : undefined}
       >
-        <Avatar
-          className={css.MessageAvatar}
-          as="button"
-          size="300"
-          data-user-id={senderId}
-          onClick={onUserClick}
+        <AvatarPresence
+          badge={
+            senderPresence ? (
+              <PresenceBadge
+                presence={senderPresence.presence}
+                status={senderPresence.status}
+                size="200"
+              />
+            ) : null
+          }
         >
-          <UserAvatar
-            userId={senderId}
-            src={
-              senderAvatarMxc
-                ? mxcUrlToHttp(mx, senderAvatarMxc, useAuthentication, 48, 48, 'crop') ?? undefined
-                : undefined
-            }
-            alt={senderDisplayName}
-            renderFallback={() => <Icon size="200" src={Icons.User} filled />}
-          />
-        </Avatar>
+          <Avatar
+            className={css.MessageAvatar}
+            as="button"
+            size="300"
+            data-user-id={senderId}
+            onClick={onUserClick}
+          >
+            <UserAvatar
+              userId={senderId}
+              src={
+                senderAvatarMxc
+                  ? mxcUrlToHttp(mx, senderAvatarMxc, useAuthentication, 48, 48, 'crop') ?? undefined
+                  : undefined
+              }
+              alt={senderDisplayName}
+              renderFallback={() => <Icon size="200" src={Icons.User} filled />}
+            />
+          </Avatar>
+        </AvatarPresence>
       </AvatarBase>
     );
 

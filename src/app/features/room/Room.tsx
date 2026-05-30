@@ -1,10 +1,12 @@
-import React, { useCallback } from 'react';
-import { Box, Line } from 'folds';
+import React, { useCallback, useEffect } from 'react';
+import { Box, Line, toRem } from 'folds';
 import { useParams } from 'react-router-dom';
 import { isKeyHotkey } from 'is-hotkey';
-import { useAtomValue } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
 import { RoomView } from './RoomView';
 import { MembersDrawer } from './MembersDrawer';
+import { RoomSearch } from './RoomSearch';
+import { roomSearchOpenAtom } from '../../state/roomSearch';
 import { ScreenSize, useScreenSizeContext } from '../../hooks/useScreenSize';
 import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
@@ -33,7 +35,14 @@ export function Room() {
 
   const [isDrawer] = useSetting(settingsAtom, 'isPeopleDrawer');
   const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
+  const [searchOpen, setSearchOpen] = useAtom(roomSearchOpenAtom);
   const screenSize = useScreenSizeContext();
+
+  // Search drawer is ephemeral — close it when switching rooms or leaving.
+  useEffect(() => {
+    setSearchOpen(false);
+    return () => setSearchOpen(false);
+  }, [room.roomId, setSearchOpen]);
   const powerLevels = usePowerLevels(room);
   const members = useRoomMembers(mx, room.roomId);
   const chat = useAtomValue(callChatAtom);
@@ -65,11 +74,16 @@ export function Room() {
           </Box>
         )}
         {!callView && (
-          <Box grow="Yes" direction="Column">
+          <Box grow="Yes" direction="Column" style={{ position: 'relative' }}>
             <RoomViewHeader />
             <Box grow="Yes">
               <RoomView eventId={eventId} />
             </Box>
+            {searchOpen && screenSize !== ScreenSize.Desktop && (
+              <Box style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
+                <RoomSearch key={room.roomId} room={room} />
+              </Box>
+            )}
           </Box>
         )}
 
@@ -81,7 +95,15 @@ export function Room() {
             <CallChatView />
           </>
         )}
-        {!callView && screenSize === ScreenSize.Desktop && isDrawer && (
+        {!callView && screenSize === ScreenSize.Desktop && searchOpen && (
+          <>
+            <Line variant="Background" direction="Vertical" size="300" />
+            <Box shrink="No" style={{ width: toRem(340) }}>
+              <RoomSearch key={room.roomId} room={room} />
+            </Box>
+          </>
+        )}
+        {!callView && screenSize === ScreenSize.Desktop && !searchOpen && isDrawer && (
           <>
             <Line variant="Background" direction="Vertical" size="300" />
             <MembersDrawer key={room.roomId} room={room} members={members} />

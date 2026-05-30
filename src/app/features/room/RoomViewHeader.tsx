@@ -1,4 +1,5 @@
 import React, { MouseEventHandler, forwardRef, useState } from 'react';
+import { useAtom } from 'jotai';
 import { FocusTrap } from 'focus-trap-react';
 import {
   Box,
@@ -37,7 +38,15 @@ import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
 import { useSpaceOptionally } from '../../hooks/useSpace';
 import { getHomeSearchPath, getSpaceSearchPath, withSearchParam } from '../../pages/pathUtils';
-import { getCanonicalAliasOrRoomId, isRoomAlias, mxcUrlToHttp } from '../../utils/matrix';
+import {
+  getCanonicalAliasOrRoomId,
+  guessDmRoomUserId,
+  isRoomAlias,
+  mxcUrlToHttp,
+} from '../../utils/matrix';
+import { useUserPresence } from '../../hooks/useUserPresence';
+import { PresenceBadge } from '../../components/presence';
+import { roomSearchOpenAtom } from '../../state/roomSearch';
 import { _SearchPathSearchParams } from '../../pages/paths';
 import * as css from './RoomViewHeader.css';
 import { useRoomUnread } from '../../state/hooks/unread';
@@ -426,14 +435,23 @@ export function RoomViewHeader({ callView }: { callView?: boolean }) {
 
   const [peopleDrawer, setPeopleDrawer] = useSetting(settingsAtom, 'isPeopleDrawer');
 
+  const dmUserId = direct ? guessDmRoomUserId(room, mx.getSafeUserId()) : undefined;
+  const dmUserPresence = useUserPresence(dmUserId ?? '');
+
+  const [searchOpen, setSearchOpen] = useAtom(roomSearchOpenAtom);
   const handleSearchClick = () => {
-    const searchParams: _SearchPathSearchParams = {
-      rooms: room.roomId,
-    };
-    const path = space
-      ? getSpaceSearchPath(getCanonicalAliasOrRoomId(mx, space.roomId))
-      : getHomeSearchPath();
-    navigate(withSearchParam(path, searchParams));
+    if (callView) {
+      // No right-side drawer in call view — fall back to the global search page.
+      const searchParams: _SearchPathSearchParams = {
+        rooms: room.roomId,
+      };
+      const path = space
+        ? getSpaceSearchPath(getCanonicalAliasOrRoomId(mx, space.roomId))
+        : getHomeSearchPath();
+      navigate(withSearchParam(path, searchParams));
+      return;
+    }
+    setSearchOpen((open) => !open);
   };
 
   const handleOpenMenu: MouseEventHandler<HTMLButtonElement> = (evt) => {
@@ -485,9 +503,18 @@ export function RoomViewHeader({ callView }: { callView?: boolean }) {
             </Avatar>
           )}
           <Box direction="Column">
-            <Text size={topic ? 'H5' : 'H3'} truncate>
-              {name}
-            </Text>
+            <Box alignItems="Center" gap="200">
+              {dmUserId && dmUserPresence && (
+                <PresenceBadge
+                  presence={dmUserPresence.presence}
+                  status={dmUserPresence.status}
+                  size="300"
+                />
+              )}
+              <Text size={topic ? 'H5' : 'H3'} truncate>
+                {name}
+              </Text>
+            </Box>
             {topic && (
               <UseStateProvider initial={false}>
                 {(viewTopic, setViewTopic) => (
@@ -540,8 +567,13 @@ export function RoomViewHeader({ callView }: { callView?: boolean }) {
               }
             >
               {(triggerRef) => (
-                <IconButton fill="None" ref={triggerRef} onClick={handleSearchClick}>
-                  <Icon size="400" src={Icons.Search} />
+                <IconButton
+                  fill="None"
+                  ref={triggerRef}
+                  onClick={handleSearchClick}
+                  aria-pressed={!callView && searchOpen}
+                >
+                  <Icon size="400" src={Icons.Search} filled={!callView && searchOpen} />
                 </IconButton>
               )}
             </TooltipProvider>

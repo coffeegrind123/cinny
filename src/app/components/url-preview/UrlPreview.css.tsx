@@ -4,7 +4,9 @@ import { DefaultReset, color, config, toRem } from 'folds';
 export const UrlPreview = style([
   DefaultReset,
   {
-    maxWidth: toRem(432),
+    // ~50% of the previous 432 — Discord-style compact embeds. Portrait videos
+    // (9:16) then land around 180×320 instead of filling the message column.
+    maxWidth: toRem(216),
     minHeight: toRem(80),
     backgroundColor: color.SurfaceVariant.Container,
     color: color.SurfaceVariant.OnContainer,
@@ -78,7 +80,9 @@ export const UrlPreviewVideo = style([
   {
     width: '100%',
     height: 'auto',
-    maxHeight: '70vh',
+    // Cap tall/portrait clips so they stay compact (Discord-like). Combined
+    // with the 216px card width, 9:16 videos render around 180×320.
+    maxHeight: toRem(320),
     objectFit: 'contain',
     backgroundColor: 'black',
     borderRadius: `${config.radii.R200} ${config.radii.R200} 0 0`,
