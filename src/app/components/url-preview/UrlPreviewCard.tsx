@@ -37,6 +37,7 @@ import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
 import { isYoutubeUrl, getYoutubeVideoId } from '../../utils/youtube';
 import { fetchAsBlobUrl } from '../../utils/tauri-media-proxy';
+import { fetchOgPreview } from '../../utils/tauri-og-preview';
 import { isTauri } from '../../utils/desktop-notifications';
 
 const linkStyles = { color: color.Secondary.Main, textDecoration: 'none' };
@@ -405,6 +406,7 @@ export const UrlPreviewCard = as<
   const [useVxTwitter] = useSetting(settingsAtom, 'useVxTwitter');
   const [useSoundcloak] = useSetting(settingsAtom, 'useSoundcloak');
   const [usePiped] = useSetting(settingsAtom, 'usePiped');
+  const [clientPreviewFallback] = useSetting(settingsAtom, 'clientPreviewFallback');
 
   const embedUrl = rewriteEmbedUrl(url, useSoundcloak);
   const twId = useVxTwitter ? getTwitterId(url) : null;
@@ -459,6 +461,37 @@ export const UrlPreviewCard = as<
     if (isDirectAudioUrl(embedUrl) || isAudioUrl(url)) return;
     loadPreview();
   }, [loadPreview, embedUrl, url]);
+
+  // Client-side OG fallback (desktop/mobile app, opt-in). When the homeserver
+  // preview_url errors — e.g. a 504 because the target rejects Synapse's
+  // non-browser User-Agent — fetch the page ourselves and parse its meta tags.
+  // Skipped for URLs that already have a dedicated renderer (Twitter, Bluesky,
+  // YouTube, direct audio) since those don't rely on the homeserver preview.
+  const [ogFallback, setOgFallback] = useState<IPreviewUrlResponse | null>(null);
+  const [ogFallbackTried, setOgFallbackTried] = useState(false);
+  useEffect(() => {
+    if (!clientPreviewFallback) return;
+    if (previewStatus.status !== AsyncStatus.Error) return;
+    if (ogFallbackTried) return;
+    if (twId || bskyPost || isYt) return;
+    if (isDirectAudioUrl(embedUrl) || isAudioUrl(url)) return;
+    setOgFallbackTried(true);
+    fetchOgPreview(embedUrl).then((data) => {
+      if (data) setOgFallback(data as IPreviewUrlResponse);
+    });
+    // bskyPost is a fresh object each render — depend on its primitives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    clientPreviewFallback,
+    previewStatus.status,
+    ogFallbackTried,
+    twId,
+    bskyPost?.actor,
+    bskyPost?.rkey,
+    isYt,
+    embedUrl,
+    url,
+  ]);
 
   if (twId && dismissed) return null;
   // vxtwitter path — render directly from API response
@@ -765,32 +798,36 @@ export const UrlPreviewCard = as<
 
   const effectivePreview = previewStatus.status === AsyncStatus.Success
     ? previewStatus.data
-    : null;
+    : ogFallback;
 
-  if (!effectivePreview && previewStatus.status !== AsyncStatus.Loading) return null;
+  // Keep rendering nothing while a fallback fetch is still outstanding (status
+  // is Error but we've opted in and haven't given up) so the card can appear
+  // once the fallback resolves instead of being permanently suppressed.
+  const fallbackPending =
+    clientPreviewFallback &&
+    previewStatus.status === AsyncStatus.Error &&
+    !ogFallback &&
+    !ogFallbackTried;
+
+  if (!effectivePreview && previewStatus.status !== AsyncStatus.Loading && !fallbackPending) {
+    return null;
+  }
 
   if (dismissed) return null;
 
   const renderContent = (prev: IPreviewUrlResponse) => {
-    const thumbUrl = mxcUrlToHttp(
-      mx,
-      prev['og:image'] || '',
-      useAuthentication,
-      256,
-      256,
-      'scale',
-      false
-    );
+    // Homeserver previews return og:image as an mxc:// URI (re-uploaded by the
+    // server); the client-side fallback returns a direct http(s) URL. Pass the
+    // latter through untouched — only mxc URIs need mxcUrlToHttp resolution.
+    const rawOgImage = (prev['og:image'] as string) || '';
+    const isDirectImage = /^https?:\/\//i.test(rawOgImage);
+    const thumbUrl = isDirectImage
+      ? rawOgImage
+      : mxcUrlToHttp(mx, rawOgImage, useAuthentication, 256, 256, 'scale', false);
 
-    const imgUrl = mxcUrlToHttp(
-      mx,
-      prev['og:image'] || '',
-      useAuthentication,
-      512,
-      512,
-      'scale',
-      false
-    );
+    const imgUrl = isDirectImage
+      ? rawOgImage
+      : mxcUrlToHttp(mx, rawOgImage, useAuthentication, 512, 512, 'scale', false);
 
     const title = prev['og:title'] as string | undefined;
     const description = prev['og:description'] as string | undefined;

@@ -57,6 +57,7 @@ export interface Settings {
   useVxTwitter: boolean;
   useSoundcloak: boolean;
   usePiped: boolean;
+  clientPreviewFallback: boolean;
 }
 
 const defaultSettings: Settings = {
@@ -101,6 +102,7 @@ const defaultSettings: Settings = {
   useVxTwitter: true,
   useSoundcloak: true,
   usePiped: false,
+  clientPreviewFallback: false,
 };
 
 export const getSettings = () => {

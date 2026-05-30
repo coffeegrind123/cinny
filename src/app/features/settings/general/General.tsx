@@ -717,6 +717,10 @@ function Editor() {
   const [useVxTwitter, setUseVxTwitter] = useSetting(settingsAtom, 'useVxTwitter');
   const [useSoundcloak, setUseSoundcloak] = useSetting(settingsAtom, 'useSoundcloak');
   const [usePiped, setUsePiped] = useSetting(settingsAtom, 'usePiped');
+  const [clientPreviewFallback, setClientPreviewFallback] = useSetting(
+    settingsAtom,
+    'clientPreviewFallback'
+  );
   const [minimizeToTray, setMinimizeToTray] = useSetting(settingsAtom, 'minimizeToTray');
 
   return (
@@ -801,13 +805,38 @@ function Editor() {
         />
       </SequenceCard>
       {isTauri() && (
-        <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
-          <SettingTile
-            title="Minimize to Tray"
-            description="When closing the window, hide to system tray instead of quitting."
-            after={<Switch variant="Primary" value={minimizeToTray} onChange={setMinimizeToTray} />}
-          />
-        </SequenceCard>
+        <>
+          <SequenceCard
+            className={SequenceCardStyle}
+            variant="SurfaceVariant"
+            direction="Column"
+          >
+            <SettingTile
+              title="Minimize to Tray"
+              description="When closing the window, hide to system tray instead of quitting."
+              after={
+                <Switch variant="Primary" value={minimizeToTray} onChange={setMinimizeToTray} />
+              }
+            />
+          </SequenceCard>
+          <SequenceCard
+            className={SequenceCardStyle}
+            variant="SurfaceVariant"
+            direction="Column"
+          >
+            <SettingTile
+              title="Client-side link previews (fallback)"
+              description="When your homeserver can't generate a link preview, fetch the page directly from this app to build the card. Helps sites that block your homeserver's preview fetcher. Requests are guarded against private/internal addresses."
+              after={
+                <Switch
+                  variant="Primary"
+                  value={clientPreviewFallback}
+                  onChange={setClientPreviewFallback}
+                />
+              }
+            />
+          </SequenceCard>
+        </>
       )}
     </Box>
   );
