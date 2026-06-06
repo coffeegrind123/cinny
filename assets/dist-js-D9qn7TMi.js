@@ -1,0 +1,2 @@
+import{d as e}from"./index-DCa-7SEA.js";async function t(t=0){await e(`plugin:process|exit`,{code:t})}async function n(){await e(`plugin:process|restart`)}export{t as exit,n as relaunch};
+//# sourceMappingURL=dist-js-D9qn7TMi.js.map
