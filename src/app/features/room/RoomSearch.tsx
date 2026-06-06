@@ -31,6 +31,7 @@ import { VirtualTile } from '../../components/virtualizer';
 import { SequenceCard } from '../../components/sequence-card';
 import { ScrollTopContainer } from '../../components/scroll-top-container';
 import { MessageSearchParams, useMessageSearch } from '../message-search/useMessageSearch';
+import { useClientRoomSearch } from '../message-search/useClientRoomSearch';
 import { SearchResultGroup } from '../message-search/SearchResultGroup';
 import { SearchInput } from '../message-search/SearchInput';
 import * as css from './RoomSearch.css';
@@ -67,11 +68,15 @@ export function RoomSearch({ room }: RoomSearchProps) {
     [term, room.roomId]
   );
 
-  const searchMessages = useMessageSearch(msgSearchParams);
+  const serverSearchMessages = useMessageSearch(msgSearchParams);
+  // Encrypted rooms can't be searched server-side (the homeserver only holds
+  // ciphertext), so fall back to a client-side scan of the local timeline.
+  const clientSearchMessages = useClientRoomSearch(room, term);
+  const searchMessages = encrypted ? clientSearchMessages : serverSearchMessages;
 
   const { status, data, error, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
-    enabled: !encrypted && !!term,
-    queryKey: ['room-search', room.roomId, term],
+    enabled: !!term,
+    queryKey: ['room-search', room.roomId, encrypted ? 'client' : 'server', term],
     queryFn: ({ pageParam }) => searchMessages(pageParam),
     initialPageParam: '',
     getNextPageParam: (lastPage) => lastPage.nextToken,
@@ -180,20 +185,20 @@ export function RoomSearch({ room }: RoomSearchProps) {
 
             {encrypted && (
               <Box
-                className={ContainerColor({ variant: 'Warning' })}
+                className={ContainerColor({ variant: 'Surface' })}
                 style={{ padding: config.space.S300, borderRadius: config.radii.R400 }}
                 alignItems="Center"
                 gap="200"
               >
                 <Icon size="200" src={Icons.Info} />
                 <Text size="T300">
-                  Server-side search can&apos;t read end-to-end encrypted messages, so search is
-                  unavailable in this room.
+                  This room is end-to-end encrypted, so search runs locally over the history synced
+                  to this device.
                 </Text>
               </Box>
             )}
 
-            {!encrypted && term && groups.length === 0 && status === 'success' && (
+            {term && groups.length === 0 && status === 'success' && (
               <Box
                 className={ContainerColor({ variant: 'Warning' })}
                 style={{ padding: config.space.S300, borderRadius: config.radii.R400 }}
@@ -207,7 +212,7 @@ export function RoomSearch({ room }: RoomSearchProps) {
               </Box>
             )}
 
-            {!encrypted && term && status === 'pending' && (
+            {term && status === 'pending' && (
               <Box direction="Column" gap="100">
                 {[...Array(6).keys()].map((key) => (
                   <SequenceCard
@@ -219,7 +224,7 @@ export function RoomSearch({ room }: RoomSearchProps) {
               </Box>
             )}
 
-            {!encrypted && vItems.length > 0 && (
+            {vItems.length > 0 && (
               <Box direction="Column" gap="200">
                 <Line size="300" variant="Surface" />
                 <div

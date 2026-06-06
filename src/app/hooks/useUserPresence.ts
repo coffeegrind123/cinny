@@ -24,25 +24,51 @@ const getUserPresence = (user: User): UserPresence => ({
 
 export const useUserPresence = (userId: string): UserPresence | undefined => {
   const mx = useMatrixClient();
-  const user = mx.getUser(userId);
 
-  const [presence, setPresence] = useState(() => (user ? getUserPresence(user) : undefined));
+  const [presence, setPresence] = useState<UserPresence | undefined>(() => {
+    const u = userId ? mx.getUser(userId) : null;
+    return u ? getUserPresence(u) : undefined;
+  });
 
   useEffect(() => {
-    const updatePresence: UserEventHandlerMap[UserEvent.Presence] = (event, u) => {
-      if (u.userId === user?.userId) {
-        setPresence(getUserPresence(user));
+    if (!userId) {
+      setPresence(undefined);
+      return undefined;
+    }
+
+    // Sync immediately from whatever the store currently holds. The lazy
+    // useState initializer above runs once; if the peer's `User` object
+    // didn't exist yet at first render (common — it's created lazily from the
+    // first presence EDU / membership), the captured value would otherwise
+    // stay stale (or `undefined`, hiding the badge) until a live event fired.
+    // Re-running this on every `userId` change also keeps the badge correct
+    // when a single nav item is reused for a different room.
+    const sync = () => {
+      const u = mx.getUser(userId);
+      setPresence(u ? getUserPresence(u) : undefined);
+    };
+    sync();
+
+    // Presence events are re-emitted on the MatrixClient for every `User`
+    // (see `User.createUser`'s reEmitter wiring), so subscribe at the client
+    // level rather than on one `User` instance. This way we still receive
+    // updates for a peer whose `User` object only materialises *after* this
+    // hook mounted — the per-User listener the old code used would miss those
+    // entirely, leaving the indicator stuck on a stale state.
+    const onPresence: UserEventHandlerMap[UserEvent.Presence] = (_event, u) => {
+      if (u.userId === userId) {
+        setPresence(getUserPresence(u));
       }
     };
-    user?.on(UserEvent.Presence, updatePresence);
-    user?.on(UserEvent.CurrentlyActive, updatePresence);
-    user?.on(UserEvent.LastPresenceTs, updatePresence);
+    mx.on(UserEvent.Presence, onPresence);
+    mx.on(UserEvent.CurrentlyActive, onPresence);
+    mx.on(UserEvent.LastPresenceTs, onPresence);
     return () => {
-      user?.removeListener(UserEvent.Presence, updatePresence);
-      user?.removeListener(UserEvent.CurrentlyActive, updatePresence);
-      user?.removeListener(UserEvent.LastPresenceTs, updatePresence);
+      mx.removeListener(UserEvent.Presence, onPresence);
+      mx.removeListener(UserEvent.CurrentlyActive, onPresence);
+      mx.removeListener(UserEvent.LastPresenceTs, onPresence);
     };
-  }, [user]);
+  }, [mx, userId]);
 
   return presence;
 };

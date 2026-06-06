@@ -44,7 +44,9 @@ export function SyncStatus({ mx }: SyncStatusProps) {
           alignItems="Center"
           justifyContent="Center"
         >
-          <Text size="L400">Connecting...</Text>
+          <Text size="L400">
+            {mx.getDomain() ? `Connecting to ${mx.getDomain()}...` : 'Connecting...'}
+          </Text>
         </Box>
         <Line variant="Success" size="300" />
       </Box>

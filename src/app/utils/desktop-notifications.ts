@@ -148,6 +148,10 @@ async function ensureActionTypes() {
 export interface NotificationExtra {
   roomId?: string;
   eventId?: string;
+  // Distinguishes non-message notifications (e.g. the update toast) so the
+  // click handler can route them somewhere other than a room. Empty/absent
+  // for ordinary message notifications.
+  kind?: string;
 }
 
 // In-memory cache: source URL → resolved icon (path on Tauri, data URI on web).
@@ -229,6 +233,7 @@ export async function sendDesktopNotification(
     iconHomeserver?: string;
     roomId?: string;
     eventId?: string;
+    kind?: string;
   }
 ): Promise<void> {
   const srcIcon = options?.icon;
@@ -282,6 +287,7 @@ export async function sendDesktopNotification(
           iconPath: resolvedPath ?? null,
           roomId: options?.roomId ?? '',
           eventId: options?.eventId ?? '',
+          kind: options?.kind ?? '',
         });
         return;
       } catch (err) {
@@ -303,6 +309,7 @@ export async function sendDesktopNotification(
           extra: {
             roomId: options?.roomId ?? '',
             eventId: options?.eventId ?? '',
+            kind: options?.kind ?? '',
           },
         });
         return;
@@ -346,7 +353,7 @@ export async function onNotificationAction(
     try {
       const listener = await mod.onAction((notification) => {
         const extra = notification.extra as NotificationExtra | undefined;
-        if (extra?.roomId) {
+        if (extra?.roomId || extra?.kind) {
           callback(extra);
         }
       });
@@ -362,7 +369,7 @@ export async function onNotificationAction(
       'notification://activated',
       (event) => {
         const payload = event.payload;
-        if (payload?.roomId) {
+        if (payload?.roomId || payload?.kind) {
           callback(payload);
         }
       }

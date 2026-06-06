@@ -26,7 +26,6 @@ import {
 } from 'folds';
 import { useNavigate } from 'react-router-dom';
 import { Room } from 'matrix-js-sdk';
-import { useStateEvent } from '../../hooks/useStateEvent';
 import { PageHeader } from '../../components/page';
 import { RoomAvatar, RoomIcon } from '../../components/room-avatar';
 import { UseStateProvider } from '../../components/UseStateProvider';
@@ -424,8 +423,6 @@ export function RoomViewHeader({ callView }: { callView?: boolean }) {
   const direct = useIsDirectRoom();
 
   const pinnedEvents = useRoomPinnedEvents(room);
-  const encryptionEvent = useStateEvent(room, StateEvent.RoomEncryption);
-  const encryptedRoom = !!encryptionEvent;
   const avatarMxc = useRoomAvatar(room, direct);
   const name = useRoomName(room);
   const topic = useRoomTopic(room);
@@ -556,28 +553,26 @@ export function RoomViewHeader({ callView }: { callView?: boolean }) {
         </Box>
 
         <Box shrink="No">
-          {!encryptedRoom && (
-            <TooltipProvider
-              position="Bottom"
-              offset={4}
-              tooltip={
-                <Tooltip>
-                  <Text>Search</Text>
-                </Tooltip>
-              }
-            >
-              {(triggerRef) => (
-                <IconButton
-                  fill="None"
-                  ref={triggerRef}
-                  onClick={handleSearchClick}
-                  aria-pressed={!callView && searchOpen}
-                >
-                  <Icon size="400" src={Icons.Search} filled={!callView && searchOpen} />
-                </IconButton>
-              )}
-            </TooltipProvider>
-          )}
+          <TooltipProvider
+            position="Bottom"
+            offset={4}
+            tooltip={
+              <Tooltip>
+                <Text>Search</Text>
+              </Tooltip>
+            }
+          >
+            {(triggerRef) => (
+              <IconButton
+                fill="None"
+                ref={triggerRef}
+                onClick={handleSearchClick}
+                aria-pressed={!callView && searchOpen}
+              >
+                <Icon size="400" src={Icons.Search} filled={!callView && searchOpen} />
+              </IconButton>
+            )}
+          </TooltipProvider>
           <TooltipProvider
             position="Bottom"
             offset={4}

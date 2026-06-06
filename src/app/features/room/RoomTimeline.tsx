@@ -16,9 +16,11 @@ import {
   EventTimeline,
   EventTimelineSet,
   EventTimelineSetHandlerMap,
+  EventType,
   IContent,
   MatrixClient,
   MatrixEvent,
+  RelationType,
   Room,
   RoomEvent,
   RoomEventHandlerMap,
@@ -154,6 +156,26 @@ const TimelineDivider = as<'div', { variant?: ContainerColor | 'Inherit' }>(
 
 export const getLiveTimeline = (room: Room): EventTimeline =>
   room.getUnfilteredTimelineSet().getLiveTimeline();
+
+// A live event only warrants moving the viewport (scroll-to-bottom / jump to
+// live edge) when it produces a NEW visible message row. Reactions, edits and
+// redactions mutate existing rows in place — matching the render filter, which
+// skips events that carry a relation or are redactions — so they must not yank
+// the timeline. Without this, reacting to a message (an `m.reaction` event you
+// "sent") triggered the scroll-on-send path and jumped to the most recent
+// message.
+const isLiveDisplayEvent = (mEvent: MatrixEvent): boolean => {
+  if (mEvent.getType() === EventType.Reaction) return false;
+  if (mEvent.isRedaction()) return false;
+  const relation = mEvent.getRelation();
+  if (
+    relation?.rel_type === RelationType.Annotation ||
+    relation?.rel_type === RelationType.Replace
+  ) {
+    return false;
+  }
+  return true;
+};
 
 export const getEventTimeline = (room: Room, eventId: string): EventTimeline | undefined => {
   const timelineSet = room.getUnfilteredTimelineSet();
@@ -638,8 +660,13 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
             setUnreadInfo(getRoomUnreadInfo(room));
           }
 
-          scrollToBottomRef.current.count += 1;
-          scrollToBottomRef.current.smooth = true;
+          // Only scroll for events that add a new visible row. Reactions/edits/
+          // redactions still advance the range (they exist in the underlying
+          // timeline) but must not move the viewport.
+          if (isLiveDisplayEvent(mEvt)) {
+            scrollToBottomRef.current.count += 1;
+            scrollToBottomRef.current.smooth = true;
+          }
 
           setTimeline((ct) => ({
             ...ct,
@@ -655,7 +682,11 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
         // own message comes into view — mirrors handleJumpToLatest. Other
         // people's messages must NOT yank the viewport, so this is gated on the
         // sender being us.
-        if (scrollOnSendRef.current && mEvt.getSender() === mx.getUserId()) {
+        if (
+          scrollOnSendRef.current &&
+          mEvt.getSender() === mx.getUserId() &&
+          isLiveDisplayEvent(mEvt)
+        ) {
           setTimeline(getInitialTimeline(room));
           scrollToBottomRef.current.count += 1;
           scrollToBottomRef.current.smooth = false;

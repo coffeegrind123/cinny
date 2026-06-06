@@ -55,7 +55,7 @@ export function UpdateBanner() {
           <Icon src={Icons.Info} size="200" />
           <Text size="T300" truncate>
             {update.version
-              ? `Cinny ${update.version} available — tap to update`
+              ? `Cinny ${update.version} available, tap to update`
               : 'New version available — reload to apply'}
           </Text>
         </Box>

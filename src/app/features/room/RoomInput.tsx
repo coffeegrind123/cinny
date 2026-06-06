@@ -599,15 +599,16 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
                   gap="300"
                   style={{ padding: `${config.space.S200} ${config.space.S300} 0` }}
                 >
-                  <IconButton
-                    onClick={() => setReplyDraft(undefined)}
-                    variant="SurfaceVariant"
-                    size="300"
-                    radii="300"
-                  >
-                    <Icon src={Icons.Cross} size="50" />
-                  </IconButton>
-                  <Box direction="Row" gap="200" alignItems="Center">
+                  {/* Invisible spacer matching the attachment button's width so the
+                      replied-to message stays aligned with the text input below.
+                      The close button now lives on the right, nearer the send
+                      controls — less mouse travel from the compose area. */}
+                  <Box shrink="No" aria-hidden style={{ visibility: 'hidden' }}>
+                    <IconButton variant="SurfaceVariant" size="300" radii="300" tabIndex={-1}>
+                      <Icon src={Icons.Cross} size="50" />
+                    </IconButton>
+                  </Box>
+                  <Box grow="Yes" direction="Row" gap="200" alignItems="Center">
                     {replyDraft.relation?.rel_type === RelationType.Thread && <ThreadIndicator />}
                     <ReplyLayout
                       userColor={replyUsernameColor}
@@ -625,6 +626,16 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
                         {trimReplyFromBody(replyDraft.body)}
                       </Text>
                     </ReplyLayout>
+                  </Box>
+                  <Box shrink="No">
+                    <IconButton
+                      onClick={() => setReplyDraft(undefined)}
+                      variant="SurfaceVariant"
+                      size="300"
+                      radii="300"
+                    >
+                      <Icon src={Icons.Cross} size="50" />
+                    </IconButton>
                   </Box>
                 </Box>
               </div>

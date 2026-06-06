@@ -88,7 +88,7 @@ export function Changelog() {
           {/* Header */}
           <Box direction="Column" gap="200">
             <Text size="H2" priority="500">
-              What&apos;s new
+              What&apos;s new 👀
             </Text>
             <Text size="T300" priority="300">
               Prinny Client{' '}

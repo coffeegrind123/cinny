@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { isTauri, sendDesktopNotification } from '../utils/desktop-notifications';
+import { isTauri, sendDesktopNotification, onNotificationAction } from '../utils/desktop-notifications';
 import { isMobile as isMobileTauri } from '../utils/platform';
 import LogoSVG from '../../../public/res/svg/cinny.svg';
 
@@ -82,6 +82,31 @@ export function useUpdateCheck(): UpdateCheckState {
     }
   }, [updateObj]);
 
+  // Keep the latest downloadAndInstall reachable from the notification
+  // listener (registered once) without re-subscribing on every state change.
+  const downloadAndInstallRef = useRef(downloadAndInstall);
+  downloadAndInstallRef.current = downloadAndInstall;
+
+  // The desktop update toast carries `kind: 'update'`. Its "Open" action
+  // (and a tap on the toast body) should do exactly what the banner's
+  // "Update" button does — download and install. Other notification kinds
+  // (message clicks → room navigation) are handled in ClientNonUIFeatures;
+  // this listener only acts on the update kind.
+  useEffect(() => {
+    if (!isTauri()) return undefined;
+    let unlisten: (() => void) | undefined;
+    onNotificationAction((extra) => {
+      if (extra?.kind === 'update') {
+        downloadAndInstallRef.current();
+      }
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => {
+      unlisten?.();
+    };
+  }, []);
+
   // Check for updates on mount, but only in Tauri
   useEffect(() => {
     if (!isTauri()) return;
@@ -129,6 +154,9 @@ export function useUpdateCheck(): UpdateCheckState {
         await sendDesktopNotification(title, {
           icon: LogoSVG,
           body,
+          // Tag the toast so its "Open" action routes to the update flow
+          // (downloadAndInstall) instead of a room — see the listener below.
+          kind: 'update',
         });
       } catch {
         // Notification permission may be denied — banner still shows.
