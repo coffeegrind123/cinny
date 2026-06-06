@@ -65,6 +65,7 @@ import { SpaceSettingsRenderer } from '../features/space-settings';
 import { UserRoomProfileRenderer } from '../components/UserRoomProfileRenderer';
 import { CreateRoomModalRenderer } from '../features/create-room';
 import { HomeCreateRoom } from './client/home/CreateRoom';
+import { MobileSwipeBack } from '../features/room/MobileSwipeBack';
 import { Create } from './client/create';
 import { CreateSpaceModalRenderer } from '../features/create-space';
 import { SearchModalRenderer } from '../features/search';
@@ -301,8 +302,27 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
               element={<WelcomePage />}
             />
           )}
-          <Route path={_NOTIFICATIONS_PATH} element={<Notifications />} />
-          <Route path={_INVITES_PATH} element={<Invites />} />
+          {/* Wrap in MobileSwipeBack like Room: on mobile this provides the
+              absolute, opaque z-index:1 layer that covers the nav backdrop
+              (MobileFriendlyPageNav renders the Inbox list behind at z 0).
+              Without it the absolute backdrop paints over this static content
+              and the page looks broken. Also adds the swipe-back gesture. */}
+          <Route
+            path={_NOTIFICATIONS_PATH}
+            element={
+              <MobileSwipeBack>
+                <Notifications />
+              </MobileSwipeBack>
+            }
+          />
+          <Route
+            path={_INVITES_PATH}
+            element={
+              <MobileSwipeBack>
+                <Invites />
+              </MobileSwipeBack>
+            }
+          />
         </Route>
       </Route>
       <Route path="/*" element={<p>Page not found</p>} />

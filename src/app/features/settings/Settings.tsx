@@ -35,6 +35,7 @@ import { Keybinds } from './keybinds/Keybinds';
 import { UseStateProvider } from '../../components/UseStateProvider';
 import { stopPropagation } from '../../utils/keyboard';
 import { LogoutDialog } from '../../components/LogoutDialog';
+import * as settingsCss from './styles.css';
 
 export enum SettingsPages {
   GeneralPage,
@@ -145,13 +146,19 @@ export function Settings({ initialPage, requestClose }: SettingsProps) {
     }
   }, [screenSize, activePage, requestClose]);
 
+  // NOTE: no commitOffset here. The nav swipes (MobileSwipeBack/Open) slide
+  // their element fully off-screen on commit and rely on a route change to
+  // unmount it. Settings, however, handles subpage→menu navigation *in place*
+  // (setActivePage, no unmount), so an off-screen slide would leave this
+  // container stuck translated out of view — a softlock. Snapping back to 0
+  // (commitOffset 0) lets the content swap underneath while staying on screen;
+  // the modal's own close animation covers the menu→close case.
   useSwipeGesture(swipeRef, {
     edge: 'left',
     anywhere: true,
     threshold: 80,
     onSwipe: handleSwipeBack,
     trackElement: swipeRef,
-    commitOffset: typeof window !== 'undefined' ? window.innerWidth : 0,
   });
 
   return (
@@ -192,7 +199,7 @@ export function Settings({ initialPage, requestClose }: SettingsProps) {
             </PageNavHeader>
             <Box grow="Yes" direction="Column">
               <PageNavContent>
-                <div style={{ flexGrow: 1 }}>
+                <div style={{ flexGrow: 1 }} className={settingsCss.SettingsMobileMenu}>
                   {menuItems.map((item) => (
                     <MenuItem
                       key={item.name}

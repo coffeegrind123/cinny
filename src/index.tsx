@@ -9,6 +9,7 @@ import { configClass, varsClass } from 'folds';
 enableMapSet();
 
 import './index.css';
+import './app/styles/SafeArea.css';
 
 import { trimTrailingSlash } from './app/utils/common';
 import App from './app/pages/App';

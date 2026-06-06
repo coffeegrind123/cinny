@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect, useState } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAtomValue } from 'jotai';
 import { useSwipeGesture } from '../hooks/useSwipeGesture';
@@ -26,6 +26,14 @@ import { getHomeRoomPath, getDirectRoomPath } from './pathUtils';
  * visual translate-with-finger, no commit — so an empty nav (e.g. Home
  * with no rooms) doesn't have a phantom swipe surface.
  */
+
+// Module-scoped so it survives remounts. MobileFriendlyPageNav swaps its
+// return between bare `children` (parent path) and a wrapping <div> backdrop
+// (room sub-path), which remounts this component on every in/out transition —
+// a plain useState would reset to undefined and break swiping back into the
+// last conversation. A module variable persists across those remounts.
+let lastOpenedRoomId: string | undefined;
+
 export function MobileSwipeOpen({ children }: { children: React.ReactNode }) {
   const screenSize = useScreenSizeContext();
   const navigate = useNavigate();
@@ -38,17 +46,17 @@ export function MobileSwipeOpen({ children }: { children: React.ReactNode }) {
   // Remember the last room the user was in. After a back-swipe out, the URL
   // no longer has a roomId, so `selectedRoomId` is undefined and a fresh
   // forward-swipe would have nowhere to navigate to. Persisting the last
-  // value lets the user toggle in/out of the same DM via swipe.
-  const [lastRoomId, setLastRoomId] = useState<string | undefined>(selectedRoomId);
+  // value (module-scoped, see above) lets the user toggle in/out of the same
+  // conversation via swipe even though this component remounts each transition.
   useEffect(() => {
-    if (selectedRoomId) setLastRoomId(selectedRoomId);
+    if (selectedRoomId) lastOpenedRoomId = selectedRoomId;
   }, [selectedRoomId]);
 
-  // Resolve the target path. selectedRoomId / lastRoomId are resolved
+  // Resolve the target path. selectedRoomId / lastOpenedRoomId are resolved
   // here; the first-rendered-link fallback is deferred to gesture time
   // because it depends on DOM state that only exists after render.
   const resolveTargetPath = useCallback((): string | null => {
-    const target = selectedRoomId ?? lastRoomId;
+    const target = selectedRoomId ?? lastOpenedRoomId;
     if (target) {
       const room = mx.getRoom(target);
       if (room) {
@@ -60,12 +68,16 @@ export function MobileSwipeOpen({ children }: { children: React.ReactNode }) {
       }
     }
     // Fallback: pick the first rendered room link inside the swipe surface.
-    // The nav list is sorted by activity (most-recent first), so this is
-    // the latest conversation. We query href because we don't know whether
-    // the page is Home, Direct or Space without threading a prop through.
+    // The nav list is sorted by activity (most-recent first), so this is the
+    // latest conversation. Room links route to /home/<id>/, /direct/<id>/ or
+    // /<space>/<id>/ where the id is a percent-encoded Matrix id (`!` → %21)
+    // or alias (`#` → %23) — match those to skip non-room links like
+    // create/join/search. We query href because we don't know whether the
+    // page is Home, Direct or Space without threading a prop through.
     const el = ref.current;
     if (!el) return null;
-    const link = el.querySelector<HTMLAnchorElement>('a[href*="/r/"]');
+    const links = Array.from(el.querySelectorAll<HTMLAnchorElement>('a[href]'));
+    const link = links.find((a) => /%21|%23/.test(a.getAttribute('href') ?? ''));
     if (!link) return null;
     // Anchors come with absolute URLs; strip the origin so navigate()
     // treats it as a router path. If parsing fails, fall back to href.
@@ -75,7 +87,7 @@ export function MobileSwipeOpen({ children }: { children: React.ReactNode }) {
     } catch {
       return link.getAttribute('href');
     }
-  }, [selectedRoomId, lastRoomId, mx, mDirects]);
+  }, [selectedRoomId, mx, mDirects]);
 
   const canSwipe = useCallback(() => resolveTargetPath() !== null, [resolveTargetPath]);
 

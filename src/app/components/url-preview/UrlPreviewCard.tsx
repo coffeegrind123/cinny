@@ -21,7 +21,7 @@ import { FocusTrap } from 'focus-trap-react';
 import { RenderViewerProps, ImageOverlay } from '../ImageOverlay';
 import { AsyncStatus, useAsyncCallback } from '../../hooks/useAsyncCallback';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
-import { UrlPreview, UrlPreviewContent, UrlPreviewDescription, UrlPreviewImg, UrlPreviewImgInside } from './UrlPreview';
+import { UrlPreview, UrlPreviewContent, UrlPreviewImg, UrlPreviewImgInside } from './UrlPreview';
 import {
   getIntersectionObserverEntry,
   useIntersectionObserver,
@@ -514,33 +514,53 @@ export const UrlPreviewCard = as<
           >
             <Icon size="50" src={Icons.Cross} />
           </IconButton>
-          {allMedia.map((m, i) => {
-            if (m.type === 'video' || m.type === 'gif') {
-              return (
-                <ProxiedVideo
-                  key={i}
-                  src={m.url}
-                  poster={m.thumbnail_url}
-                  isGif={m.type === 'gif'}
-                  width={m.size?.width}
-                  height={m.size?.height}
-                  className={urlPreviewCss.UrlPreviewVideo}
-                />
-              );
-            }
-            if (m.type === 'image' || m.type === 'photo') {
-              return (
-                <ProxiedImg
-                  key={i}
-                  src={m.url}
-                  alt={m.altText || vxData.text || ''}
-                  title={m.altText || vxData.text}
-                  onView={() => setViewerSrc(m.url)}
-                />
-              );
-            }
-            return null;
-          })}
+          {(() => {
+            const imgs = allMedia.filter((m) => m.type === 'image' || m.type === 'photo');
+            const vids = allMedia.filter((m) => m.type === 'video' || m.type === 'gif');
+            return (
+              <>
+                {imgs.length > 0 && (
+                  <Box direction="Row" gap="100" style={{ width: '100%', flexWrap: 'wrap' }}>
+                    {imgs.map((m, i) => {
+                      // 1 image: full width. 2+: 2-column grid that fills.
+                      const basis = imgs.length === 1 ? '100%' : 'calc(50% - 2px)';
+                      return (
+                        <Box
+                          key={i}
+                          style={{
+                            flexBasis: basis,
+                            flexGrow: 1,
+                            minWidth: '160px',
+                            maxWidth: '100%',
+                            overflow: 'hidden',
+                            borderRadius: '8px',
+                          }}
+                        >
+                          <ProxiedImg
+                            src={m.url}
+                            alt={m.altText || vxData.text || ''}
+                            title={m.altText || vxData.text}
+                            onView={() => setViewerSrc(m.url)}
+                          />
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                )}
+                {vids.map((m, i) => (
+                  <ProxiedVideo
+                    key={i}
+                    src={m.url}
+                    poster={m.thumbnail_url}
+                    isGif={m.type === 'gif'}
+                    width={m.size?.width}
+                    height={m.size?.height}
+                    className={urlPreviewCss.UrlPreviewVideo}
+                  />
+                ))}
+              </>
+            );
+          })()}
           <UrlPreviewContent>
             <Text style={linkStyles} truncate as="a" href={url} target="_blank" rel="noreferrer" size="T200" priority="300">
               {vxData.user_name
@@ -855,8 +875,6 @@ export const UrlPreviewCard = as<
       ? `${ogVideoWidth} / ${ogVideoHeight}`
       : undefined;
 
-    const allKeys = Object.keys(prev).filter(k => k.startsWith('og:'));
-
     return (
       <Box grow="Yes" direction="Column" style={{ position: 'relative', minWidth: 0 }}>
         {/* Dismiss button */}
@@ -998,43 +1016,34 @@ export const UrlPreviewCard = as<
               {title}
             </Text>
           )}
-          {description && (
-            <Text size="T200" priority="300">
-              <UrlPreviewDescription>{description}</UrlPreviewDescription>
-            </Text>
-          )}
-
-          {/* Expand/collapse extra embed data */}
-          {allKeys.length > 4 && (
-            <Button
-              variant="Secondary"
-              fill="Soft"
-              size="300"
-              radii="300"
-              onClick={() => setExpanded(!expanded)}
-            >
-              <Text size="B300">
-                {expanded ? 'Show Less' : `Show All (${allKeys.length - 4} more)`}
-              </Text>
-            </Button>
-          )}
-
-          {expanded && (
-            <Box direction="Column" gap="100" style={{ padding: `${config.space.S100} 0` }}>
-              {allKeys.map((key) => {
-                const val = prev[key];
-                if (!val || key === 'og:title' || key === 'og:description' || key === 'og:image' || key === 'og:site_name') return null;
-                return (
-                  <Text key={key} size="T200" priority="400">
-                    <b>{key.replace('og:', '')}:</b>{' '}
-                    {typeof val === 'string' && val.length > 120
-                      ? `${val.slice(0, 120)}...`
-                      : String(val)}
+          {/* Description — shown in full up to 100 words; longer ones collapse
+              behind a Show all toggle. (Replaces the old og: metadata dump that
+              used to live behind this button.) */}
+          {description &&
+            (() => {
+              const words = description.trim().split(/\s+/);
+              const isLong = words.length > 100;
+              const shown =
+                isLong && !expanded ? `${words.slice(0, 100).join(' ')}…` : description;
+              return (
+                <>
+                  <Text size="T200" priority="300" style={{ whiteSpace: 'pre-wrap' }}>
+                    {shown}
                   </Text>
-                );
-              })}
-            </Box>
-          )}
+                  {isLong && (
+                    <Button
+                      variant="Secondary"
+                      fill="Soft"
+                      size="300"
+                      radii="300"
+                      onClick={() => setExpanded(!expanded)}
+                    >
+                      <Text size="B300">{expanded ? 'Show less' : 'Show all'}</Text>
+                    </Button>
+                  )}
+                </>
+              );
+            })()}
         </UrlPreviewContent>
 
         {/* Image viewer — use renderViewer if provided, fall back to FocusTrap */}

@@ -25,7 +25,7 @@ import {
   VideoContent,
 } from './message';
 import { UrlPreviewCard, UrlPreviewHolder } from './url-preview';
-import { Image, MediaControl, Video } from './media';
+import { Image, Video } from './media';
 import { ImageViewer } from './image-viewer';
 import { PdfViewer } from './Pdf-viewer';
 import { TextViewer } from './text-viewer';
@@ -242,9 +242,7 @@ export function RenderMessageContent({
         <MAudio
           content={getContent()}
           renderAsFile={renderFile}
-          renderAudioContent={(props) => (
-            <AudioContent {...props} renderMediaControl={(p) => <MediaControl {...p} />} />
-          )}
+          renderAudioContent={(props) => <AudioContent {...props} />}
           outlined={outlineAttachment}
         />
         {renderCaption()}
