@@ -61,47 +61,9 @@ import { useFlattenPowerTagMembers, useGetMemberPowerTag } from '../../hooks/use
 import { useRoomCreators } from '../../hooks/useRoomCreators';
 import { useUserPresence } from '../../hooks/useUserPresence';
 import { AvatarPresence, PresenceBadge } from '../../components/presence';
-
-type MemberDrawerHeaderProps = {
-  room: Room;
-};
-function MemberDrawerHeader({ room }: MemberDrawerHeaderProps) {
-  const setPeopleDrawer = useSetSetting(settingsAtom, 'isPeopleDrawer');
-
-  return (
-    <Header className={css.MembersDrawerHeader} variant="Background" size="600">
-      <Box grow="Yes" alignItems="Center" gap="200">
-        <Box grow="Yes" alignItems="Center" gap="200">
-          <Text title={`${room.getJoinedMemberCount()} Members`} size="H5" truncate>
-            {`${millify(room.getJoinedMemberCount())} Members`}
-          </Text>
-        </Box>
-        <Box shrink="No" alignItems="Center">
-          <TooltipProvider
-            position="Bottom"
-            align="End"
-            offset={4}
-            tooltip={
-              <Tooltip>
-                <Text>Close</Text>
-              </Tooltip>
-            }
-          >
-            {(triggerRef) => (
-              <IconButton
-                ref={triggerRef}
-                variant="Background"
-                onClick={() => setPeopleDrawer(false)}
-              >
-                <Icon src={Icons.Cross} />
-              </IconButton>
-            )}
-          </TooltipProvider>
-        </Box>
-      </Box>
-    </Header>
-  );
-}
+import { useRoomNavigate } from '../../hooks/useRoomNavigate';
+import { ScreenSize, useScreenSizeContext } from '../../hooks/useScreenSize';
+import { RoomMessageResults } from '../message-search/RoomMessageResults';
 
 type MemberItemProps = {
   mx: MatrixClient;
@@ -190,9 +152,15 @@ type MembersDrawerProps = {
 export function MembersDrawer({ room, members }: MembersDrawerProps) {
   const mx = useMatrixClient();
   const useAuthentication = useMediaAuthentication();
+  const setPeopleDrawer = useSetSetting(settingsAtom, 'isPeopleDrawer');
+  const screenSize = useScreenSizeContext();
+  const { navigateRoom } = useRoomNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const scrollTopAnchorRef = useRef<HTMLDivElement>(null);
+  // Debounced term that drives the inline message search below the member list.
+  // Kept separate from the member filter so member results stay instant.
+  const [messageTerm, setMessageTerm] = useState<string>();
   const powerLevels = usePowerLevelsContext();
   const creators = useRoomCreators(room);
   const getPowerTag = useGetMemberPowerTag(room, creators, powerLevels);
@@ -240,13 +208,36 @@ export function MembersDrawer({ room, members }: MembersDrawerProps) {
   const handleSearchChange: ChangeEventHandler<HTMLInputElement> = useDebounce(
     useCallback(
       (evt) => {
-        if (evt.target.value) search(evt.target.value);
+        const value = evt.target.value.trim();
+        if (value) search(value);
         else resetSearch();
+        // The same box also searches message text (encrypted rooms scan locally,
+        // others hit the server). Empty clears it.
+        setMessageTerm(value || undefined);
       },
       [search, resetSearch]
     ),
-    { wait: 200 }
+    { wait: 300 }
   );
+
+  const handleMessageOpen = useCallback(
+    (roomId: string, eventId: string) => {
+      navigateRoom(roomId, eventId);
+      // On mobile/tablet the drawer overlays the timeline — close it so the
+      // jumped-to message is visible.
+      if (screenSize !== ScreenSize.Desktop) setPeopleDrawer(false);
+    },
+    [navigateRoom, screenSize, setPeopleDrawer]
+  );
+
+  const clearSearch = useCallback(() => {
+    if (searchInputRef.current) {
+      searchInputRef.current.value = '';
+      searchInputRef.current.focus();
+    }
+    resetSearch();
+    setMessageTerm(undefined);
+  }, [resetSearch]);
 
   const handleMemberClick: MouseEventHandler<HTMLButtonElement> = (evt) => {
     const btn = evt.currentTarget as HTMLButtonElement;
@@ -261,12 +252,71 @@ export function MembersDrawer({ room, members }: MembersDrawerProps) {
       shrink="No"
       direction="Column"
     >
-      <MemberDrawerHeader room={room} />
+      <Header className={css.MembersDrawerHeader} variant="Background" size="600">
+        <Box grow="Yes" alignItems="Center" gap="200">
+          <Box grow="Yes">
+            <Input
+              ref={searchInputRef}
+              onChange={handleSearchChange}
+              style={{ paddingRight: config.space.S200 }}
+              placeholder="Search people & messages..."
+              variant="SurfaceVariant"
+              size="400"
+              radii="400"
+              autoComplete="off"
+              before={<Icon size="50" src={Icons.Search} />}
+              after={
+                result && (
+                  <Chip
+                    variant="Secondary"
+                    size="400"
+                    radii="Pill"
+                    aria-pressed
+                    onClick={clearSearch}
+                    after={<Icon size="50" src={Icons.Cross} />}
+                  >
+                    <Text size="B300">{`${result.items.length} ${
+                      result.items.length === 1 ? 'Person' : 'People'
+                    }`}</Text>
+                  </Chip>
+                )
+              }
+            />
+          </Box>
+          <Box shrink="No" alignItems="Center">
+            <TooltipProvider
+              position="Bottom"
+              align="End"
+              offset={4}
+              tooltip={
+                <Tooltip>
+                  <Text>Close</Text>
+                </Tooltip>
+              }
+            >
+              {(triggerRef) => (
+                <IconButton
+                  ref={triggerRef}
+                  variant="Background"
+                  onClick={() => setPeopleDrawer(false)}
+                >
+                  <Icon src={Icons.Cross} />
+                </IconButton>
+              )}
+            </TooltipProvider>
+          </Box>
+        </Box>
+      </Header>
       <Box className={css.MemberDrawerContentBase} grow="Yes">
         <Scroll ref={scrollRef} variant="Background" size="300" visibility="Hover" hideTrack>
           <Box className={css.MemberDrawerContent} direction="Column" gap="200">
             <Box ref={scrollTopAnchorRef} className={css.DrawerGroup} direction="Column" gap="200">
-              <Box alignItems="Center" justifyContent="SpaceBetween" gap="200">
+              <Box alignItems="Center" gap="200">
+                <Box grow="Yes">
+                  <Text size="L400" truncate title={`${room.getJoinedMemberCount()} Members`}>
+                    {`${millify(room.getJoinedMemberCount())} Members`}
+                  </Text>
+                </Box>
                 <UseStateProvider initial={undefined}>
                   {(anchor: RectCords | undefined, setAnchor) => (
                     <PopOut
@@ -331,40 +381,6 @@ export function MembersDrawer({ room, members }: MembersDrawerProps) {
                     </PopOut>
                   )}
                 </UseStateProvider>
-              </Box>
-              <Box direction="Column" gap="100">
-                <Input
-                  ref={searchInputRef}
-                  onChange={handleSearchChange}
-                  style={{ paddingRight: config.space.S200 }}
-                  placeholder="Type name..."
-                  variant="Surface"
-                  size="400"
-                  radii="400"
-                  before={<Icon size="50" src={Icons.Search} />}
-                  after={
-                    result && (
-                      <Chip
-                        variant={result.items.length > 0 ? 'Success' : 'Critical'}
-                        size="400"
-                        radii="Pill"
-                        aria-pressed
-                        onClick={() => {
-                          if (searchInputRef.current) {
-                            searchInputRef.current.value = '';
-                            searchInputRef.current.focus();
-                          }
-                          resetSearch();
-                        }}
-                        after={<Icon size="50" src={Icons.Cross} />}
-                      >
-                        <Text size="B300">{`${result.items.length || 'No'} ${
-                          result.items.length === 1 ? 'Result' : 'Results'
-                        }`}</Text>
-                      </Chip>
-                    )
-                  }
-                />
               </Box>
             </Box>
 
@@ -443,6 +459,12 @@ export function MembersDrawer({ room, members }: MembersDrawerProps) {
             {fetchingMembers && (
               <Box justifyContent="Center">
                 <Spinner />
+              </Box>
+            )}
+
+            {messageTerm && (
+              <Box className={css.DrawerGroup} direction="Column">
+                <RoomMessageResults room={room} term={messageTerm} onOpen={handleMessageOpen} />
               </Box>
             )}
           </Box>

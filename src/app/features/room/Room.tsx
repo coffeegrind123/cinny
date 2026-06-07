@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect } from 'react';
-import { Box, Line, toRem } from 'folds';
+import { Box, Line } from 'folds';
 import { useParams } from 'react-router-dom';
 import { isKeyHotkey } from 'is-hotkey';
 import { useAtom, useAtomValue } from 'jotai';
@@ -95,15 +95,7 @@ export function Room() {
             <CallChatView />
           </>
         )}
-        {!callView && screenSize === ScreenSize.Desktop && searchOpen && (
-          <>
-            <Line variant="Background" direction="Vertical" size="300" />
-            <Box shrink="No" style={{ width: toRem(340) }}>
-              <RoomSearch key={room.roomId} room={room} />
-            </Box>
-          </>
-        )}
-        {!callView && screenSize === ScreenSize.Desktop && !searchOpen && isDrawer && (
+        {!callView && screenSize === ScreenSize.Desktop && isDrawer && (
           <>
             <Line variant="Background" direction="Vertical" size="300" />
             <MembersDrawer key={room.roomId} room={room} members={members} />

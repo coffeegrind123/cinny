@@ -553,26 +553,31 @@ export function RoomViewHeader({ callView }: { callView?: boolean }) {
         </Box>
 
         <Box shrink="No">
-          <TooltipProvider
-            position="Bottom"
-            offset={4}
-            tooltip={
-              <Tooltip>
-                <Text>Search</Text>
-              </Tooltip>
-            }
-          >
-            {(triggerRef) => (
-              <IconButton
-                fill="None"
-                ref={triggerRef}
-                onClick={handleSearchClick}
-                aria-pressed={!callView && searchOpen}
-              >
-                <Icon size="400" src={Icons.Search} filled={!callView && searchOpen} />
-              </IconButton>
-            )}
-          </TooltipProvider>
+          {/* On desktop the members drawer hosts a unified people + message
+              search, so the standalone search button is hidden there. Smaller
+              screens have no drawer, so they keep the search overlay button. */}
+          {screenSize !== ScreenSize.Desktop && (
+            <TooltipProvider
+              position="Bottom"
+              offset={4}
+              tooltip={
+                <Tooltip>
+                  <Text>Search</Text>
+                </Tooltip>
+              }
+            >
+              {(triggerRef) => (
+                <IconButton
+                  fill="None"
+                  ref={triggerRef}
+                  onClick={handleSearchClick}
+                  aria-pressed={!callView && searchOpen}
+                >
+                  <Icon size="400" src={Icons.Search} filled={!callView && searchOpen} />
+                </IconButton>
+              )}
+            </TooltipProvider>
+          )}
           <TooltipProvider
             position="Bottom"
             offset={4}

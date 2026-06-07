@@ -16,6 +16,12 @@ const PAGE_SIZE = 20;
 const MAX_SCANNED_EVENTS = 50000;
 // Events fetched per back-pagination request.
 const PAGINATION_LIMIT = 100;
+// Back-pagination round-trips a single page() call will make before returning
+// what it has. This keeps live, as-you-type search responsive: each keystroke's
+// first page resolves from synced history plus a few hundred older events rather
+// than walking the whole room. Deeper history is reached by fetching more pages
+// (the cursor resumes pagination), so coverage still grows on demand.
+const MAX_PAGINATIONS_PER_PAGE = 8;
 
 type ClientSearchCursor = {
   term: string;
@@ -103,33 +109,36 @@ export const useClientRoomSearch = (room: Room, term?: string) => {
 
       const scanLoaded = async () => {
         const events = timeline.getEvents();
-        // Walk newest -> oldest so `matches` stays in Recent order. Newly
-        // back-paginated (older) events are prepended to the timeline; the
-        // `seen` set keeps us from rescanning what we already covered.
+        // Collect not-yet-seen events newest -> oldest so `matches` stays in
+        // Recent order. Newly back-paginated (older) events are prepended to the
+        // timeline; the `seen` set keeps us from rescanning covered history.
+        const fresh: MatrixEvent[] = [];
         for (let i = events.length - 1; i >= 0; i -= 1) {
           const mEvent = events[i];
           const id = mEvent.getId();
           if (!id || seen.has(id)) continue;
           seen.add(id);
           cursor.scanned += 1;
+          fresh.push(mEvent);
+        }
 
-          // Decrypt lazily — most timeline events are already decrypted, but
-          // freshly back-paginated encrypted events may not be.
-          if (
+        // Decrypt freshly back-paginated encrypted events in parallel rather
+        // than serially awaiting each — decryption is the per-event cost that
+        // made search feel slow. Already-decrypted events (the common case, e.g.
+        // synced recent history) report their clear type and are skipped.
+        await Promise.all(
+          fresh.map((mEvent) =>
             mEvent.isEncrypted() &&
             mEvent.getType() === EventType.RoomMessageEncrypted &&
             !mEvent.isDecryptionFailure()
-          ) {
-            try {
-              // eslint-disable-next-line no-await-in-loop
-              await mx.decryptEventIfNeeded(mEvent);
-            } catch {
-              // Undecryptable (missing keys) — skip it.
-            }
-          }
+              ? mx.decryptEventIfNeeded(mEvent).catch(() => undefined)
+              : undefined
+          )
+        );
 
-          if (eventMatches(mEvent, needle, words)) {
-            cursor.matches.push(mEvent);
+        for (let i = 0; i < fresh.length; i += 1) {
+          if (eventMatches(fresh[i], needle, words)) {
+            cursor.matches.push(fresh[i]);
           }
         }
       };
@@ -145,16 +154,19 @@ export const useClientRoomSearch = (room: Room, term?: string) => {
       // Pick up anything already loaded (the synced recent history) first.
       await scanLoaded();
 
+      let paginations = 0;
       while (
         cursor.matches.length < target &&
         !cursor.exhausted &&
-        cursor.scanned < MAX_SCANNED_EVENTS
+        cursor.scanned < MAX_SCANNED_EVENTS &&
+        paginations < MAX_PAGINATIONS_PER_PAGE
       ) {
         const token = timeline.getPaginationToken(EventTimeline.BACKWARDS);
         if (!token) {
           cursor.exhausted = true;
           break;
         }
+        paginations += 1;
         let ok = false;
         try {
           // eslint-disable-next-line no-await-in-loop
