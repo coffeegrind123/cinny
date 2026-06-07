@@ -19,9 +19,16 @@ const PAGINATION_LIMIT = 100;
 
 type ClientSearchCursor = {
   term: string;
+  /** Live timeline we walk backwards; pagination state lives on it. */
+  timeline: EventTimeline;
+  /** Event ids already scanned, so re-scans after pagination skip them. */
+  seen: Set<string>;
+  /** All matches found so far, newest-first. Pages slice into this. */
   matches: MatrixEvent[];
-  /** True when the scan stopped at the cap rather than the start of history. */
-  capped: boolean;
+  /** Total events walked — bounded by {@link MAX_SCANNED_EVENTS}. */
+  scanned: number;
+  /** True once history is fully walked (or the cap is hit): no more to find. */
+  exhausted: boolean;
 };
 
 const toEventWithRoomId = (mEvent: MatrixEvent, roomId: string): IEventWithRoomId =>
@@ -79,82 +86,106 @@ export const useClientRoomSearch = (room: Room, term?: string) => {
       }
       const words = needle.split(/\s+/).filter(Boolean);
 
-      // Build (or reuse) the full match list for this term. The bounded scan
-      // runs once; subsequent pages just slice the cached list.
+      // (Re)initialize the scan cursor when the term changes. The cursor carries
+      // pagination progress across pages so we never rescan covered history.
       if (!cursorRef.current || cursorRef.current.term !== term) {
-        const timeline = room.getLiveTimeline();
-        const seen = new Set<string>();
-        const matches: MatrixEvent[] = [];
-        let scanned = 0;
-
-        const scanLoaded = async () => {
-          const events = timeline.getEvents();
-          // Walk newest -> oldest so `matches` stays in Recent order. Newly
-          // back-paginated (older) events are prepended to the array; the `seen`
-          // set keeps us from rescanning what we already covered.
-          for (let i = events.length - 1; i >= 0; i -= 1) {
-            const mEvent = events[i];
-            const id = mEvent.getId();
-            if (!id || seen.has(id)) continue;
-            seen.add(id);
-            scanned += 1;
-
-            // Decrypt lazily — most timeline events are already decrypted, but
-            // freshly back-paginated encrypted events may not be.
-            if (
-              mEvent.isEncrypted() &&
-              mEvent.getType() === EventType.RoomMessageEncrypted &&
-              !mEvent.isDecryptionFailure()
-            ) {
-              try {
-                // eslint-disable-next-line no-await-in-loop
-                await mx.decryptEventIfNeeded(mEvent);
-              } catch {
-                // Undecryptable (missing keys) — skip it.
-              }
-            }
-
-            if (eventMatches(mEvent, needle, words)) {
-              matches.push(mEvent);
-            }
-          }
-        };
-
-        await scanLoaded();
-        while (scanned < MAX_SCANNED_EVENTS) {
-          const token = timeline.getPaginationToken(EventTimeline.BACKWARDS);
-          if (!token) break;
-          let ok = false;
-          try {
-            // eslint-disable-next-line no-await-in-loop
-            ok = await mx.paginateEventTimeline(timeline, {
-              backwards: true,
-              limit: PAGINATION_LIMIT,
-            });
-          } catch {
-            ok = false;
-          }
-          if (!ok) break;
-          // eslint-disable-next-line no-await-in-loop
-          await scanLoaded();
-        }
-
         cursorRef.current = {
           term,
-          matches,
-          capped: scanned >= MAX_SCANNED_EVENTS,
+          timeline: room.getLiveTimeline(),
+          seen: new Set<string>(),
+          matches: [],
+          scanned: 0,
+          exhausted: false,
         };
       }
+      const cursor = cursorRef.current;
+      const { timeline, seen } = cursor;
 
-      const { matches } = cursorRef.current;
+      const scanLoaded = async () => {
+        const events = timeline.getEvents();
+        // Walk newest -> oldest so `matches` stays in Recent order. Newly
+        // back-paginated (older) events are prepended to the timeline; the
+        // `seen` set keeps us from rescanning what we already covered.
+        for (let i = events.length - 1; i >= 0; i -= 1) {
+          const mEvent = events[i];
+          const id = mEvent.getId();
+          if (!id || seen.has(id)) continue;
+          seen.add(id);
+          cursor.scanned += 1;
+
+          // Decrypt lazily — most timeline events are already decrypted, but
+          // freshly back-paginated encrypted events may not be.
+          if (
+            mEvent.isEncrypted() &&
+            mEvent.getType() === EventType.RoomMessageEncrypted &&
+            !mEvent.isDecryptionFailure()
+          ) {
+            try {
+              // eslint-disable-next-line no-await-in-loop
+              await mx.decryptEventIfNeeded(mEvent);
+            } catch {
+              // Undecryptable (missing keys) — skip it.
+            }
+          }
+
+          if (eventMatches(mEvent, needle, words)) {
+            cursor.matches.push(mEvent);
+          }
+        }
+      };
+
       const offset = nextBatch ? parseInt(nextBatch, 10) || 0 : 0;
-      const pageEvents = matches.slice(offset, offset + PAGE_SIZE);
-      const nextOffset = offset + PAGE_SIZE;
+      // We only need enough matches to fill the page being requested. Crucially
+      // we DON'T exhaust the whole room before returning — we paginate just far
+      // enough to satisfy this page, then stop. Dense terms return almost
+      // instantly; further pages resume back-pagination on demand as the user
+      // scrolls.
+      const target = offset + PAGE_SIZE;
+
+      // Pick up anything already loaded (the synced recent history) first.
+      await scanLoaded();
+
+      while (
+        cursor.matches.length < target &&
+        !cursor.exhausted &&
+        cursor.scanned < MAX_SCANNED_EVENTS
+      ) {
+        const token = timeline.getPaginationToken(EventTimeline.BACKWARDS);
+        if (!token) {
+          cursor.exhausted = true;
+          break;
+        }
+        let ok = false;
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          ok = await mx.paginateEventTimeline(timeline, {
+            backwards: true,
+            limit: PAGINATION_LIMIT,
+          });
+        } catch {
+          ok = false;
+        }
+        if (!ok) {
+          cursor.exhausted = true;
+          break;
+        }
+        // eslint-disable-next-line no-await-in-loop
+        await scanLoaded();
+      }
+      if (cursor.scanned >= MAX_SCANNED_EVENTS) cursor.exhausted = true;
+
+      const pageEvents = cursor.matches.slice(offset, offset + PAGE_SIZE);
+      const nextOffset = offset + pageEvents.length;
+      // Offer another page when we already hold further matches, or when there's
+      // still unscanned history that could contain some. When the room is fully
+      // exhausted and we've returned everything, drop the token so the UI can
+      // settle on a final "no results"/end state instead of spinning.
+      const hasMore = cursor.matches.length > nextOffset || !cursor.exhausted;
 
       return {
         highlights: words,
         groups: groupMatches(pageEvents, room.roomId),
-        nextToken: nextOffset < matches.length ? String(nextOffset) : undefined,
+        nextToken: hasMore ? String(nextOffset) : undefined,
       };
     },
     [mx, room, term]

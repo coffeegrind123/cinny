@@ -2,6 +2,10 @@
 
 User-facing changes per commit. Most recent at the top.
 
+## 07.06.2026
+
+- `ba1c6b1` Fixed **encrypted-room search returning no results** — the client-side scan (`useClientRoomSearch.ts`) walked the *entire* room history (up to 50k events / hundreds of back-pagination round-trips) before returning even one match, so for any encrypted room with real history the search just sat on loading skeletons and never showed anything. It now streams: it scans the already-synced history and back-paginates only far enough to fill the requested page, returning matches immediately and resuming pagination on demand as you scroll. Dense terms appear almost instantly; "no results" is only shown once history is genuinely exhausted (still bounded at 50k events).
+
 ## 06.06.2026
 
 - `36a04bf` Made **all link-preview embeds 2x larger** — the card max-width went 216→432px and the image/video height caps doubled (300→600, 320→640), so YouTube, Twitter/X, Bluesky and generic embeds all render bigger (everything inside is width:100% of the card, so it scales proportionally). `UrlPreview.css.tsx`.
