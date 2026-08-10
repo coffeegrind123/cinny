@@ -126,7 +126,27 @@ Range: `80fd8863..upstream/dev` (`33f4ba36`) — 25 commits.
 - **Backported:** 5 commits (1 security dep + 1 dep bump + 1 call-stack upgrade + 2 bugfixes)
 - **Skipped:** 20 commits (16 CI/deps + 3 release stamps + 1 docs)
 - **Conflicts resolved:** package.json (×3), package-lock.json (×3)
-- **Verified:** `npm run typecheck` clean, `npm run build` clean
+- **Verified:** `npm ci` clean (lockfile internally consistent), `npm run build` clean
+
+#### `npm run typecheck` is already failing — 133 errors, unrelated to this sync
+
+Measured on a clean `npm ci` both before and after: **133 errors across 54 files,
+an identical file+error-code set** (`3316f60b` vs the tip of this sync). This sync
+neither introduced nor fixed any of them.
+
+They come from our own React 19 upgrade in `9c5e7069` ("Comprehensive dependency
+audit + upgrade"), not from upstream — the bulk are React 19 making
+`useRef<T>(null)` yield `RefObject<T | null>` where a consumer still wants
+`RefObject<T>` (TS2322/TS2345, 92 of the 133), plus folds size tokens our code
+uses that its typings don't list.
+
+Nothing gates on it: neither `prinny-client/.github/workflows/build.yml` nor
+cinny's workflows run `typecheck` or `lint`, and `vite build` does not type-check,
+which is why this went unnoticed. **Beware a false pass:** running `typecheck`
+against a `node_modules` that grew by successive `npm install`s reports 0 errors,
+because stale older `@types` are still hoisted there. Only `npm ci` gives a
+truthful answer. Worth fixing as its own piece of work — do not let a green
+typecheck from a dirty tree convince you it is already fixed.
 
 ## Process (reference for future syncs)
 
