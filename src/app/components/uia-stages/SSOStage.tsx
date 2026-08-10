@@ -1,6 +1,7 @@
 import { Box, Button, color, config, Dialog, Header, Icon, IconButton, Icons, Text } from 'folds';
 import React, { useCallback, useEffect, useState } from 'react';
 import { StageComponentProps } from './types';
+import { isWebUrl } from '../../utils/safeUrl';
 
 export function SSOStage({
   ssoRedirectURL,
@@ -20,6 +21,19 @@ export function SSOStage({
   }, [submitAuthDict, session]);
 
   const handleContinue = () => {
+    // The redirect URL comes from the homeserver, so validate the scheme before
+    // opening it — in the Tauri shell an unexpected scheme is handed to the OS
+    // URL opener rather than navigated.
+    //
+    // Deliberately NOT using `noopener`: the flow below needs the returned
+    // handle to match `evt.source` and to close the window once SSO completes,
+    // and `noopener` makes `window.open` return null. The residual risk is that
+    // the opened document can navigate this window; the origin check on the
+    // message listener is what keeps the completion signal itself trustworthy.
+    if (!isWebUrl(ssoRedirectURL)) {
+      console.error('Refusing to open SSO redirect URL: not an http(s) URL');
+      return;
+    }
     const w = window.open(ssoRedirectURL, '_blank');
     setSSOWindow(w ?? undefined);
   };

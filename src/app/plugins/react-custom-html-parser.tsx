@@ -32,6 +32,7 @@ import {
 } from '../utils/matrix';
 import { getMemberDisplayName } from '../utils/room';
 import { EMOJI_PATTERN, sanitizeForRegex, URL_NEG_LB } from '../utils/regex';
+import { MESSAGE_LINK_SCHEMES } from '../utils/safeUrl';
 import { getHexcodeForEmoji, getShortcodeFor } from './emoji';
 import { findAndReplace } from '../utils/findAndReplace';
 import {
@@ -54,7 +55,10 @@ export const LINKIFY_OPTS: LinkifyOpts = {
     rel: 'noreferrer noopener',
   },
   validate: {
-    url: (value) => /^(https|http|ftp|mailto|magnet)?:/.test(value),
+    // Plain-text links are an independent path from the HTML sanitizer — this
+    // runs on unformatted bodies, where no sanitisation happens — so it has to
+    // enforce the same scheme allowlist or narrowing one leaves the other open.
+    url: (value) => new RegExp(`^(${MESSAGE_LINK_SCHEMES.join('|')})?:`).test(value),
   },
   ignoreTags: ['span'],
 };
@@ -182,7 +186,16 @@ export const scaleSystemEmoji = (text: string): (string | JSX.Element)[] =>
   );
 
 export const makeHighlightRegex = (highlights: string[]): RegExp | undefined => {
-  const pattern = highlights.map(sanitizeForRegex).join('|');
+  // An empty term contributes an empty alternative, which matches everywhere at
+  // zero length and hangs the consuming scan. Callers reach this with
+  // `query.split(' ')` (a double space yields one) and with the `highlights`
+  // array from a homeserver's `/search` response, so both a typo and a hostile
+  // server can produce it. Drop empties before building the alternation.
+  const pattern = highlights
+    .filter((highlight) => highlight.length > 0)
+    .map(sanitizeForRegex)
+    .filter((source) => source.length > 0)
+    .join('|');
   if (!pattern) return undefined;
   return new RegExp(pattern, 'gi');
 };

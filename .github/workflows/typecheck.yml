@@ -14,6 +14,10 @@ concurrency:
   group: typecheck-${{ github.ref }}
   cancel-in-progress: true
 
+# Checkout + `tsc` only; nothing here writes to the repo or its packages.
+permissions:
+  contents: read
+
 jobs:
   typecheck:
     runs-on: ubuntu-latest

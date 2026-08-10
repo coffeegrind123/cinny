@@ -10,9 +10,32 @@
  */
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { isWebUrl } from './safeUrl';
 
 export interface UnifiedPushEndpoint {
   endpoint: string;
+}
+
+/**
+ * True when `endpoint` is an absolute https URL.
+ *
+ * Why https specifically: this value comes from whichever UnifiedPush
+ * distributor app happens to be installed on the device — an app we do not
+ * control and did not vet — and it is handed straight to the homeserver as the
+ * pusher `data.url`. The homeserver then POSTs a push notification to it for
+ * every matching event, forever, without any further involvement from us. Over
+ * plain http that traffic (room ids, event ids, sender, and unread counts —
+ * and message content for non-`event_id_only` formats) crosses the network in
+ * the clear to an attacker-observable endpoint. isWebUrl also rejects the
+ * non-http(s) schemes a malicious distributor could otherwise return.
+ */
+export function isValidPushEndpoint(endpoint: unknown): endpoint is string {
+  if (!isWebUrl(endpoint)) return false;
+  try {
+    return new URL(endpoint).protocol === 'https:';
+  } catch {
+    return false;
+  }
 }
 
 /**

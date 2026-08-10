@@ -4,6 +4,7 @@ import { isAndroid } from '../utils/platform';
 import {
   registerUnifiedPush,
   getUnifiedPushEndpoint,
+  isValidPushEndpoint,
   onEndpointReceived,
   onPushMessage,
   onUnregistered,
@@ -17,6 +18,19 @@ const UP_APP_ID = 'in.cinny.app.unifiedpush';
  * Registers the UnifiedPush endpoint as a Matrix HTTP pusher.
  */
 async function registerMatrixPusher(mx: MatrixClient, endpoint: string) {
+  // The endpoint is supplied by the installed UnifiedPush distributor, which is
+  // just another app on the device. Refuse anything that is not an absolute
+  // https URL rather than asking the homeserver to POST our push traffic to it
+  // — see isValidPushEndpoint(). Checked here, at the single point of
+  // registration, so neither the initial setup nor endpoint rotation can skip
+  // it.
+  if (!isValidPushEndpoint(endpoint)) {
+    console.warn(
+      '[UnifiedPush] Refusing to register pusher: endpoint is not an https URL:',
+      endpoint
+    );
+    return;
+  }
   try {
     await mx.setPusher({
       kind: 'http',
@@ -27,7 +41,21 @@ async function registerMatrixPusher(mx: MatrixClient, endpoint: string) {
       lang: 'en',
       data: {
         url: endpoint,
-        format: 'event_id_only',
+        // Deliberately NOT 'event_id_only'.
+        //
+        // With event_id_only the push carries just a room id and an event id,
+        // so the only way to render a notification is to wake the WebView and
+        // let JS sync — which Android suspends the moment the app leaves the
+        // screen. That is why background notifications never appeared. Asking
+        // the homeserver to include the event lets the Kotlin receiver post a
+        // real notification with no running JS at all.
+        //
+        // The tradeoff, accepted deliberately: the homeserver now sends sender
+        // and message body to the push gateway and on to the UnifiedPush
+        // distributor app. For unencrypted rooms that content leaves the
+        // device's trust boundary. Encrypted rooms are unaffected in substance
+        // — the server cannot decrypt them, so the push carries no plaintext
+        // and the receiver falls back to a generic message.
       },
       append: false,
     });

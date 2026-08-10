@@ -1,6 +1,51 @@
 # more info: https://caddyserver.com/docs/caddyfile/patterns#single-page-apps-spas
 cinny.domain.tld {
   root * /path/to/cinny/dist
-  try_files {path} / index.html
-  file_server
+
+  # An explicit route keeps evaluation in written order: dotfiles are refused
+  # before the SPA fallback can rewrite them to index.html. A stray .git/.env
+  # under the docroot would otherwise be public.
+  route {
+    @dotfiles path_regexp "(^|/)\."
+    error @dotfiles 403
+    try_files {path} / index.html
+    file_server
+  }
+
+  # ---------------------------------------------------------------------
+  # Security headers.
+  #
+  # Cinny renders untrusted third-party HTML (room messages), so this CSP is
+  # the compensating control if the sanitiser is ever bypassed.
+  #
+  # Why each source is present:
+  #   script-src   'self'               only bundled, same-origin scripts;
+  #                                     index.html has no inline script.
+  #                'wasm-unsafe-eval'   matrix-sdk-crypto-wasm (E2EE) and
+  #                                     Element Call instantiate WebAssembly.
+  #                'sha256-...' x2      the two inline scripts inside the
+  #                                     vendored Element Call iframe document
+  #                                     (public/element-call/index.html).
+  #                google/gstatic       react-google-recaptcha loads
+  #                                     recaptcha/api.js during registration.
+  #   connect-src  https: wss:          arbitrary user-chosen homeservers.
+  #   img/media    https: blob: data:   homeserver media + decrypted blobs.
+  #   style-src    'unsafe-inline'      React/vanilla-extract inline styles.
+  #   worker-src   blob:                pdf.js and LiveKit E2EE workers.
+  #   frame-src    https:               URL-preview embeds + reCAPTCHA frame.
+  #
+  # Regenerate the Element Call hashes after bumping
+  # @element-hq/element-call-embedded — see the snippet in docker-nginx.conf.
+  # ---------------------------------------------------------------------
+  header {
+    Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-pQY0fuQAnnVQH5nQfjo80rzGkQzeN3JeAtAJ+1KcD4k=' 'sha256-3042zLa3JXvrJe/2n8P/XpIKwqBdNTu7fwbLZUNrzZQ=' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://recaptcha.net/recaptcha/; style-src 'self' 'unsafe-inline'; img-src 'self' https: blob: data:; media-src 'self' https: blob: data:; font-src 'self' data:; connect-src 'self' https: wss: blob: data:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self' https:; manifest-src 'self'"
+    X-Frame-Options "DENY"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "no-referrer"
+    Permissions-Policy "accelerometer=(), browsing-topics=(), geolocation=(), gyroscope=(), hid=(), idle-detection=(), local-fonts=(), magnetometer=(), midi=(), payment=(), serial=(), usb=(), xr-spatial-tracking=()"
+    # Caddy serves this site over HTTPS automatically, so HSTS is safe here.
+    # Drop `preload` until every subdomain is HTTPS-only.
+    Strict-Transport-Security "max-age=63072000; includeSubDomains"
+    -Server
+  }
 }

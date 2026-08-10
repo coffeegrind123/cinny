@@ -34,6 +34,26 @@ export const factoryGetBaseUrl = (clientConfig: ClientConfig, server: string) =>
     if (!mxIdBaseUrl) {
       throw new Error(GetBaseUrlError.NotFound);
     }
+
+    // Re-apply the allowlist to the DISCOVERED base URL, not just to the name the
+    // user typed. `.well-known/matrix/client` is served by the typed server, so
+    // that server chooses `base_url` — and `base_url` is what actually receives
+    // the login request. Checking only the typed name meant an allowlisted
+    // domain could redirect credentials anywhere, defeating the allowlist in
+    // exactly the deployments that rely on it to restrict their users.
+    const discoveredHost = (() => {
+      try {
+        return new URL(mxIdBaseUrl).hostname;
+      } catch {
+        return undefined;
+      }
+    })();
+    if (!discoveredHost) {
+      throw new Error(GetBaseUrlError.NotFound);
+    }
+    if (!clientAllowedServer(clientConfig, discoveredHost)) {
+      throw new Error(GetBaseUrlError.NotAllow);
+    }
     const [, versions] = await to(specVersions(fetch, mxIdBaseUrl));
     if (!versions) {
       throw new Error(GetBaseUrlError.NotFound);

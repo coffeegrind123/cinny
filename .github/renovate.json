@@ -17,10 +17,36 @@
     },
     {
       "matchPackageNames": ["linkifyjs", "linkify-react"]
+    },
+    {
+      "description": "Let a fresh npm release settle before proposing it — a compromised publish is usually yanked within a day or two. Security fixes bypass this via the vulnerabilityAlerts block below.",
+      "matchManagers": ["npm"],
+      "minimumReleaseAge": "3 days"
     }
   ],
   "lockFileMaintenance": {
     "enabled": true
   },
-  "dependencyDashboard": true
+  "dependencyDashboard": true,
+  "vulnerabilityAlerts": {
+    "description": "Security fixes must not wait for a human to tick a box on the dependency dashboard. sanitize-html, matrix-js-sdk, pdfjs-dist, html-dom-parser and slate all parse attacker-controlled input from arbitrary homeservers; an unapplied patch there is directly exploitable. Routine version bumps stay gated by :dependencyDashboardApproval.",
+    "enabled": true,
+    "dependencyDashboardApproval": false,
+    "minimumReleaseAge": null,
+    "labels": ["Dependencies", "security"],
+    "prPriority": 10
+  },
+  "osvVulnerabilityAlerts": true,
+  "github-actions": {
+    "description": "Owned by Dependabot (.github/dependabot.yml) so the two bots never open competing PRs for the same manifest.",
+    "enabled": false
+  },
+  "dockerfile": {
+    "description": "Owned by Dependabot (.github/dependabot.yml).",
+    "enabled": false
+  },
+  "docker-compose": {
+    "description": "Owned by Dependabot (.github/dependabot.yml).",
+    "enabled": false
+  }
 }

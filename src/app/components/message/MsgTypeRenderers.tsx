@@ -1,7 +1,7 @@
 import React, { CSSProperties, ReactNode } from 'react';
 import { Box, Chip, Icon, Icons, Text, toRem } from 'folds';
 import { IContent } from 'matrix-js-sdk';
-import { JUMBO_EMOJI_REG, URL_REG } from '../../utils/regex';
+import { isJumboEmoji, URL_REG } from '../../utils/regex';
 import { trimReplyFromBody } from '../../utils/room';
 import { MessageTextBody } from './layout';
 import {
@@ -88,7 +88,7 @@ export function MText({ edited, content, renderBody, renderUrlsPreview, style }:
     <Box direction="Column">
       <MessageTextBody
         preWrap={typeof customBody !== 'string'}
-        jumboEmoji={JUMBO_EMOJI_REG.test(trimmedBody)}
+        jumboEmoji={isJumboEmoji(trimmedBody)}
         style={style}
       >
         {renderBody({
@@ -128,7 +128,7 @@ export function MEmote({
       <MessageTextBody
         emote
         preWrap={typeof customBody !== 'string'}
-        jumboEmoji={JUMBO_EMOJI_REG.test(trimmedBody)}
+        jumboEmoji={isJumboEmoji(trimmedBody)}
       >
         <b>{`${displayName} `}</b>
         {renderBody({
@@ -161,7 +161,7 @@ export function MNotice({ edited, content, renderBody, renderUrlsPreview }: MNot
       <MessageTextBody
         notice
         preWrap={typeof customBody !== 'string'}
-        jumboEmoji={JUMBO_EMOJI_REG.test(trimmedBody)}
+        jumboEmoji={isJumboEmoji(trimmedBody)}
       >
         {renderBody({
           body: trimmedBody,

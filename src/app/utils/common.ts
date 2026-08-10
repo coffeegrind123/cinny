@@ -81,9 +81,23 @@ export const binarySearch = <T>(items: T[], match: (item: T) => -1 | 0 | 1): T |
 export const randomNumberBetween = (min: number, max: number) =>
   Math.floor(Math.random() * (max - min + 1)) + min;
 
+/**
+ * Largest height (in px) an attachment box may occupy in the timeline.
+ *
+ * `info.w`/`info.h` come from the sender and are never verified against the
+ * actual media, so `{ w: 1, h: 1e9 }` used to produce a multi-million-pixel
+ * placeholder that pushes every other message off screen and wrecks scroll
+ * anchoring for everyone in the room. Well past any real portrait image at our
+ * render widths (400px wide → 3200px tall is a 1:8 aspect ratio), so legitimate
+ * media is unaffected.
+ */
+export const MAX_SCALED_Y_DIMENSION = 3200;
+
 export const scaleYDimension = (x: number, scaledX: number, y: number): number => {
+  // Guard the divisor too: a non-positive or non-finite `x` yields Infinity/NaN.
+  if (!Number.isFinite(x) || x <= 0 || !Number.isFinite(y) || y <= 0) return scaledX;
   const scaleFactor = scaledX / x;
-  return scaleFactor * y;
+  return Math.min(scaleFactor * y, MAX_SCALED_Y_DIMENSION);
 };
 
 export const parseGeoUri = (location: string) => {

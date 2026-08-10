@@ -5,9 +5,23 @@ on:
   pull_request_target:
     types: [opened, closed, synchronize]
 
+# Both triggers are reachable by anyone outside the org (an issue comment or an
+# opened PR), and `pull_request_target` runs with repository secrets against the
+# base repo. Default everything to nothing and grant per job.
+permissions: {}
+
 jobs:
   CLAssistant:
     runs-on: ubuntu-latest
+    permissions:
+      # The action comments on the PR, reads the comment that triggered it and
+      # (by default) locks the PR after merge. It stores signatures in the
+      # separate cinnyapp/cla repo via PERSONAL_ACCESS_TOKEN, so GITHUB_TOKEN
+      # needs no write access to this repository's contents.
+      contents: read
+      pull-requests: write
+      issues: write
+      statuses: write
     steps:
       - name: 'CLA Assistant'
         if: (github.event.comment.body == 'recheck' || github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA') || github.event_name == 'pull_request_target'
@@ -15,7 +29,13 @@ jobs:
         uses: cla-assistant/github-action@ca4a40a7d1004f18d9960b404b97e5f30a505a08 # v2.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # the below token should have repo scope and must be manually added by you in the repository's secret
+          # CLA_PAT is only used to commit signatures.json to the signature
+          # store below (cinnyapp/cla). Scope it to THAT repository only:
+          # a fine-grained PAT with `Contents: read and write` on cinnyapp/cla
+          # and nothing else. A classic `repo`-scoped PAT hands every workflow
+          # run — including ones an outsider can trigger via issue_comment or
+          # pull_request_target — write access to every repo the owner can push
+          # to. Rotate it if it has ever been broader than that.
           PERSONAL_ACCESS_TOKEN: ${{ secrets.CLA_PAT }}
         with:
           path-to-signatures: 'signatures.json'

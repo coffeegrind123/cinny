@@ -929,9 +929,14 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
   // scroll out of view msg editor in view.
   useEffect(() => {
     if (editId) {
+      // `editId` is a server-assigned event id. An id containing `"` or `\`
+      // would either terminate the attribute selector early (matching the wrong
+      // node) or make `querySelector` throw a SyntaxError that takes the
+      // timeline down with it. CSS.escape makes the value inert as a selector.
       const editMsgElement =
-        (scrollRef.current?.querySelector(`[data-message-id="${editId}"]`) as HTMLElement) ??
-        undefined;
+        (scrollRef.current?.querySelector(
+          `[data-message-id="${CSS.escape(editId)}"]`
+        ) as HTMLElement) ?? undefined;
       if (editMsgElement) {
         scrollToElement(editMsgElement, {
           align: 'center',

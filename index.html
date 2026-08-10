@@ -87,9 +87,9 @@
     />
   </head>
   <body id="appBody">
-    <script>
-      window.global ||= window;
-    </script>
+    <!-- Node-globals shim. Kept in a separate file (never inline) so the
+         shipped Content-Security-Policy can use `script-src 'self'`. -->
+    <script type="module" src="./public/global-shim.js"></script>
     <div id="root"></div>
     <div id="portalContainer"></div>
     <script type="module" src="./src/index.tsx"></script>

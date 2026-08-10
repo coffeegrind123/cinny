@@ -6,6 +6,9 @@ on:
       workflows: ["Build pull request"]
       types: [completed]
 
+permissions:
+  contents: read
+
 jobs:
   deploy-pull-request:
     name: Deploy pull request

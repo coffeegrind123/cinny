@@ -19,6 +19,12 @@ function friendlyError(msg, friendlyText) {
 function cryptoFailMsg() {
   return 'Your browser does not support the required cryptography extensions';
 }
+
+// Accepted range for the PBKDF2 round count read out of a megolm keyfile
+// header. See the check in decryptMegolmKeyFile() for why a bound is needed.
+const MIN_KDF_ITERATIONS = 1000;
+const MAX_KDF_ITERATIONS = 5000000;
+
 /**
  * Derive the AES and HMAC-SHA-256 keys for the file
  *
@@ -225,7 +231,25 @@ export async function decryptMegolmKeyFile(data, password) {
 
   const salt = body.subarray(1, 1 + 16);
   const iv = body.subarray(17, 17 + 16);
+  // The iteration count comes straight out of the (as yet unauthenticated)
+  // file header, and `deriveKeys` below runs BEFORE the HMAC is verified —
+  // that ordering is forced by the file format itself (the HMAC key is a
+  // product of the derivation), so it cannot be fixed here without breaking
+  // compatibility with every existing keyfile. The residual risk is therefore
+  // bounded rather than eliminated: without a ceiling, a keyfile declaring
+  // ~2 billion rounds pins a core and wedges the tab for hours before we ever
+  // learn the file is bogus. 5M is 10x Element's/our own 500k default, so no
+  // real export is rejected; the floor also catches the negative values the
+  // signed 32-bit shift above produces for counts >= 2^31.
   const iterations = body[33] << 24 | body[34] << 16 | body[35] << 8 | body[36];
+  if (!Number.isInteger(iterations)
+      || iterations < MIN_KDF_ITERATIONS
+      || iterations > MAX_KDF_ITERATIONS) {
+    throw friendlyError(
+      `Invalid file: kdf iteration count out of range (${iterations})`,
+      'Not a valid keyfile',
+    );
+  }
   const ciphertext = body.subarray(37, 37 + ciphertextLength);
   const hmac = body.subarray(-32);
 

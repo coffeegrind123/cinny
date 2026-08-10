@@ -29,6 +29,7 @@ import {
   StateEvent,
   UnreadInfo,
 } from '../../types/matrix/room';
+import { sanitizeText } from './sanitize';
 
 export const getStateEvent = (
   room: Room,
@@ -354,7 +355,15 @@ export const parseReplyFormattedBody = (
   const replyToLink = `<a href="https://matrix.to/#/${encodeURIComponent(
     roomId
   )}/${encodeURIComponent(eventId)}">In reply to</a>`;
-  const userLink = `<a href="https://matrix.to/#/${encodeURIComponent(userId)}">${userId}</a>`;
+  // `userId` is the *sender-reported* ID of the event being replied to, so it
+  // reaches here straight from the remote homeserver. The Matrix user-ID
+  // grammar forbids `<`, `>` and `"`, but a hostile or buggy server is under no
+  // obligation to honour it, and this string is interpolated into HTML that we
+  // then send as `formatted_body`. Escape at the interpolation point so a
+  // non-conforming ID can only ever become text, never markup.
+  const userLink = `<a href="https://matrix.to/#/${encodeURIComponent(userId)}">${sanitizeText(
+    userId
+  )}</a>`;
 
   return `<mx-reply><blockquote>${replyToLink}${userLink}<br />${formattedBody}</blockquote></mx-reply>`;
 };

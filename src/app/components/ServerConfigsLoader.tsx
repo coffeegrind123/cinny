@@ -4,6 +4,7 @@ import { AsyncStatus, useAsyncCallbackValue } from '../hooks/useAsyncCallback';
 import { useMatrixClient } from '../hooks/useMatrixClient';
 import { MediaConfig } from '../hooks/useMediaConfig';
 import { promiseFulfilledResult } from '../utils/common';
+import { isWebUrl } from '../utils/safeUrl';
 
 export type ServerConfigs = {
   capabilities?: Capabilities;
@@ -33,6 +34,26 @@ export function ServerConfigsLoader({ children }: ServerConfigsLoaderProps) {
 
       try {
         validatedAuthMetadata = validateAuthMetadata(authMetadata);
+
+        // `validateAuthMetadata` checks the OIDC document's shape, not the
+        // scheme of the URLs inside it. `account_management_uri` and `issuer`
+        // are chosen by the homeserver and are later handed to `window.open()`
+        // by the device-management and cross-signing screens; in the Tauri shell
+        // that reaches the OS URL opener, so a non-web scheme would invoke a
+        // local protocol handler. Drop anything that is not an absolute http(s)
+        // URL here, once, rather than at each of the three call sites.
+        if (validatedAuthMetadata) {
+          if (!isWebUrl(validatedAuthMetadata.account_management_uri)) {
+            validatedAuthMetadata = {
+              ...validatedAuthMetadata,
+              account_management_uri: undefined,
+            };
+          }
+          if (!isWebUrl(validatedAuthMetadata.issuer)) {
+            console.error('Discarding auth metadata: issuer is not an http(s) URL');
+            validatedAuthMetadata = undefined;
+          }
+        }
       } catch (e) {
         console.error(e);
       }

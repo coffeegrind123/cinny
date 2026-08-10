@@ -32,14 +32,28 @@ export const useGetMemberPowerTag = (
   return getMemberPowerTag;
 };
 
+// A power-tag icon key is either an `mxc://` URI, which we resolve through the
+// homeserver's media endpoint, or a short literal (an emoji) rendered as text.
+// It arrives from an `m.room.power_levels`-adjacent state event, so anyone who
+// can set room state chooses it. Returning a non-mxc key verbatim used to let a
+// room admin put an arbitrary URL into an `<img src>` that every member's client
+// fetches on every render — an IP-address and presence beacon aimed at the whole
+// room. Anything carrying URL structure is therefore dropped rather than
+// forwarded; genuine emoji keys contain neither a scheme separator nor a slash.
+const looksLikeUrl = (key: string): boolean => key.includes(':') || key.includes('/');
+
 export const getPowerTagIconSrc = (
   mx: MatrixClient,
   useAuthentication: boolean,
   icon: MemberPowerTagIcon
-): string | undefined =>
-  icon?.key?.startsWith('mxc://')
-    ? mx.mxcUrlToHttp(icon.key, 96, 96, 'scale', undefined, undefined, useAuthentication) ?? '🌻'
-    : icon?.key;
+): string | undefined => {
+  const key = icon?.key;
+  if (!key) return undefined;
+  if (key.startsWith('mxc://')) {
+    return mx.mxcUrlToHttp(key, 96, 96, 'scale', undefined, undefined, useAuthentication) ?? '🌻';
+  }
+  return looksLikeUrl(key) ? undefined : key;
+};
 
 export const useAccessiblePowerTagColors = (
   themeKind: ThemeKind,

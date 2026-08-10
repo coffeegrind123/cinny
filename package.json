@@ -32,6 +32,9 @@
   "keywords": [],
   "author": "Ajay Bura",
   "license": "AGPL-3.0-only",
+  "//dependencies": {
+    "badwords-list": "Pinned to 2.0.1-4 deliberately. Despite the prerelease suffix, 2.0.1-4 IS the npm `latest` dist-tag (published 2024-08-18); the only non-prerelease is 1.0.0 from 2014, which is CommonJS with no type declarations and would fail `npm run typecheck`. Do not 'downgrade to a stable version'. See DEPENDENCY_AUDIT.md section 4."
+  },
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "1.8.1",
     "@atlaskit/pragmatic-drag-and-drop-auto-scroll": "2.1.5",

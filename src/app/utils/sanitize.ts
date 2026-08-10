@@ -1,4 +1,5 @@
 import sanitizeHtml, { Transformer } from 'sanitize-html';
+import { MESSAGE_LINK_SCHEMES } from './safeUrl';
 
 const MAX_TAG_NESTING = 100;
 
@@ -44,7 +45,9 @@ const permittedHtmlTags = [
   'summary',
 ];
 
-const urlSchemes = ['https', 'http', 'ftp', 'mailto', 'magnet'];
+// Shared with the plain-text linkifier so a scheme narrowed in one place cannot
+// stay open in the other — the two paths reach the same anchor sink.
+const urlSchemes = [...MESSAGE_LINK_SCHEMES];
 
 const permittedTagToAttributes = {
   font: ['style', 'data-mx-bg-color', 'data-mx-color', 'color'],
@@ -138,7 +141,12 @@ export const sanitizeCustomHtml = (customHtml: string): string =>
     allowedSchemesAppliedToAttributes: ['href'],
     allowProtocolRelative: false,
     allowedClasses: {
+      // `pre` permits a `class` attribute (see permittedTagToAttributes), but
+      // this map previously constrained values only for `code` — so message
+      // content could wear any of the application's own CSS classes and imitate
+      // app chrome. Constrain `pre` to the same language-* vocabulary.
       code: ['language-*'],
+      pre: ['language-*'],
     },
     allowedStyles: {
       '*': {

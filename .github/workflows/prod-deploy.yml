@@ -4,10 +4,21 @@ on:
   release:
     types: [published]
 
+permissions:
+  contents: read
+
 jobs:
   deploy-and-tarball:
     name: Netlify deploy and tarball
     runs-on: ubuntu-latest
+    permissions:
+      # `contents: write` is required by softprops/action-gh-release to attach
+      # the tarball and its signature to the published release.
+      contents: write
+      # nwtgck/actions-netlify records a GitHub Deployment (environment
+      # "stable") and a commit status with the passed github-token.
+      deployments: write
+      statuses: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0

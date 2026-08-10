@@ -26,6 +26,7 @@ import {
   READABLE_TEXT_MIME_TYPES,
   getFileNameExt,
   mimeTypeToExt,
+  safeDownloadFilename,
 } from '../../../utils/mimeTypes';
 import { stopPropagation } from '../../../utils/keyboard';
 import {
@@ -252,6 +253,10 @@ export type DownloadFileProps = {
 export function DownloadFile({ body, mimeType, url, info, encInfo }: DownloadFileProps) {
   const mx = useMatrixClient();
   const useAuthentication = useMediaAuthentication();
+  // `body` is the sender-supplied filename. It is fine as display text (React
+  // escapes it), but the download sink needs a flattened basename — see
+  // safeDownloadFilename().
+  const downloadName = safeDownloadFilename(body);
 
   const [downloadState, download] = useAsyncCallback(
     useCallback(async () => {
@@ -262,9 +267,9 @@ export function DownloadFile({ body, mimeType, url, info, encInfo }: DownloadFil
         : await downloadMedia(mediaUrl);
 
       const fileURL = URL.createObjectURL(fileContent);
-      FileSaver.saveAs(fileURL, body);
+      FileSaver.saveAs(fileURL, downloadName);
       return fileURL;
-    }, [mx, url, useAuthentication, mimeType, encInfo, body])
+    }, [mx, url, useAuthentication, mimeType, encInfo, downloadName])
   );
 
   return downloadState.status === AsyncStatus.Error ? (
@@ -277,7 +282,7 @@ export function DownloadFile({ body, mimeType, url, info, encInfo }: DownloadFil
       size="400"
       onClick={() =>
         downloadState.status === AsyncStatus.Success
-          ? FileSaver.saveAs(downloadState.data, body)
+          ? FileSaver.saveAs(downloadState.data, downloadName)
           : download()
       }
       disabled={downloadState.status === AsyncStatus.Loading}

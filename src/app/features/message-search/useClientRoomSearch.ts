@@ -84,8 +84,14 @@ export const useClientRoomSearch = (room: Room, term?: string) => {
   const mx = useMatrixClient();
   const cursorRef = useRef<ClientSearchCursor | null>(null);
 
+  // `signal` is TanStack Query's per-fetch AbortSignal — see useMessageSearch
+  // for why it must be consumed. It matters far more here: this scan issues
+  // real `/messages` round-trips and decrypts every event it walks, so an
+  // orphaned loop from a superseded keystroke burns the user's bandwidth and
+  // CPU (and the homeserver's) for as long as it takes to finish. Checked
+  // before every pagination and before every decrypt batch.
   return useCallback(
-    async (nextBatch?: string): Promise<SearchResult> => {
+    async (nextBatch?: string, signal?: AbortSignal): Promise<SearchResult> => {
       const needle = term?.toLowerCase().trim();
       if (!term || !needle) {
         return { highlights: [], groups: [] };
@@ -108,6 +114,7 @@ export const useClientRoomSearch = (room: Room, term?: string) => {
       const { timeline, seen } = cursor;
 
       const scanLoaded = async () => {
+        if (signal?.aborted) return;
         const events = timeline.getEvents();
         // Collect not-yet-seen events newest -> oldest so `matches` stays in
         // Recent order. Newly back-paginated (older) events are prepended to the
@@ -156,6 +163,7 @@ export const useClientRoomSearch = (room: Room, term?: string) => {
 
       let paginations = 0;
       while (
+        !signal?.aborted &&
         cursor.matches.length < target &&
         !cursor.exhausted &&
         cursor.scanned < MAX_SCANNED_EVENTS &&
@@ -185,6 +193,10 @@ export const useClientRoomSearch = (room: Room, term?: string) => {
         await scanLoaded();
       }
       if (cursor.scanned >= MAX_SCANNED_EVENTS) cursor.exhausted = true;
+
+      // Cancelled mid-scan: reject rather than return a half-built page, so no
+      // partial result for a stale term can land in the cache.
+      if (signal?.aborted) throw new DOMException('Search cancelled', 'AbortError');
 
       const pageEvents = cursor.matches.slice(offset, offset + PAGE_SIZE);
       const nextOffset = offset + pageEvents.length;

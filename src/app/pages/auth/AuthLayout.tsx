@@ -64,6 +64,15 @@ function AuthLayoutError({ message }: { message: string }) {
   );
 }
 
+/**
+ * A Matrix server name is a hostname or IP with an optional port. Deliberately
+ * strict: no scheme, no userinfo, no path, no query, no whitespace.
+ */
+const BARE_HOSTNAME_REG = /^[a-z0-9.-]+(?::\d{1,5})?$/i;
+
+const isBareHostname = (value: string): boolean =>
+  value.length > 0 && value.length <= 255 && BARE_HOSTNAME_REG.test(value);
+
 export function AuthLayout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -73,6 +82,15 @@ export function AuthLayout() {
 
   const defaultServer = clientDefaultServer(clientConfig);
   let server: string = urlServer || defaultServer;
+
+  // The server name arrives from the `/login/:server` route, so it is chosen by
+  // whoever authored the link the user followed. Accept only a bare hostname
+  // (optionally with a port): anything carrying a scheme, credentials, a path or
+  // whitespace is a crafted value rather than a homeserver name, and must not be
+  // allowed to steer where credentials are sent.
+  if (!isBareHostname(server)) {
+    server = defaultServer;
+  }
 
   if (!clientAllowedServer(clientConfig, server)) {
     server = defaultServer;

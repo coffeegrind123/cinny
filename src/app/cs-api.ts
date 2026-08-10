@@ -36,7 +36,14 @@ export const autoDiscovery = async (
   request: typeof fetch,
   server: string
 ): Promise<[AutoDiscoveryError, undefined] | [undefined, AutoDiscoveryInfo]> => {
-  const host = /^https?:\/\//.test(server) ? trimTrailingSlash(server) : `https://${server}`;
+  // Force https. This used to preserve whatever scheme the caller already had,
+  // so an `http://` prefix survived all the way to the credential-bearing login
+  // request. The server string reaches here from the `/login/:server` route
+  // parameter, so a crafted deep link was enough to send a username and password
+  // in cleartext to a host of the link author's choosing — and the Android shell
+  // permits cleartext, so the platform would not have blocked it either.
+  const bareServer = server.replace(/^https?:\/\//i, '');
+  const host = trimTrailingSlash(`https://${bareServer}`);
   const autoDiscoveryUrl = `${host}/.well-known/matrix/client`;
 
   const [err, response] = await to(request(autoDiscoveryUrl, { method: 'GET' }));

@@ -4,6 +4,11 @@ on:
   pull_request:
     types: ['opened', 'synchronize']
 
+# Least privilege by default. This workflow only checks out, builds and uploads
+# artifacts — none of which needs more than read access to the repo contents.
+permissions:
+  contents: read
+
 jobs:
   build-pull-request:
     name: Build pull request

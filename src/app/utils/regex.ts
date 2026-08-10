@@ -4,14 +4,25 @@
 export const sanitizeForRegex = (unsafeText: string): string =>
   unsafeText.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&').replace(/-/g, '\\x2d');
 
-export const HTTP_URL_PATTERN = `https?:\\/\\/(?:www\\.)?(?:[^\\s)]*)(?<![.,:;!/?()[\\]\\s]+)`;
+// The trailing guard trims a URL that ran into sentence punctuation. It used to
+// be `(?<![.,:;!/?()[\]\s]+)`, whose `+` makes the lookbehind variable-length and
+// therefore re-evaluated at every scan position — quadratic in body length, which
+// a single long message is enough to turn into a multi-second render stall.
+// A negative lookbehind on `[X]+` can only fail when the immediately preceding
+// character is in X (any longer run of X also ends on such a character), so the
+// single-character form is exactly equivalent and is fixed-width.
+export const HTTP_URL_PATTERN = `https?:\\/\\/(?:www\\.)?(?:[^\\s)]*)(?<![.,:;!/?()[\\]\\s])`;
 
 export const URL_REG = new RegExp(HTTP_URL_PATTERN, 'g');
 
 export const EMAIL_REGEX =
   /^(([^<>()[\]\\.,;:\s@\\"]+(\.[^<>()[\]\\.,;:\s@\\"]+)*)|(\\".+\\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
 
-export const URL_NEG_LB = '(?<!(https?|ftp|mailto|magnet):\\/\\/\\S*)';
+// "Not already inside a URL." The unbounded `\S*` made this lookbehind cost grow
+// with the length of the preceding run at every scan position; bounding the run
+// caps the per-position work. Anything beyond this many non-space characters is
+// not a URL prefix worth honouring, and the bound is far above any real link.
+export const URL_NEG_LB = '(?<!(https?|ftp|mailto|magnet):\\/\\/\\S{0,512})';
 
 // https://en.wikipedia.org/wiki/Variation_Selectors_(Unicode_block)
 export const VARIATION_SELECTOR_PATTERN = '[\uFE00-\uFE0F]';
@@ -21,6 +32,23 @@ export const EMOJI_PATTERN = `[#*0-9]\uFE0F?\u20E3|[\xA9\xAE\u203C\u2049\u2122\u
 
 // Thumbs up emoji found to have Variation Selector 16 at the end
 // so included variation selector pattern in regex
+//
+// The shortcode alternative used to be `(:.+?:)`. Because `.` matches `:`, that
+// lazy group could start and end anywhere, and nesting it inside `{1,10}` gave
+// the engine exponentially many ways to partition a run of colons that cannot
+// satisfy the anchored match. Measured on the real pattern: 45 colons took
+// 167 ms, 50 took 866 ms, 55 took 3.7 s — a doubling roughly every 2.5
+// characters, so a body of about 70 colons freezes the render thread for
+// minutes. `[^\s:]+` cannot span a colon, so each shortcode has exactly one
+// possible extent and the partitioning ambiguity is gone.
 export const JUMBO_EMOJI_REG = new RegExp(
-  `^(((${EMOJI_PATTERN})|(:.+?:))(${VARIATION_SELECTOR_PATTERN}|\\s)*){1,10}$`
+  `^(((${EMOJI_PATTERN})|(:[^\\s:]+:))(${VARIATION_SELECTOR_PATTERN}|\\s)*){1,10}$`
 );
+
+// A jumbo-emoji body is at most ten emoji plus separators. Anything longer can
+// never match, so rejecting it up front keeps an adversarial body from reaching
+// the engine at all — belt and braces alongside the pattern fix above.
+const JUMBO_EMOJI_MAX_LENGTH = 512;
+
+export const isJumboEmoji = (text: string): boolean =>
+  text.length <= JUMBO_EMOJI_MAX_LENGTH && JUMBO_EMOJI_REG.test(text);

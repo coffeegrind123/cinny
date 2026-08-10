@@ -137,9 +137,49 @@ export class CallEmbed {
     const iframe = document.createElement('iframe');
 
     iframe.title = 'Call Embed';
-    iframe.sandbox =
-      'allow-forms allow-scripts allow-same-origin allow-popups allow-modals allow-downloads';
-    iframe.allow = 'microphone; camera; display-capture; autoplay; clipboard-write;';
+
+    // SECURITY — KNOWN LIMITATION: this sandbox is not a security boundary.
+    //
+    // The Element Call bundle is served from our OWN origin (see getWidget():
+    // the widget URL is built against `window.location.origin`). `allow-scripts`
+    // plus `allow-same-origin` on a same-origin frame is the documented
+    // sandbox-escape combination: the framed document can reach into
+    // `window.parent` (same origin, so no cross-origin barrier), remove this
+    // very iframe's sandbox attribute and reload itself unsandboxed, and read
+    // everything the app holds — localStorage/IndexedDB, and therefore the
+    // Matrix access token and the megolm key store.
+    //
+    // Consequence: the capability model in CallWidgetDriver
+    // (validateCapabilities / the getCallCapabilities allowlist) is advisory
+    // only. It constrains a *well-behaved* widget's postMessage traffic; it
+    // cannot constrain a compromised one, which does not need the widget API
+    // at all. Treat the Element Call bundle as fully trusted first-party code
+    // and pin/review it accordingly.
+    //
+    // NEITHER token can be removed without breaking calls:
+    //   - `allow-scripts`     — the widget is a JS app.
+    //   - `allow-same-origin` — the bundle is same-origin served; dropping it
+    //     gives the frame an opaque origin, which kills localStorage/IndexedDB
+    //     access (crypto + settings) and the widget-API origin checks.
+    // The real fix is to serve the widget from a SEPARATE origin (distinct
+    // host, or a per-session subdomain), at which point `allow-same-origin`
+    // is same-origin only with respect to that other origin and the sandbox
+    // becomes a real boundary. That is an architectural/deployment change,
+    // not something this call site can do.
+    //
+    // What we can do here is drop tokens the call does not use. `allow-forms`
+    // is gone: the shipped bundle contains no form submission. The rest are
+    // load-bearing — `allow-popups` (`target="_blank"` links),
+    // `allow-modals` (the clipboard copy fallback calls window.prompt),
+    // `allow-downloads` (log/rageshake export).
+    iframe.sandbox = 'allow-scripts allow-same-origin allow-popups allow-modals allow-downloads';
+
+    // Permissions-Policy delegation, scoped to `'self'` rather than left at
+    // the default. Only the four features a call genuinely needs are granted,
+    // and each is granted to this origin alone, so the widget cannot re-delegate
+    // microphone/camera/screen-capture to a nested cross-origin frame.
+    iframe.allow =
+      "microphone 'self'; camera 'self'; display-capture 'self'; autoplay 'self'; clipboard-write 'self'";
     iframe.src = url;
 
     iframe.style.width = '100%';

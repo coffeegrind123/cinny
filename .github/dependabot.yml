@@ -1,16 +1,26 @@
 # Docs: <https://docs.github.com/en/code-security/supply-chain-security/keeping-your-dependencies-updated-automatically/customizing-dependency-updates>
+#
+# Division of labour — one bot per ecosystem, deliberately:
+#
+#   npm             -> Renovate (.github/renovate.json). Routine bumps stay
+#                      behind the dependency dashboard; SECURITY fixes are
+#                      ungated there (`vulnerabilityAlerts.dependencyDashboard
+#                      Approval: false`), so a patch for sanitize-html,
+#                      matrix-js-sdk or pdfjs-dist lands without a human first
+#                      approving it on the dashboard.
+#   github-actions  -> Dependabot (below)
+#   docker          -> Dependabot (below)
+#
+# Do NOT re-enable the npm ecosystem here: two bots on the same manifest means
+# duplicate PRs, lockfile churn and conflicting resolutions. Renovate is
+# configured to leave github-actions and docker alone for the same reason.
+#
+# Note that this file governs *version* updates only. Dependabot *security*
+# updates are a repository setting (Settings -> Code security), and are worth
+# having on as a backstop even with Renovate driving npm.
 
 version: 2
 updates:
-#   - package-ecosystem: npm
-#     directory: /
-#     schedule:
-#       interval: weekly
-#       day: "tuesday"
-#       time: "01:00"
-#       timezone: "Asia/Kolkata"
-#     open-pull-requests-limit: 15
-
   - package-ecosystem: github-actions
     directory: /
     schedule:

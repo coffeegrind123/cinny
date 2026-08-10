@@ -2,7 +2,7 @@ import { Badge, Box, Icon, IconButton, Icons, Spinner, Text, as, toRem } from 'f
 import React, { ReactNode, useCallback } from 'react';
 import { EncryptedAttachmentInfo } from 'browser-encrypt-attachment';
 import FileSaver from 'file-saver';
-import { mimeTypeToExt } from '../../utils/mimeTypes';
+import { mimeTypeToExt, safeDownloadFilename } from '../../utils/mimeTypes';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
 import { AsyncStatus, useAsyncCallback } from '../../hooks/useAsyncCallback';
@@ -34,7 +34,9 @@ export function FileDownloadButton({ filename, url, mimeType, encInfo }: FileDow
         : await downloadMedia(mediaUrl);
 
       const fileURL = URL.createObjectURL(fileContent);
-      FileSaver.saveAs(fileURL, filename);
+      // `filename` is whatever the sender put in the event — never hand it to
+      // the download sink unflattened. See safeDownloadFilename().
+      FileSaver.saveAs(fileURL, safeDownloadFilename(filename));
       return fileURL;
     }, [mx, url, useAuthentication, mimeType, encInfo, filename])
   );

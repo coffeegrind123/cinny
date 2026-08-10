@@ -5,10 +5,19 @@ on:
     branches:
       - dev
 
+permissions:
+  contents: read
+
 jobs:
   deploy-to-netlify:
     name: Deploy to Netlify
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # nwtgck/actions-netlify records a GitHub Deployment (environment
+      # "nightly") and a commit status with the passed github-token.
+      deployments: write
+      statuses: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0

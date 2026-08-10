@@ -120,6 +120,79 @@ export async function isNotificationPermissionGranted(): Promise<boolean> {
   return false;
 }
 
+// The platform's own answer for this session. `undefined` means we have not
+// managed to ask it yet.
+//
+// Why this exists: the localStorage flag (`notifPermissionGranted`) written by
+// usePermission.ts is a *rendering hint* — it exists so the Settings UI does
+// not flash an "Enable" button while the async platform check is in flight. It
+// must never be the authoritative answer, because it survives the user
+// revoking the permission in OS settings (or a hostile page writing it), and
+// anything downstream that trusts it would then dispatch notification content
+// the platform has been told not to show. Once the real query lands, it wins.
+let livePermissionGranted: boolean | undefined;
+
+/**
+ * Ask the platform itself, bypassing the npm helper.
+ *
+ * `isNotificationPermissionGranted()` above goes through the plugin's
+ * `isPermissionGranted()`, which short-circuits on
+ * `window.Notification.permission !== 'default'` and never reaches Rust. That
+ * is wrong on both of our Tauri targets: Windows WebView2 reports 'denied' by
+ * default, and the Android WebView never reports 'granted' even after
+ * POST_NOTIFICATIONS is granted. Invoking the plugin command directly gets the
+ * OS's real answer.
+ *
+ * Returns `undefined` when the platform could not be asked — the caller must
+ * then leave the persisted hint in play rather than assume "denied".
+ */
+async function queryPlatformNotificationPermission(): Promise<boolean | undefined> {
+  if (isTauri()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const granted = await invoke<boolean | null>('plugin:notification|is_permission_granted');
+      return typeof granted === 'boolean' ? granted : undefined;
+    } catch (err) {
+      console.warn('[notif] is_permission_granted query failed:', err);
+      return undefined;
+    }
+  }
+
+  // Browser: `Notification.permission` IS the platform answer, read live.
+  if ('Notification' in window) {
+    return window.Notification.permission === 'granted';
+  }
+  return false;
+}
+
+/**
+ * Re-query the platform and record its answer as the authoritative value for
+ * the sync gate below. Call at load, and whenever the permission may have
+ * changed.
+ *
+ * When the platform cannot be reached, the live value is deliberately left
+ * unset so the persisted hint keeps working until a later query succeeds — a
+ * failed query is not evidence of a revoked permission.
+ */
+export async function refreshNotificationPermission(): Promise<boolean> {
+  const granted = await queryPlatformNotificationPermission();
+  if (granted !== undefined) {
+    livePermissionGranted = granted;
+    return granted;
+  }
+  return isNotificationPermissionGrantedSync();
+}
+
+/** Record a platform answer obtained elsewhere (e.g. usePermissionState's poll). */
+export function setLiveNotificationPermission(granted: boolean): void {
+  livePermissionGranted = granted;
+}
+
+/** The platform answer if we have one this session, else `undefined`. */
+export function getLiveNotificationPermission(): boolean | undefined {
+  return livePermissionGranted;
+}
+
 let actionTypesRegistered = false;
 async function ensureActionTypes() {
   if (actionTypesRegistered) return;
@@ -143,6 +216,42 @@ async function ensureActionTypes() {
       console.error('[notif] Failed to register action types:', err);
     }
   }
+}
+
+/**
+ * How much of a message may cross into the OS notification store.
+ *
+ * Why this exists: a decrypted E2EE body handed to `sendNotification` leaves
+ * the client's control entirely. On Windows it is written to the Action Center
+ * database, on Android to the system notification log — both readable by other
+ * software on the device, backed up, and shown on the lock screen of a device
+ * the user may not be holding. The end-to-end guarantee stops at that boundary,
+ * so users need a way to keep the content on this side of it.
+ *
+ * - `full`        — title and body verbatim (current behaviour, the default).
+ * - `sender-only` — keep the title (who/where) but replace the body.
+ * - `hidden`      — reveal neither sender nor content.
+ */
+export type NotificationContentMode = 'full' | 'sender-only' | 'hidden';
+
+export const DEFAULT_NOTIFICATION_CONTENT_MODE: NotificationContentMode = 'full';
+
+const CONTENT_FREE_BODY = 'New message';
+const CONTENT_FREE_TITLE = 'New message';
+
+/**
+ * Reduce a notification's title/body to what `mode` permits. Applied at the
+ * single point where notifications are dispatched, so no platform branch can
+ * bypass it.
+ */
+export function redactNotificationContent(
+  title: string,
+  body: string | undefined,
+  mode: NotificationContentMode = DEFAULT_NOTIFICATION_CONTENT_MODE
+): { title: string; body: string } {
+  if (mode === 'hidden') return { title: CONTENT_FREE_TITLE, body: '' };
+  if (mode === 'sender-only') return { title, body: CONTENT_FREE_BODY };
+  return { title, body: body ?? '' };
 }
 
 export interface NotificationExtra {
@@ -234,8 +343,20 @@ export async function sendDesktopNotification(
     roomId?: string;
     eventId?: string;
     kind?: string;
+    /**
+     * Content-free notification mode. Omitted = `full` (unchanged behaviour).
+     * Callers holding decrypted E2EE content should pass the user's configured
+     * mode here — redaction happens before ANY platform call below, so the
+     * plaintext never reaches the OS notification store when it is not `full`.
+     */
+    contentMode?: NotificationContentMode;
   }
 ): Promise<void> {
+  const { title: outTitle, body: outBody } = redactNotificationContent(
+    title,
+    options?.body,
+    options?.contentMode
+  );
   const srcIcon = options?.icon;
   const isHttpIcon =
     typeof srcIcon === 'string' &&
@@ -262,8 +383,8 @@ export async function sendDesktopNotification(
     const platform = await getTauriPlatform();
     if (platform === 'android') {
       const ok = await sendAndroidNotification(
-        title,
-        options?.body ?? '',
+        outTitle,
+        outBody,
         resolvedPath,
         options?.roomId,
         options?.eventId,
@@ -282,8 +403,8 @@ export async function sendDesktopNotification(
       try {
         const { invoke } = await import('@tauri-apps/api/core');
         await invoke('send_windows_message_toast', {
-          title,
-          body: options?.body ?? '',
+          title: outTitle,
+          body: outBody,
           iconPath: resolvedPath ?? null,
           roomId: options?.roomId ?? '',
           eventId: options?.eventId ?? '',
@@ -302,8 +423,8 @@ export async function sendDesktopNotification(
       if (granted) {
         await ensureActionTypes();
         mod.sendNotification({
-          title,
-          body: options?.body ?? '',
+          title: outTitle,
+          body: outBody,
           icon: resolvedPath,
           actionTypeId: 'message',
           extra: {
@@ -324,8 +445,8 @@ export async function sendDesktopNotification(
     browserIcon = (await resolveBrowserIcon(srcIcon)) ?? srcIcon;
   }
   if ('Notification' in window && window.Notification.permission === 'granted') {
-    new window.Notification(title, {
-      body: options?.body,
+    new window.Notification(outTitle, {
+      body: outBody,
       icon: browserIcon,
       silent: true,
     });
@@ -429,13 +550,19 @@ export async function onNotificationAction(
 }
 
 export function isNotificationPermissionGrantedSync(): boolean {
+  // The platform's own answer, once we have it, is the only authoritative
+  // source — including when it says `false` after a cached `true`.
+  if (livePermissionGranted !== undefined) return livePermissionGranted;
+
+  // Only until the first re-query lands do we fall back to the persisted hint.
+  //
   // On Tauri Android the WebView never marks window.Notification.permission
   // as 'granted' — tauri-plugin-notification doesn't override the WebView's
   // builtin Notification object on Android, so it stays at the WebView
   // default ('denied') even after the user grants POST_NOTIFICATIONS via
-  // the OS dialog. usePermission.ts caches the real granted state in
-  // localStorage; trust the cache so the JS dispatch gate doesn't suppress
-  // foreground notifications.
+  // the OS dialog. usePermission.ts caches the last known granted state in
+  // localStorage; use it as a hint so the JS dispatch gate doesn't suppress
+  // foreground notifications during the startup window.
   if (isTauri()) {
     try {
       if (localStorage.getItem('notifPermissionGranted') === '1') return true;

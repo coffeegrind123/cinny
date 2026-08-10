@@ -84,10 +84,31 @@ export default defineConfig({
   base: buildConfig.base,
   server: {
     port: 8080,
-    host: true,
+    // Loopback only by default. `host: true` bound every interface, which —
+    // combined with a widened `fs.allow` — exposed the developer's checkout to
+    // anyone on the local network. Pass `--host` explicitly (`npm start --
+    // --host`) for the rare case you need to reach the dev server from another
+    // device, and only on a trusted network.
+    host: 'localhost',
     fs: {
-      // Allow serving files from one level up to the project root
-      allow: ['..'],
+      // Project root only. Nothing in the app imports from outside it: the
+      // furthest-reaching imports are `src/app/features/settings/about/
+      // About.tsx` -> `../../../../../public/res/svg/cinny.svg` and
+      // `../../../../../package.json`, both of which resolve inside the root.
+      // `allow: ['..']` reached into the parent `prinny-client` tree, which
+      // holds `.secrets/` (Tauri updater signing key) and CI keystores.
+      allow: ['.'],
+      // Belt-and-braces: never serve secrets even if some future import
+      // widens the allow-list again. Vite's built-in defaults are repeated
+      // here because setting `deny` replaces them rather than extending them.
+      deny: [
+        '.env',
+        '.env.*',
+        '*.{crt,pem}',
+        '**/.git/**',
+        '**/.secrets/**',
+        '*.{key,keystore,jks,p12}',
+      ],
     },
   },
   plugins: [
@@ -133,7 +154,10 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    // Never publish source maps with a production deployment: they ship the
+    // full original source of every module to anyone who fetches the site.
+    // Use 'hidden' locally if you need maps for a one-off investigation.
+    sourcemap: false,
     copyPublicDir: false,
     target: 'esnext',
     rollupOptions: {

@@ -9,6 +9,9 @@ concurrency:
   group: publish-webapp
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   publish:
     name: Build dist and publish to webapp-release
@@ -42,27 +45,59 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: npm run build
 
+      # The built app goes into a `dist/` subdirectory of the published branch,
+      # never the branch root: self-hosters point nginx at the checkout, and a
+      # docroot that contains `.git` serves the whole object store publicly.
+      # nginx.conf / README.md / checksums.sha256 stay at the root, outside the
+      # docroot.
       - name: Stage publish contents
         run: |
-          mkdir publish
-          cp -a source/dist/. publish/
+          mkdir -p publish/dist
+          cp -a source/dist/. publish/dist/
           cp -a source/.github/webapp-release-template/. publish/
 
+      # Integrity manifest for the published artifact: self-hosters `git clone`
+      # / `git pull` this branch straight onto a web server, so give them
+      # something to verify with (`sha256sum -c checksums.sha256`).
+      - name: Generate checksum manifest
+        working-directory: publish
+        run: |
+          find dist -type f -print0 \
+            | LC_ALL=C sort -z \
+            | xargs -0 sha256sum > checksums.sha256
+          echo "Hashed $(wc -l < checksums.sha256) files"
+
+      # GITHUB_OUTPUT is written with the delimiter form: a value containing a
+      # newline (or a crafted `name=value` line) in a `key=value` write can
+      # inject arbitrary extra outputs.
       - name: Read source metadata
         id: meta
         run: |
           VERSION=$(node -p "require('./source/package.json').version")
           SOURCE_SHORT=$(cd source && git rev-parse --short HEAD)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "source_short=$SOURCE_SHORT" >> $GITHUB_OUTPUT
+          {
+            echo "version<<__GH_OUTPUT_EOF__"
+            echo "$VERSION"
+            echo "__GH_OUTPUT_EOF__"
+            echo "source_short<<__GH_OUTPUT_EOF__"
+            echo "$SOURCE_SHORT"
+            echo "__GH_OUTPUT_EOF__"
+          } >> "$GITHUB_OUTPUT"
 
+      # The token is passed per-command via `git -c http.extraheader=...`, which
+      # git keeps in GIT_CONFIG_PARAMETERS for that invocation only. Embedding
+      # it in the remote URL wrote it into release/.git/config, where it stayed
+      # readable for the rest of the job (and by every later step and action).
       - name: Prepare webapp-release working tree
         run: |
-          git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" release
+          AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "${GITHUB_TOKEN}" | base64 -w0)"
+          echo "::add-mask::${AUTH_HEADER#AUTHORIZATION: basic }"
+          git -c "http.extraheader=${AUTH_HEADER}" \
+            clone "https://github.com/${GITHUB_REPOSITORY}.git" release
           cd release
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git ls-remote --exit-code --heads origin webapp-release > /dev/null; then
+          if git -c "http.extraheader=${AUTH_HEADER}" ls-remote --exit-code --heads origin webapp-release > /dev/null; then
             git checkout webapp-release
             # Drop every tracked file so removals propagate (keep .git).
             git ls-files -z | xargs -0r rm -f
@@ -72,6 +107,11 @@ jobs:
             git checkout --orphan webapp-release
             git rm -rf . 2>/dev/null || true
           fi
+          # Fail loudly if a credential ever ends up on disk again.
+          if grep -q "x-access-token" .git/config; then
+            echo "::error::token leaked into release/.git/config"
+            exit 1
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -80,14 +120,22 @@ jobs:
 
       - name: Commit and push
         working-directory: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Passed as environment values, not interpolated into the shell:
+          # `${{ }}` splices the raw text into the script before bash parses it.
+          VERSION: ${{ steps.meta.outputs.version }}
+          SOURCE_SHORT: ${{ steps.meta.outputs.source_short }}
         run: |
           git add -A
           if git diff --cached --quiet; then
             echo "No changes vs. previous publish — skipping commit"
             exit 0
           fi
-          git commit -m "Build v${{ steps.meta.outputs.version }} (source ${{ steps.meta.outputs.source_short }})"
-          git push origin webapp-release
+          git commit -m "Build v${VERSION} (source ${SOURCE_SHORT})"
+          AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "${GITHUB_TOKEN}" | base64 -w0)"
+          echo "::add-mask::${AUTH_HEADER#AUTHORIZATION: basic }"
+          git -c "http.extraheader=${AUTH_HEADER}" push origin webapp-release
 
       # Reactive submodule bump for prinny-client. PAT must have `Contents:
       # write` on coffeegrind123/prinny-client (fine-grained) or `repo` scope

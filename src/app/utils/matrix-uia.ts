@@ -1,4 +1,5 @@
 import { AuthType, IAuthData, UIAFlow } from 'matrix-js-sdk';
+import { webUrlOrUndefined } from './safeUrl';
 
 export const getSupportedUIAFlows = (uiaFlows: UIAFlow[], supportedStages: string[]): UIAFlow[] => {
   const supportedUIAFlows = uiaFlows.filter((flow) =>
@@ -66,6 +67,15 @@ export const hasStageInFlows = (uiaFlows: UIAFlow[], stage: string) =>
 export const requiredStageInFlows = (uiaFlows: UIAFlow[], stage: string) =>
   uiaFlows.every((flow) => flow.stages.includes(stage));
 
+/**
+ * The terms policy URL is chosen by the homeserver, which the threat model
+ * treats as untrusted, and it is rendered into an anchor the user is expected to
+ * click during registration. In the Tauri shell that anchor's target is handed
+ * to the operating system's URL opener, so an unvalidated scheme here becomes a
+ * local protocol-handler invocation. `webUrlOrUndefined` drops anything that is
+ * not an absolute http(s) URL — which also covers the second lookup below, whose
+ * value previously had no type check at all.
+ */
 export const getLoginTermUrl = (params: UIAParams): string | undefined => {
   const terms = params[AuthType.Terms];
   if (terms && 'policies' in terms && typeof terms.policies === 'object') {
@@ -74,10 +84,10 @@ export const getLoginTermUrl = (params: UIAParams): string | undefined => {
       if (terms.policies.privacy_policy === null) return undefined;
       const langToPolicy = terms.policies.privacy_policy as Record<string, any>;
       const url = langToPolicy.en?.url;
-      if (typeof url === 'string') return url;
+      if (typeof url === 'string') return webUrlOrUndefined(url);
 
       const firstKey = Object.keys(langToPolicy)[0];
-      return langToPolicy[firstKey]?.url;
+      return webUrlOrUndefined(langToPolicy[firstKey]?.url);
     }
   }
   return undefined;

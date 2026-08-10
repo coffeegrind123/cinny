@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Box, Button, Icon, Icons, Spinner, Text, config, toRem } from 'folds';
 import { useAtomValue } from 'jotai';
 import { Room, SearchOrderBy } from 'matrix-js-sdk';
@@ -12,6 +12,18 @@ import { SequenceCard } from '../../components/sequence-card';
 import { MessageSearchParams, useMessageSearch } from './useMessageSearch';
 import { useClientRoomSearch } from './useClientRoomSearch';
 import { SearchResultGroup } from './SearchResultGroup';
+
+// Upper bound on pages the "keep looking" loop below will pull on its own.
+//
+// Why bounded: this component is rendered from the members drawer against a
+// live, debounced search box. Each auto-fetched page of the encrypted-room path
+// costs up to MAX_PAGINATIONS_PER_PAGE `/messages` round-trips and decrypts
+// every event it walks, so an unbounded loop turns a single typed term into
+// hundreds of server requests and tens of thousands of megolm decryptions —
+// enough to stall the client and to look like abuse from the homeserver's side.
+// Past this point the user drives it with the explicit "Search older messages"
+// button, which is unbounded by design because it is a deliberate action.
+const MAX_AUTO_SEARCH_PAGES = 5;
 
 type RoomMessageResultsProps = {
   room: Room;
@@ -54,7 +66,11 @@ export function RoomMessageResults({ room, term, onOpen }: RoomMessageResultsPro
   const { status, data, error, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     enabled: !!term,
     queryKey: ['room-search', room.roomId, encrypted ? 'client' : 'server', term],
-    queryFn: ({ pageParam }) => searchMessages(pageParam),
+    // Consume `signal` so query-core aborts the in-flight scan when this query
+    // loses its observer — the term changing (new queryKey) or the drawer
+    // closing (unmount). Previously the loop ran to completion in the
+    // background for every superseded keystroke.
+    queryFn: ({ pageParam, signal }) => searchMessages(pageParam, signal),
     initialPageParam: '',
     getNextPageParam: (lastPage) => lastPage.nextToken,
   });
@@ -68,10 +84,25 @@ export function RoomMessageResults({ room, term, onOpen }: RoomMessageResultsPro
   // Each page scans only a bounded slice of history (so typing stays snappy), so
   // a page can legitimately come back empty while older history is still
   // unscanned. Keep pulling pages until a match surfaces or the room is fully
-  // walked, rather than prematurely reporting "no messages".
-  const stillScanning = groups.length === 0 && hasNextPage;
+  // walked, rather than prematurely reporting "no messages" — but only up to
+  // MAX_AUTO_SEARCH_PAGES, after which the user must ask for more explicitly.
+  const autoPagesRef = useRef(0);
+  const searchGeneration = `${room.roomId}|${encrypted}|${term ?? ''}`;
+  const generationRef = useRef(searchGeneration);
+  if (generationRef.current !== searchGeneration) {
+    // New term (or room) = fresh budget. Reset in render rather than in an
+    // effect: an effect lands a render too late, and the stale exhausted budget
+    // would suppress the first page of the new search with nothing to re-trigger
+    // it (a ref write does not re-render).
+    generationRef.current = searchGeneration;
+    autoPagesRef.current = 0;
+  }
+
+  const autoBudgetLeft = autoPagesRef.current < MAX_AUTO_SEARCH_PAGES;
+  const stillScanning = groups.length === 0 && hasNextPage && autoBudgetLeft;
   useEffect(() => {
     if (stillScanning && !isFetchingNextPage && status === 'success') {
+      autoPagesRef.current += 1;
       fetchNextPage();
     }
   }, [stillScanning, isFetchingNextPage, status, fetchNextPage]);
@@ -90,7 +121,7 @@ export function RoomMessageResults({ room, term, onOpen }: RoomMessageResultsPro
         </Box>
       ) : null}
 
-      {status === 'success' && groups.length === 0 && !hasNextPage && (
+      {status === 'success' && groups.length === 0 && !stillScanning && (
         <Box
           className={ContainerColor({ variant: 'Surface' })}
           style={{ padding: config.space.S300, borderRadius: config.radii.R400 }}
@@ -98,7 +129,13 @@ export function RoomMessageResults({ room, term, onOpen }: RoomMessageResultsPro
           gap="200"
         >
           <Icon size="200" src={Icons.Info} />
-          <Text size="T300">No messages match.</Text>
+          <Text size="T300">
+            {hasNextPage
+              ? // Auto-scan budget spent, history not exhausted. Say so instead
+                // of claiming "no match", which would be untrue.
+                'No matches in recent history.'
+              : 'No messages match.'}
+          </Text>
         </Box>
       )}
 
@@ -122,7 +159,7 @@ export function RoomMessageResults({ room, term, onOpen }: RoomMessageResultsPro
         );
       })}
 
-      {groups.length > 0 && hasNextPage && (
+      {hasNextPage && !stillScanning && status === 'success' && (
         <Button
           variant="Secondary"
           fill="Soft"

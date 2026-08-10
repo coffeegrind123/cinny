@@ -73,8 +73,13 @@ export const useMessageSearch = (params: MessageSearchParams) => {
   const mx = useMatrixClient();
   const { term, order, rooms, senders } = params;
 
+  // `signal` is TanStack Query's per-fetch AbortSignal. Consuming it is what
+  // makes the query cancellable: query-core aborts it as soon as the query
+  // loses its last observer, i.e. when the search term changes (new queryKey)
+  // or the panel unmounts. Without it a superseded `/search` keeps a request
+  // in flight for every keystroke.
   const searchMessages = useCallback(
-    async (nextBatch?: string) => {
+    async (nextBatch?: string, signal?: AbortSignal) => {
       if (!term)
         return {
           highlights: [],
@@ -102,10 +107,13 @@ export const useMessageSearch = (params: MessageSearchParams) => {
         },
       };
 
-      const r = await mx.search({
-        body: requestBody,
-        next_batch: nextBatch === '' ? undefined : nextBatch,
-      });
+      const r = await mx.search(
+        {
+          body: requestBody,
+          next_batch: nextBatch === '' ? undefined : nextBatch,
+        },
+        signal
+      );
       return parseSearchResult(r);
     },
     [mx, term, order, rooms, senders]

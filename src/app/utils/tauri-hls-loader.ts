@@ -1,8 +1,14 @@
-import { invoke } from '@tauri-apps/api/core';
+import { fetchRemoteMediaBytes } from './tauri-media-proxy';
 
 // Custom hls.js Loader that routes every HLS HTTP request — manifest,
 // playlists, media segments — through our Rust `fetch_remote_bytes` IPC
 // command instead of the browser's XHR stack.
+//
+// Every request goes through `fetchRemoteMediaBytes` rather than `invoke`
+// directly: hls.js follows URLs out of the manifest body, so the segment URLs
+// this loader is asked to fetch are chosen by whatever served the playlist,
+// not by us. The shared helper enforces the https + allowlisted-host contract
+// and the response size cap on each one.
 //
 // Bluesky's video CDN (`video.bsky.app`) does not return
 // Access-Control-Allow-Origin headers, so hls.js's default XHR-based
@@ -62,22 +68,9 @@ export class TauriHlsLoader {
 
     const { url } = context;
 
-    invoke<ArrayBuffer>('fetch_remote_bytes', { url })
-      .then((arrayBufferOrTypedArray) => {
+    fetchRemoteMediaBytes(url)
+      .then((buffer) => {
         if (this.abortRequested) return;
-
-        // tauri::ipc::Response → JS comes through as ArrayBuffer in most
-        // Tauri 2 builds, but defensively handle Uint8Array too.
-        const buffer: ArrayBuffer =
-          arrayBufferOrTypedArray instanceof ArrayBuffer
-            ? arrayBufferOrTypedArray
-            : ((arrayBufferOrTypedArray as unknown) as Uint8Array).buffer.slice(
-                ((arrayBufferOrTypedArray as unknown) as Uint8Array).byteOffset,
-                ((arrayBufferOrTypedArray as unknown) as Uint8Array).byteOffset +
-                  ((arrayBufferOrTypedArray as unknown) as Uint8Array).byteLength
-                // .buffer is typed ArrayBufferLike (the SharedArrayBuffer arm can
-                // never occur for an IPC response), and slice() preserves that.
-              ) as ArrayBuffer;
 
         const now = performance.now();
         this.stats.loading.first = now;

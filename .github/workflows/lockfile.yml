@@ -5,6 +5,9 @@ on:
     paths:
       - 'package-lock.json'
 
+permissions:
+  contents: read
+
 jobs:
   lockfile_changes:
     runs-on: ubuntu-latest

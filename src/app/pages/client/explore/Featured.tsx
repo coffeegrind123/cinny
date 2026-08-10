@@ -35,6 +35,15 @@ function MrsRoomCardRow({
   const allRooms = useAtomValue(allRoomsAtom);
   return (
     <RoomCardGrid>
+      {/*
+        Every field below comes from api.matrixrooms.info — a third party, over
+        an unauthenticated request. It is safe to use here ONLY because
+        useMrsFeatured validates each entry before it is returned: the id/alias
+        are checked against the Matrix grammar (they become join targets),
+        `avatar` must be an mxc URI, and name/topic are bounded plain text
+        rendered as React text children, never as markup or as an href.
+        Do not add a field here that the hook does not validate.
+      */}
       {entries.map((entry) => (
         <RoomCard
           key={entry.id}

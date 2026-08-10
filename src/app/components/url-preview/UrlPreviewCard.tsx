@@ -39,6 +39,7 @@ import { isYoutubeUrl, getYoutubeVideoId } from '../../utils/youtube';
 import { fetchAsBlobUrl } from '../../utils/tauri-media-proxy';
 import { fetchOgPreview } from '../../utils/tauri-og-preview';
 import { isTauri } from '../../utils/desktop-notifications';
+import { isWebUrl, webUrlOrUndefined } from '../../utils/safeUrl';
 
 const linkStyles = { color: color.Secondary.Main, textDecoration: 'none' };
 
@@ -78,11 +79,30 @@ async function fetchBskyPost(actor: string, rkey: string): Promise<any> {
   return resp.json();
 }
 
+const SOUNDCLOAK_HOST = 'sc1.maid.zone';
+const SOUNDCLOAK_RESTREAM_PATH = '/_/api/restream/';
+
+// Fixed, compile-time embed origins. Neither is user-configurable — there is no
+// setting for a custom Piped instance — so the only variable part of the iframe
+// src is the video id, which `getYoutubeVideoId` already constrains. If a
+// custom-instance setting is ever added, it must be run through `isWebUrl`
+// (and ideally pinned to https) before it is concatenated here.
+const PIPED_EMBED_BASE = 'https://piped.private.coffee/embed/';
+const YOUTUBE_EMBED_BASE = 'https://www.youtube.com/embed/';
+
 function rewriteEmbedUrl(url: string, useSoundcloak: boolean): string {
   if (useSoundcloak) {
     const scMatch = url.match(/^https?:\/\/soundcloud\.com\/([^/]+)\/([^/?]+)/);
     if (scMatch) {
-      return `https://sc1.maid.zone/_/api/restream/${scMatch[1]}/${scMatch[2]}`;
+      // The two captured segments come straight out of a message-supplied URL.
+      // Splicing them in raw let a crafted soundcloud.com link steer the
+      // resulting soundcloak URL — `..%2f` style traversal, an injected `?`/`#`
+      // that reparents the rest of the path into a query, or a second `//` that
+      // changes which host the path resolves against. Percent-encode each
+      // segment so it can only ever be one path component.
+      return `https://${SOUNDCLOAK_HOST}${SOUNDCLOAK_RESTREAM_PATH}${encodeURIComponent(
+        scMatch[1]
+      )}/${encodeURIComponent(scMatch[2])}`;
     }
   }
   return url;
@@ -96,8 +116,46 @@ function isAudioUrl(url: string): boolean {
   return /\.(mp3|wav|ogg|flac|m4a|aac)(\?|$)/i.test(url);
 }
 
-function isDirectAudioUrl(url: string): boolean {
-  return isAudioUrl(url) || /sc1\.maid\.zone\/_\/api\/restream\//.test(url);
+// True only for a real soundcloak restream endpoint. The previous unanchored
+// substring test matched the path of any host — `https://attacker.example/
+// sc1.maid.zone/_/api/restream/x` was treated as a trusted stream — and it ran
+// even with the soundcloak integration switched off, so the rewrite could not
+// be the only thing that produced such a URL.
+function isSoundcloakStreamUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return (
+      parsed.protocol === 'https:' &&
+      parsed.host === SOUNDCLOAK_HOST &&
+      parsed.pathname.startsWith(SOUNDCLOAK_RESTREAM_PATH)
+    );
+  } catch {
+    return false;
+  }
+}
+
+// `soundcloakEnabled` is required, not optional: a soundcloak stream URL is
+// only ever legitimate when the user opted into the integration, so the check
+// must not be consultable while the feature is off.
+function isDirectAudioUrl(url: string, soundcloakEnabled: boolean): boolean {
+  return isAudioUrl(url) || (soundcloakEnabled && isSoundcloakStreamUrl(url));
+}
+
+// Bandcamp's own embedded player, verified by parsing rather than by looking
+// for `bandcamp.com/EmbeddedPlayer` anywhere in the string — the substring test
+// also accepted `https://attacker.example/bandcamp.com/EmbeddedPlayer/x` and
+// rendered the attacker's origin in an iframe. og:video is chosen by whoever
+// controls the linked page, so it is untrusted input.
+function isBandcampEmbedUrl(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length === 0) return false;
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'https:') return false;
+    if (parsed.host !== 'bandcamp.com' && !parsed.host.endsWith('.bandcamp.com')) return false;
+    return parsed.pathname.startsWith('/EmbeddedPlayer');
+  } catch {
+    return false;
+  }
 }
 
 // Twitter's video.twimg.com 403s on cross-origin requests even with
@@ -150,6 +208,12 @@ function ProxiedVideo({
 
   const aspect = width && height ? `${width} / ${height}` : '16 / 9';
 
+  // `src` arrives from third-party API JSON (vxtwitter / public.api.bsky.app),
+  // and the proxy falls back to using it directly when the native fetch fails.
+  // An unexpected scheme there is not merely a broken load: in the Tauri shell
+  // the new-window handler hands any non-blob URL to the OS URL opener.
+  if (!isWebUrl(src)) return null;
+
   if (!resolvedSrc) {
     return (
       <Box
@@ -171,7 +235,7 @@ function ProxiedVideo({
     <video
       className={className}
       src={resolvedSrc}
-      poster={poster}
+      poster={webUrlOrUndefined(poster)}
       controls={!isGif}
       autoPlay={isGif}
       loop
@@ -290,6 +354,12 @@ function HlsVideo({
 
   const aspect = width && height ? `${width} / ${height}` : '16 / 9';
 
+  // `src` (the HLS playlist) and `poster` come from the Bluesky API response,
+  // i.e. remote JSON. Validate the scheme before either reaches a media
+  // element — see the note in ProxiedVideo.
+  if (!isWebUrl(src)) return null;
+  const safePoster = webUrlOrUndefined(poster);
+
   if (errorMsg) {
     return (
       <Box
@@ -305,9 +375,9 @@ function HlsVideo({
           padding: config.space.S300,
         }}
       >
-        {poster && (
+        {safePoster && (
           <img
-            src={poster}
+            src={safePoster}
             alt=""
             referrerPolicy="no-referrer"
             style={{ maxHeight: '60%', borderRadius: 4 }}
@@ -321,7 +391,7 @@ function HlsVideo({
   return (
     <video
       ref={videoRef}
-      poster={poster}
+      poster={safePoster}
       controls
       loop
       playsInline
@@ -376,6 +446,10 @@ function ProxiedImg({
     };
   }, [src]);
 
+  // Same reasoning as ProxiedVideo: `src` is remote-supplied JSON and the
+  // non-Tauri / proxy-failure paths put it straight into an <img src>.
+  if (!isWebUrl(src)) return null;
+
   if (!resolvedSrc) {
     return (
       <Box
@@ -413,12 +487,25 @@ export const UrlPreviewCard = as<
   const useAuthentication = useMediaAuthentication();
   const [useVxTwitter] = useSetting(settingsAtom, 'useVxTwitter');
   const [useSoundcloak] = useSetting(settingsAtom, 'useSoundcloak');
+  const [useBlueskyEmbeds] = useSetting(settingsAtom, 'useBlueskyEmbeds');
   const [usePiped] = useSetting(settingsAtom, 'usePiped');
   const [clientPreviewFallback] = useSetting(settingsAtom, 'clientPreviewFallback');
 
+  // The previewed URL itself is message content, and it is rendered into five
+  // separate `<a href>` positions below. Every value derived from the preview
+  // metadata is scheme-checked individually, but `url` arrives from the caller's
+  // URL extractor, so gate it once here rather than at each anchor. In the Tauri
+  // shell an anchor with `target="_blank"` reaches the OS URL opener.
+  const safeUrl = webUrlOrUndefined(url);
+
   const embedUrl = rewriteEmbedUrl(url, useSoundcloak);
   const twId = useVxTwitter ? getTwitterId(url) : null;
-  const bskyPost = getBskyPostInfo(url);
+  // Gated like the Twitter path above. Merely rendering a message containing a
+  // bsky.app link otherwise fired two unprompted cross-origin requests to
+  // public.api.bsky.app (resolveHandle, then getPostThread), which discloses
+  // the viewer's IP to a host the message *sender* picked and tells that
+  // sender when the message was rendered — a read receipt they control.
+  const bskyPost = useBlueskyEmbeds ? getBskyPostInfo(url) : null;
 
   // vxtwitter client-side fetch
   const [vxData, setVxData] = useState<any>(null);
@@ -456,6 +543,11 @@ export const UrlPreviewCard = as<
   const isYt = isYoutubeUrl(url);
   const ytVideoId = isYt ? getYoutubeVideoId(url) : null;
 
+  // Single source of truth for "this renders as a bare audio player". The
+  // soundcloak arm is only consulted when the integration is switched on.
+  const directAudioEmbed = isDirectAudioUrl(embedUrl, useSoundcloak);
+  const directAudio = directAudioEmbed || isAudioUrl(url);
+
   const [previewStatus, loadPreview] = useAsyncCallback(
     useCallback(() => mx.getUrlPreview(embedUrl, ts), [embedUrl, ts, mx])
   );
@@ -466,9 +558,9 @@ export const UrlPreviewCard = as<
     // types from preview_url with 502 ("content type not allowed"),
     // which spams the console and leaves an error toast for nothing —
     // the audio renderer below doesn't need OG data anyway.
-    if (isDirectAudioUrl(embedUrl) || isAudioUrl(url)) return;
+    if (directAudio) return;
     loadPreview();
-  }, [loadPreview, embedUrl, url]);
+  }, [loadPreview, directAudio]);
 
   // Client-side OG fallback (desktop/mobile app, opt-in). When the homeserver
   // preview_url errors — e.g. a 504 because the target rejects Synapse's
@@ -482,7 +574,7 @@ export const UrlPreviewCard = as<
     if (previewStatus.status !== AsyncStatus.Error) return;
     if (ogFallbackTried) return;
     if (twId || bskyPost || isYt) return;
-    if (isDirectAudioUrl(embedUrl) || isAudioUrl(url)) return;
+    if (directAudio) return;
     setOgFallbackTried(true);
     fetchOgPreview(embedUrl).then((data) => {
       if (data) setOgFallback(data as IPreviewUrlResponse);
@@ -497,8 +589,8 @@ export const UrlPreviewCard = as<
     bskyPost?.actor,
     bskyPost?.rkey,
     isYt,
+    directAudio,
     embedUrl,
-    url,
   ]);
 
   if (twId && dismissed) return null;
@@ -570,7 +662,7 @@ export const UrlPreviewCard = as<
             );
           })()}
           <UrlPreviewContent>
-            <Text style={linkStyles} truncate as="a" href={url} target="_blank" rel="noreferrer" size="T200" priority="300">
+            <Text style={linkStyles} truncate as="a" href={safeUrl} target="_blank" rel="noreferrer" size="T200" priority="300">
               {vxData.user_name
                 ? `${vxData.user_name}${vxData.user_screen_name ? ` (@${vxData.user_screen_name})` : ''} | `
                 : ''}
@@ -724,20 +816,30 @@ export const UrlPreviewCard = as<
                   onView={() => setViewerSrc(externalView.thumb)}
                 />
               )}
-              {externalView.title && (
-                <Text size="T300" priority="500">
-                  <a href={externalView.uri} target="_blank" rel="noreferrer" style={linkStyles}>
+              {externalView.title &&
+                // `uri` is whatever the Bluesky API returned for an embed the
+                // post author controls. Only link it when it is http(s) — in
+                // the Tauri shell an href with any other scheme is forwarded to
+                // the OS URL opener, i.e. it launches a local protocol handler.
+                // Otherwise still show the title, just not as a link.
+                (isWebUrl(externalView.uri) ? (
+                  <Text size="T300" priority="500">
+                    <a href={externalView.uri} target="_blank" rel="noreferrer" style={linkStyles}>
+                      {externalView.title}
+                    </a>
+                  </Text>
+                ) : (
+                  <Text size="T300" priority="500">
                     {externalView.title}
-                  </a>
-                </Text>
-              )}
+                  </Text>
+                ))}
               {externalView.description && (
                 <Text size="T200" priority="300">{externalView.description}</Text>
               )}
             </Box>
           )}
           <UrlPreviewContent>
-            <Text style={linkStyles} truncate as="a" href={url} target="_blank" rel="noreferrer" size="T200" priority="300">
+            <Text style={linkStyles} truncate as="a" href={safeUrl} target="_blank" rel="noreferrer" size="T200" priority="300">
               {`${displayName}${handle ? ` ${handle}` : ''} | `}
               {tryDecodeURIComponent(url)}
             </Text>
@@ -801,18 +903,23 @@ export const UrlPreviewCard = as<
   // bskyError: fall through to Matrix og: preview
 
   // SoundCloud/soundcloak or direct MP3 — render audio player directly, skip preview
-  if (isDirectAudioUrl(embedUrl) || isAudioUrl(url)) {
+  if (directAudio) {
+    const audioSrc = directAudioEmbed ? embedUrl : url;
     return (
       <Box direction="Column" style={{ padding: config.space.S200 }} gap="100">
-        <audio
-          className={urlPreviewCss.UrlPreviewVideo}
-          src={isDirectAudioUrl(embedUrl) ? embedUrl : url}
-          controls
-          preload="metadata"
-        />
+        {/* isAudioUrl only inspects the file extension, so the scheme still
+            has to be checked before the value reaches a media element. */}
+        {isWebUrl(audioSrc) && (
+          <audio
+            className={urlPreviewCss.UrlPreviewVideo}
+            src={audioSrc}
+            controls
+            preload="metadata"
+          />
+        )}
         <Text size="T200" priority="300">
           <a
-            href={url}
+            href={safeUrl}
             target="_blank"
             rel="noreferrer"
             style={{ color: color.Secondary.Main, textDecoration: 'none' }}
@@ -848,7 +955,13 @@ export const UrlPreviewCard = as<
     // server); the client-side fallback returns a direct http(s) URL. Pass the
     // latter through untouched — only mxc URIs need mxcUrlToHttp resolution.
     const rawOgImage = (prev['og:image'] as string) || '';
-    const isDirectImage = /^https?:\/\//i.test(rawOgImage);
+    // The client-side OG fallback returns whatever the linked page declared, and
+    // that value is loaded directly as an <img src> from the attacker's host.
+    // Parse it rather than prefix-matching `https?://`, so only a well-formed
+    // http(s) URL takes the direct-image path; anything else falls through to
+    // mxcUrlToHttp, which yields undefined for a non-mxc value and renders no
+    // image at all.
+    const isDirectImage = isWebUrl(rawOgImage);
     const thumbUrl = isDirectImage
       ? rawOgImage
       : mxcUrlToHttp(mx, rawOgImage, useAuthentication, 256, 256, 'scale', false);
@@ -874,9 +987,23 @@ export const UrlPreviewCard = as<
       ogImageWidth > 0 && ogImageHeight > 0 &&
       ogImageWidth <= 96 && ogImageHeight <= 96;
 
-    // og:video data (Bandcamp etc.)
+    // og:video data (Bandcamp etc.). Split into two validated, mutually
+    // exclusive shapes up front so neither sink can be reached with an
+    // unvetted value:
+    //  - bandcampEmbedUrl: a genuinely-parsed https bandcamp.com embed, the
+    //    only thing allowed into an iframe here.
+    //  - inlineOgVideoUrl: anything else, which must at least be http(s)
+    //    before it reaches <video src> and the <a href> fallback inside it.
+    // video.twimg.com stays excluded because it 403s on cross-origin requests.
     const ogVideoUrl = (prev['og:video'] || prev['og:video:url']) as string | undefined;
-    const hasOgVideo = !!ogVideoUrl;
+    const bandcampEmbedUrl = isBandcampEmbedUrl(ogVideoUrl) ? ogVideoUrl : undefined;
+    const inlineOgVideoUrl =
+      !bandcampEmbedUrl && isWebUrl(ogVideoUrl) && !/video\.twimg\.com/.test(ogVideoUrl)
+        ? ogVideoUrl
+        : undefined;
+    // An og:video we rejected must not suppress the still image as well —
+    // otherwise a bad value silently blanks the whole card.
+    const hasOgVideo = !!(bandcampEmbedUrl || inlineOgVideoUrl);
     const ogVideoWidth = Number(prev['og:video:width']) || undefined;
     const ogVideoHeight = Number(prev['og:video:height']) || undefined;
     const ogVideoAspect = ogVideoWidth && ogVideoHeight
@@ -918,36 +1045,48 @@ export const UrlPreviewCard = as<
                 border: 'none',
               }}
               src={usePiped
-                ? `https://piped.private.coffee/embed/${ytVideoId}`
-                : `https://www.youtube.com/embed/${ytVideoId}`}
+                ? `${PIPED_EMBED_BASE}${ytVideoId}`
+                : `${YOUTUBE_EMBED_BASE}${ytVideoId}`}
               title={title || 'YouTube video'}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; gyroscope; picture-in-picture"
+              // This frame auto-loads for anyone who reads the message, so it
+              // gets the narrowest sandbox that still plays video. Deliberately
+              // absent: allow-top-navigation (would let the frame navigate this
+              // window away) and allow-popups (would let it open new ones).
+              sandbox="allow-scripts allow-same-origin allow-presentation"
+              // Trimmed to what playback needs. clipboard-write in particular
+              // has no business being delegated to an embed the message sender
+              // chose; accelerometer/gyroscope are sensor access playback
+              // doesn't require.
+              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
               allowFullScreen
             />
           </Box>
         )}
 
-        {/* og:video embed (Bandcamp etc.) */}
-        {!isYt && hasOgVideo && /bandcamp\.com\/EmbeddedPlayer/.test(ogVideoUrl) && (
+        {/* og:video embed (Bandcamp etc.) — see the validation above; both
+            branches consume an already-vetted URL. */}
+        {!isYt && bandcampEmbedUrl && (
           <iframe
             style={{ border: 0, width: '100%', height: '120px' }}
-            src={ogVideoUrl}
+            src={bandcampEmbedUrl}
             title={title || 'Bandcamp'}
+            sandbox="allow-scripts allow-same-origin allow-presentation"
+            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
             seamless
             allowFullScreen
           />
         )}
-        {!isYt && hasOgVideo && !/bandcamp\.com\/EmbeddedPlayer/.test(ogVideoUrl) && !/video\.twimg\.com/.test(ogVideoUrl) && (
+        {!isYt && inlineOgVideoUrl && (
           <video
             className={urlPreviewCss.UrlPreviewVideo}
-            src={ogVideoUrl}
+            src={inlineOgVideoUrl}
             controls
             preload="metadata"
             poster={imgUrl || undefined}
             style={ogVideoAspect ? { aspectRatio: ogVideoAspect } : undefined}
             onClick={(e) => e.stopPropagation()}
           >
-            <a href={ogVideoUrl} target="_blank" rel="noreferrer">
+            <a href={inlineOgVideoUrl} target="_blank" rel="noreferrer">
               {title || 'Video'}
             </a>
           </video>
@@ -1002,7 +1141,7 @@ export const UrlPreviewCard = as<
             style={linkStyles}
             truncate
             as="a"
-            href={url}
+            href={safeUrl}
             target="_blank"
             rel="noreferrer"
             size="T200"
@@ -1015,7 +1154,7 @@ export const UrlPreviewCard = as<
             <Text
               style={{ fontWeight: '600' }}
               as="a"
-              href={url}
+              href={safeUrl}
               target="_blank"
               rel="noreferrer"
               size="T300"

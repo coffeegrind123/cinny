@@ -1,2 +1,44 @@
-node_modules/
-.git/
+# Allowlist. `COPY . /src/` in the Dockerfile pulls the whole build context
+# into the builder layer, so anything not needed to run `vite build` — local
+# artefacts, credentials, editor state — must never enter it.
+#
+# Everything is excluded first; the `!` rules below re-add exactly the build
+# inputs. Keep this in sync when a new top-level build input appears.
+*
+**/.*
+
+# --- build inputs ---------------------------------------------------------
+!package.json
+!package-lock.json
+!.npmrc
+!index.html
+!vite.config.js
+!build.config.ts
+!tsconfig.json
+!config.json
+!netlify.toml
+!docker-nginx.conf
+!src
+!public
+
+# --- belt and braces ------------------------------------------------------
+# Re-excluded after the allowlist so a future `!` rule cannot leak them.
+.git
+.github
+.secrets
+node_modules
+**/node_modules
+dist
+coverage
+*.log
+.env
+.env.*
+*.keystore
+*.jks
+*.key
+*.pem
+*.p12
+*.asc
+*.gpg
+id_rsa*
+.DS_Store

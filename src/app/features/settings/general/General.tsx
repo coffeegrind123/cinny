@@ -716,6 +716,7 @@ function Editor() {
   const [readReceiptStyle, setReadReceiptStyle] = useSetting(settingsAtom, 'readReceiptStyle');
   const [useVxTwitter, setUseVxTwitter] = useSetting(settingsAtom, 'useVxTwitter');
   const [useSoundcloak, setUseSoundcloak] = useSetting(settingsAtom, 'useSoundcloak');
+  const [useBlueskyEmbeds, setUseBlueskyEmbeds] = useSetting(settingsAtom, 'useBlueskyEmbeds');
   const [usePiped, setUsePiped] = useSetting(settingsAtom, 'usePiped');
   const [clientPreviewFallback, setClientPreviewFallback] = useSetting(
     settingsAtom,
@@ -786,15 +787,24 @@ function Editor() {
       <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
         <SettingTile
           title="Use vxtwitter for Twitter/X"
-          description="Fetch Twitter/X media client-side via vxtwitter API for full video and image embeds."
+          description="Fetch Twitter/X media client-side via vxtwitter API for full video and image embeds. Sends the link and your IP address to that third-party service."
           after={<Switch variant="Primary" value={useVxTwitter} onChange={setUseVxTwitter} />}
         />
       </SequenceCard>
       <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
         <SettingTile
           title="Use soundcloak for SoundCloud"
-          description="Rewrite SoundCloud URLs through sc1.maid.zone for streamable embeds."
+          description="Rewrite SoundCloud URLs through sc1.maid.zone for streamable embeds. Sends the link and your IP address to that third-party service."
           after={<Switch variant="Primary" value={useSoundcloak} onChange={setUseSoundcloak} />}
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Bluesky post embeds"
+          description="Fetch Bluesky posts client-side to show full embeds. Sends the link and your IP address to public.api.bsky.app, and lets the sender of a link see when you view it."
+          after={
+            <Switch variant="Primary" value={useBlueskyEmbeds} onChange={setUseBlueskyEmbeds} />
+          }
         />
       </SequenceCard>
       <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">

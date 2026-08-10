@@ -144,6 +144,18 @@ const SEARCH_OPTIONS: UseAsyncSearchOptions = {
   },
 };
 
+// Shortest term that will trigger the *message* search below the member list.
+//
+// Member filtering stays instant from 1 character — it is a local array filter.
+// Message search is not: in an encrypted room it back-paginates and decrypts
+// real history (see RoomMessageResults / useClientRoomSearch). A 1-2 character
+// term is both useless as a query and the worst case for that scan, because it
+// almost never matches early and so drives the deepest walk. RoomMessageResults
+// caps how many pages it will pull on its own and cancels the in-flight scan
+// when this term changes or the drawer unmounts; this gate keeps the loop from
+// ever starting for a term that cannot be meant seriously.
+const MIN_MESSAGE_SEARCH_TERM_LEN = 3;
+
 const mxIdToName = (mxId: string) => getMxIdLocalPart(mxId) ?? mxId;
 const getRoomMemberStr: SearchItemStrGetter<RoomMember> = (m, query) =>
   getMemberSearchStr(m, query, mxIdToName);
@@ -215,8 +227,10 @@ export function MembersDrawer({ room, members }: MembersDrawerProps) {
         if (value) search(value);
         else resetSearch();
         // The same box also searches message text (encrypted rooms scan locally,
-        // others hit the server). Empty clears it.
-        setMessageTerm(value || undefined);
+        // others hit the server). Empty — or too short to be a real query —
+        // clears it, which also aborts any scan still running for the previous
+        // term.
+        setMessageTerm(value.length >= MIN_MESSAGE_SEARCH_TERM_LEN ? value : undefined);
       },
       [search, resetSearch]
     ),

@@ -184,6 +184,7 @@ function MessageNotifications() {
   const useAuthentication = useMediaAuthentication();
   const [showNotifications] = useSetting(settingsAtom, 'showNotifications');
   const [notificationSound] = useSetting(settingsAtom, 'isNotificationSounds');
+  const [notificationContentMode] = useSetting(settingsAtom, 'notificationContentMode');
 
   const navigate = useNavigate();
   const notificationSelected = useInboxNotificationsSelected();
@@ -223,6 +224,12 @@ function MessageNotifications() {
           body: notificationBody,
           roomId,
           eventId,
+          // Decrypted message content otherwise lands verbatim in the Windows
+          // Action Center or the Android notification store, both of which
+          // persist it and expose it to other software on the device — which
+          // weakens end-to-end encryption for anyone who assumes plaintext
+          // stays inside the app. The user chooses how much is shown.
+          contentMode: notificationContentMode,
         });
       }
 

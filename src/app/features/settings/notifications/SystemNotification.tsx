@@ -88,6 +88,10 @@ function EmailNotification() {
 export function SystemNotification() {
   const notifPermission = usePermissionState('notifications', getNotificationState());
   const [showNotifications, setShowNotifications] = useSetting(settingsAtom, 'showNotifications');
+  const [notificationContentMode, setNotificationContentMode] = useSetting(
+    settingsAtom,
+    'notificationContentMode'
+  );
   const [isNotificationSounds, setIsNotificationSounds] = useSetting(
     settingsAtom,
     'isNotificationSounds'
@@ -144,6 +148,23 @@ export function SystemNotification() {
           title="Notification Sound"
           description="Play sound when new message arrive."
           after={<Switch value={isNotificationSounds} onChange={setIsNotificationSounds} />}
+        />
+      </SequenceCard>
+      <SequenceCard
+        className={SequenceCardStyle}
+        variant="SurfaceVariant"
+        direction="Column"
+        gap="400"
+      >
+        <SettingTile
+          title="Hide message content"
+          description="Show only the sender's name in system notifications. Message text — including decrypted text from encrypted rooms — is otherwise handed to the operating system, which stores it in its notification history where other apps may be able to read it."
+          after={
+            <Switch
+              value={notificationContentMode !== 'full'}
+              onChange={(value) => setNotificationContentMode(value ? 'sender-only' : 'full')}
+            />
+          }
         />
       </SequenceCard>
       <SequenceCard

@@ -52,7 +52,12 @@ export function RoomJoinRules({ permissions }: RoomJoinRulesProps) {
   const subspacesScope = useRecursiveChildSpaceScopeFactory(mx, roomIdToParents);
   const subspaces = useSpaceChildren(allRoomsAtom, space?.roomId ?? '', subspacesScope);
 
-  const canEdit = permissions.stateEvent(StateEvent.RoomHistoryVisibility, mx.getSafeUserId());
+  // Gate on the power level for the event this control actually sends
+  // (m.room.join_rules), not m.room.history_visibility. Those two are separate
+  // keys in m.room.power_levels and rooms commonly set them differently: the
+  // wrong key both hides the control from users who may change join rules and
+  // offers it to users whose send will be rejected by the server.
+  const canEdit = permissions.stateEvent(StateEvent.RoomJoinRules, mx.getSafeUserId());
 
   const joinRuleEvent = useStateEvent(room, StateEvent.RoomJoinRules);
   const content = joinRuleEvent?.getContent<RoomJoinRulesEventContent>();

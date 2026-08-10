@@ -1,186 +1,233 @@
 # Dependency Security Audit Report
 
-**Date:** 2026-05-15
+**Date:** 2026-08-10 (previous revision: 2026-05-15 — superseded, it described a
+manifest three major upgrade rounds out of date)
 **Project:** cinny (Matrix client fork — coffeegrind123/cinny, branch `desktop-notifications`)
-**Total dependencies:** 59 in `dependencies`, 30 in `devDependencies`
-**node_modules:** 55MB, 506 packages
+**Manifest:** 60 `dependencies`, 38 `devDependencies`
+**Resolved tree:** 950 packages (241 prod, 640 dev, 133 optional)
+**Method:** `npm audit`, `npm outdated`, `npm view <pkg> versions`, plus
+`grep` over `src/` for each declared dependency.
+
+How to reproduce every number below:
+
+```bash
+npm ci
+npm audit --json
+npm outdated --json
+```
 
 ---
 
-## 1. TRUSTED — Major org / massive adoption (32 packages)
+## 0. What changed since the last revision
+
+The 2026-05-15 report is obsolete in most of its specifics. Corrections:
+
+| Claim in old report | Reality now |
+|---|---|
+| `dateformat` is 6 years stale, replace it | **Gone** — no longer in the manifest |
+| `tauri-plugin-mobile-push-api` is a dependency | **Gone** — not in the manifest |
+| react 18 / typescript 4.9 / vite 5 / eslint 8 / prettier 2 | react **19.2.6**, typescript **5.9.3**, vite **8.0.13**, eslint **9.39.0**, prettier **3.8.3** |
+| Lockfile/pin mismatches for sanitize-html, matrix-widget-api, element-call | **Resolved** — lockfile matches the manifest |
+| `emojibase-data` 15.3.2 vs emojibase 16.x peer warnings | **Resolved** — both on 17.0.0 |
+| `badwords-list` prerelease "unresolved" | **Resolved** — see §4; the pin is correct and intentional |
+
+---
+
+## 1. Open advisories (the part that matters)
+
+`npm audit` reports **22 advisories: 10 high, 5 moderate, 7 low**. Only the
+direct dependencies are actionable here; the rest are transitive and clear
+themselves when their parent is bumped.
+
+### Runtime (shipped to browsers) — fix these
+
+| Package | Pinned | Severity | Advisory | Fixed in |
+|---|---|---|---|---|
+| **pdfjs-dist** | 5.7.284 | **high** | Arbitrary JavaScript execution when opening a malicious PDF | 6.2.108 |
+| **react-router-dom** / react-router | 7.15.1 | **high** | Open redirect via backslash in `<Link>`/`useNavigate` (CVE-2025-68470 bypass); RSCErrorHandler missing protocol validation (XSS) | 7.18.2 |
+| **ua-parser-js** | 2.0.9 | moderate | ReDoS in `withClientHints()` via unbounded `Sec-CH-UA-Model` parsing | 2.0.10 |
+
+All three parse attacker-controlled input: a PDF attachment from any room, a
+URL from any message, a UA string. The pdfjs one is a direct RCE-in-the-page
+primitive and should be treated as the top priority.
+
+### Build/dev only — no runtime exposure, still worth clearing
+
+| Package | Pinned | Severity | Note |
+|---|---|---|---|
+| **vite** | 8.0.13 | high | Fixed in 8.2.1 |
+| **vite-plugin-top-level-await** | 1.6.0 | moderate | Pulls a vulnerable `uuid` |
+| postcss, lodash, js-yaml, nanoid, brace-expansion, tmp, fast-uri, esbuild, @babel/core, commitizen, inquirer, external-editor, @vanilla-extract/* | transitive | high→low | All clear via parent bumps |
+
+### Why this list existed at all
+
+Both dependency bots were configured so that **no npm update could land
+without a human first approving it** (npm was commented out in
+`.github/dependabot.yml`; Renovate was gated behind
+`:dependencyDashboardApproval`). That is why a high-severity pdf.js advisory
+sat unpatched. Fixed 2026-08-10:
+
+- **Renovate owns npm.** Routine bumps stay gated by the dependency dashboard,
+  but `vulnerabilityAlerts` is now `dependencyDashboardApproval: false`, so
+  security PRs open by themselves. `osvVulnerabilityAlerts` is on so it does not
+  depend solely on GitHub advisories. npm updates also carry a 3-day
+  `minimumReleaseAge` (a compromised publish is usually yanked inside a day);
+  security fixes bypass that delay.
+- **Dependabot owns github-actions and docker**, and Renovate's
+  `github-actions`/`dockerfile`/`docker-compose` managers are disabled, so the
+  two bots never open competing PRs for the same manifest.
+
+---
+
+## 2. Trusted — major org / massive adoption
 
 | Package | Maintainer | Why trusted |
 |---|---|---|
-| **react** / **react-dom** | Meta | 127M+ DL, 1 dep |
-| **@tanstack/react-query** / **devtools** / **virtual** | TanStack | Industry-standard data fetching |
-| **@tauri-apps/plugin-notification** / **process** / **updater** | Tauri | Official Tauri v2 plugins |
-| **react-router-dom** | Remix/Shopify | Industry-standard routing, 6.30.3 |
-| **jotai** | Poimandres | 0 deps, lean state management |
-| **immer** | Michel Weststrate | 0 deps, immutable state |
-| **slate** / **slate-react** / **slate-dom** / **slate-history** | ianstormtaylor | Industry-standard rich text |
-| **i18next** / **react-i18next** / **i18next-browser-languagedetector** / **i18next-http-backend** | i18next team | Industry-standard i18n |
-| **matrix-js-sdk** | Matrix.org | Official SDK, 14 deps (heaviest) |
-| **matrix-widget-api** | Matrix.org | Official widget API |
-| **pdfjs-dist** | Mozilla | Official PDF.js, 0 deps |
-| **prismjs** | PrismJS team | Syntax highlighting, 0 deps |
-| **dayjs** | iamkun | Date library, 0 deps, massive adoption |
-| **chroma-js** | gregorskii | Color manipulation, 0 deps |
-| **linkifyjs** / **linkify-react** | nfrasser | Link detection, 0 deps |
-| **sanitize-html** | apostrophecms | HTML sanitizer, 6 deps |
-| **classnames** | JedWatson | 0 deps, tiny utility |
-| **react-aria** | Adobe | Accessibility library, heavy but trusted |
-| **@atlaskit/pragmatic-drag-and-drop** / **auto-scroll** / **hitbox** | Atlassian | DnD engine, 2-3 deps each |
+| **react** / **react-dom** 19.2.6 | Meta | Ubiquitous |
+| **@tanstack/react-query** / **-devtools** / **react-virtual** | TanStack | Industry standard |
+| **@tauri-apps/api** + plugins (notification, os, process, updater) | Tauri | Official v2 plugins |
+| **react-router-dom** 7.15.1 | Remix/Shopify | Standard routing — **has an open advisory, see §1** |
+| **jotai**, **immer** | Poimandres / M. Weststrate | 0-dep state management |
+| **slate** / **-dom** / **-history** / **-react** | ianstormtaylor | Rich-text engine |
+| **i18next** family | i18next team | Standard i18n |
+| **matrix-js-sdk** 41.7.0 | Matrix.org | Official SDK; 42.1.0 available |
+| **matrix-widget-api** | Matrix.org | Official widget API (Element Call) |
+| **@element-hq/element-call-embedded** | Element | Vendored call UI — see §5 |
+| **pdfjs-dist** | Mozilla | **Open advisory, see §1** |
+| **sanitize-html** 2.17.6 | apostrophecms | The security boundary for message rendering — current |
+| **prismjs**, **dayjs**, **chroma-js**, **classnames**, **linkifyjs**/**linkify-react** | various | Small, widely used |
+| **react-aria** | Adobe | Accessibility primitives |
+| **@atlaskit/pragmatic-drag-and-drop** (+ auto-scroll, hitbox) | Atlassian | DnD engine |
+| **hls.js** | video-dev | HLS playback |
 
 ---
 
-## 2. KEEP — Complex enough not to rewrite (14 packages)
+## 3. Keep — complex enough not to rewrite
 
-| Package | Deps | Rationale |
+`@vanilla-extract/css` · `@vanilla-extract/recipes` · `@vanilla-extract/vite-plugin`
+· `folds` (Cinny's own UI library) · `focus-trap-react` · `html-react-parser` ·
+`html-dom-parser` · `domhandler` · `emojibase` / `emojibase-data` ·
+`browser-encrypt-attachment` (Matrix E2EE attachments) · `blurhash` ·
+`ua-parser-js` (advisory above) · `pdfjs-dist` · `prismjs`.
+
+---
+
+## 4. badwords-list `2.0.1-4` — resolved, keep the pin
+
+The previous report flagged this as an unresolved prerelease pin. It is not a
+problem, and there is no stable release to move to:
+
+```console
+$ npm view badwords-list versions --json
+["1.0.0","2.0.1-0","2.0.1-2","2.0.1-3","2.0.1-4"]
+$ npm view badwords-list dist-tags
+{ latest: '2.0.1-4' }
+```
+
+- `2.0.1-4` **is** the `latest` dist-tag. Despite the SemVer prerelease suffix
+  it is the maintainer's current release (published 2024-08-18).
+- The only non-prerelease version is `1.0.0`, published **2014-07-31**. It is
+  CommonJS (`"main": "./lib/index"`), ships no type declarations, and has no
+  `@types/badwords-list` on npm. `src/app/plugins/bad-words.ts` does
+  `import * as badWords from 'badwords-list'`; under `"strict": true` that would
+  fail `npm run typecheck` with TS7016, and the package would need an ambient
+  declaration to compile. Moving *back* eleven years to an untyped CJS build is
+  a downgrade in every dimension including security.
+
+**Decision: keep `badwords-list@2.0.1-4` pinned exactly.** Renovate will not
+propose prerelease-to-prerelease drift, and there is nothing newer. Revisit only
+if the upstream project cuts a real `2.0.1`/`2.1.0`. The standing alternative —
+vendoring the word list, which is static data — remains open (§6) and would drop
+the dependency entirely.
+
+---
+
+## 5. Vendored third-party HTML: Element Call
+
+`@element-hq/element-call-embedded` is copied verbatim into
+`dist/public/element-call/` by `vite.config.js`. Its `index.html` contains
+**two inline `<script>` blocks**, which are covered in the shipped CSP by
+SHA-256 source expressions rather than `'unsafe-inline'`.
+
+**Bumping this package changes those inline scripts and will silently break
+calls** until the hashes are regenerated in all five serving configs
+(`docker-nginx.conf`, `contrib/nginx/cinny.domain.tld.conf`,
+`contrib/caddy/caddyfile`, `netlify.toml`,
+`.github/webapp-release-template/nginx.conf`). The regeneration snippet is in
+the comment block at the top of `docker-nginx.conf`. Treat this as part of the
+upgrade checklist for that package.
+
+---
+
+## 6. Declared but not imported from `src/`
+
+A plain grep over `src/` finds no reference to:
+
+| Package | Verdict |
+|---|---|
+| `@vanilla-extract/vite-plugin` | **Used** — by `vite.config.js`, not `src/`. It is a devDependency in the wrong list (it sits in `dependencies`); harmless but misleading |
+| `slate-dom` | **Used indirectly** — peer of `slate-react`; keeping the explicit pin keeps the four slate packages on one version |
+| `react-range` | **Candidate for removal** — no importer found. Verify, then drop |
+
+---
+
+## 7. Inline / drop candidates (unchanged, still open)
+
+| Package | Size | Note |
 |---|---|---|
-| **@vanilla-extract/css** | 11 | CSS-in-JS engine, zero-runtime. Complex build pipeline |
-| **@vanilla-extract/recipes** | 0 | Sprinkles-style variant API |
-| **@vanilla-extract/vite-plugin** | 4 | Vite integration |
-| **folds** | 0 | Cinny's own UI component library. If rewritten, massive scope |
-| **focus-trap-react** | 2 | Focus trapping with proper tab-cycle, nested trap support |
-| **html-react-parser** | 4 | HTML→React conversion with proper DOM handling |
-| **html-dom-parser** | 0 | Underlying DOM parser for html-react-parser |
-| **domhandler** | 0 | htmlparser2 DOM handler |
-| **emojibase** / **emojibase-data** | 0 | Unicode emoji database, auto-generated |
-| **browser-encrypt-attachment** | 0 | Matrix E2EE attachment encryption |
-| **ua-parser-js** | 0 | User-agent parsing, well-maintained |
-| **blurhash** | 0 | Complex encoding/decoding algorithm |
-| **tauri-plugin-mobile-push-api** | ? | Our own dependency (UnifiedPush for Android) |
+| `await-to-js` | 3 lines | Trivially inlined |
+| `millify` | ~155 lines | Number formatting |
+| `react-blurhash` | ~77 lines | Canvas wrapper over `blurhash` |
+| `react-error-boundary` | ~100 lines | Thin React boundary |
+| `badwords-list` | static data | See §4 |
+| `is-hotkey` | ~30 lines | Used heavily in the editor; keep unless it goes stale |
+| `file-saver` | shim | `URL.createObjectURL` + anchor click covers modern browsers |
+
+`react-google-recaptcha` was previously marked "check if still used" — it **is**
+used, by `src/app/components/uia-stages/ReCaptchaStage.tsx`, for the
+`m.login.recaptcha` UIA stage. It loads `https://www.google.com/recaptcha/api.js`
+at runtime, which is why the shipped CSP allowlists
+`https://www.google.com/recaptcha/`, `https://www.gstatic.com/recaptcha/` and
+`https://recaptcha.net/recaptcha/` in `script-src`. Removing the package means
+removing those three sources too.
 
 ---
 
-## 3. INVESTIGATE — May be replaceable (13 packages)
+## 8. Version drift
 
-| Package | Concern | Recommendation |
-|---|---|---|
-| **dateformat** | Last published 2020-03-18 (6+ years stale), 0 deps | Replace with dayjs (already in deps) — line-for-line format mapping |
-| **millify** | Number formatting, 155 lines, 1 dep | Inline the formatting logic |
-| **react-blurhash** | Thin Canvas wrapper around blurhash, 0 deps | 77 lines — inline into a local component |
-| **react-colorful** | Color picker, 0 deps | Lightweight. Could vendor if maintenance lapses |
-| **react-error-boundary** | 1 dep, thin React error boundary | 100 lines — inline as local component |
-| **react-google-recaptcha** | 2 deps, thin wrapper | Check if recaptcha is still used. Remove if not |
-| **react-range** | Slider component, 0 deps | Decent adoption. Keep unless maintenance lapses |
-| **badwords-list** | Simple word list, prerelease version `2.0.1-4` | Inline the word list (static data) |
-| **is-hotkey** | Tiny key-combo checker, 0 deps, ianstormtaylor | ~30 lines — inline if desired |
-| **await-to-js** | 3 lines: `export function to(p) { return p.then(d => [null,d]).catch(e => [e]) }` | Inline — it's literally 3 lines |
-| **@fontsource/inter** | Just the Inter font files, 0 deps | Self-host the font files |
-| **file-saver** | File download shim, 0 deps | Web APIs now cover this. `URL.createObjectURL` + anchor click |
-| **emojibase-data** | 15.3.2, 0 deps but 46 peer warns from emojibase 16.x | Bump emojibase to match data version |
+`npm outdated` lists **54** packages behind latest. Nothing there is a
+correctness emergency beyond §1, but note the majors that will need work:
 
----
-
-## 4. ALERT — Version/pin mismatches (4 packages)
-
-These have pinned versions in package.json that don't match `node_modules`:
-
-| Package | Pinned | Actual | Status |
+| Package | Pinned | Latest | Nature |
 |---|---|---|---|
-| **sanitize-html** | ^2.17.4 | 2.12.1 | **Run `npm install`** — cherry-picked the bump but lockfile is stale |
-| **@types/sanitize-html** | ^2.16.1 | 2.9.0 | Behind — bump in package.json, lockfile stale |
-| **matrix-widget-api** | ^1.16.1 | 1.13.0 | Behind — bump in package.json, lockfile stale |
-| **@element-hq/element-call-embedded** | ^0.19.1 | 0.16.3 | Behind — bump in package.json, lockfile stale |
+| pdfjs-dist | 5.7.284 | 6.2.108 | Major — **and the security fix** |
+| matrix-js-sdk | 41.7.0 | 42.1.0 | Major |
+| @element-hq/element-call-embedded | 0.20.1 | 0.23.0 | Minor, but see §5 |
+| eslint / @eslint/js | 9.39.0 | 10.x | Major, dev-only |
+| @atlaskit/pragmatic-drag-and-drop* | 1.8.1 / 2.1.5 / 1.1.0 | 2.0.2 / 3.0.0 / 2.0.0 | Major, dev churn |
+| @fontsource/inter | 4.5.14 | 5.3.0 | Major |
+| html-dom-parser | 7.1.0 | 8.0.1 | Major — parses untrusted HTML, prioritise |
+| domhandler | 5.0.3 | 6.0.1 | Major — same parsing path |
+
+**Pin style:** every dependency is pinned exactly (no `^`/`~`), which is the
+right call for a client that ships prebuilt bundles — but it only works if the
+bots are allowed to move the pins. See §1.
 
 ---
 
-## 5. DEV DEPENDENCIES — No runtime risk (30 packages)
+## 9. Immediate actions
 
-All `@types/*` packages + eslint/plugins + prettier + typescript + vite. No runtime supply chain risk.
-
-**Staleness concerns in dev deps:**
-
-| Package | Current | Notes |
-|---|---|---|
-| **typescript** | 4.9.4 | 2+ years old. TS 5.x stable for 2 years, TS 6.x released |
-| **eslint** | 8.29.0 | eslint 9.x is flat config only (breaking). Stay on 8.x unless migrating |
-| **@typescript-eslint/* ** | 5.46.1 | Matches TS 4.9. Bump with TS upgrade |
-| **prettier** | 2.8.1 | Prettier 3.x available (breaking: trailingComma default change) |
-| **vite** | 5.4.19 | Vite 6.x available. 5.4.x is LTS, fine to stay |
-| **@vitejs/plugin-react** | 4.2.0 | Vite 6 needs plugin v5 |
-
----
-
-## 6. TOP SUPPLY CHAIN RISKS (Priority order)
-
-| # | Risk | Package | Action |
-|---|---|---|---|
-| 1 | 6+ years stale | dateformat | Replace with dayjs |
-| 2 | Lockfile/pin mismatch | sanitize-html, matrix-widget-api, element-call | `npm install` to sync |
-| 3 | Prerelease version | badwords-list (2.0.1-4) | Inline the word list |
-| 4 | Functionally trivial | await-to-js (3 lines) | Inline |
-| 5 | Medium dep tree (14) | matrix-js-sdk | Monitor — official Matrix.org package, hard to replace |
-| 6 | Medium dep tree (11) | @vanilla-extract/css | Monitor — critical to build pipeline |
-| 7 | Heavy ESLint tree (39 deps) | eslint | Dev-only. Acceptable |
-| 8 | End-of-life dep | react 18, react-dom 18 | React 19 stable since Dec 2024. Upgrade path non-trivial (folds compat) |
-
----
-
-## 7. VERSION PIN ANALYSIS
-
-**Pin style:** Most packages use exact pins (`x.y.z`, no `^`/`~`). A few use caret (`^`).
-
-### Caret-pinned packages (will auto-resolve on fresh install)
-
-| Package | Pin | Notes |
-|---|---|---|
-| @tauri-apps/plugin-updater | ^2.10.1 | Will float within 2.x |
-| @types/* | ^x.y.z | All dev, all float within major |
-
-### Behind — exact pins (need manual bumps)
-
-| Package | Pinned | Latest | Gap |
-|---|---|---|---|
-| react / react-dom | 18.2.0 | 19.2.0 | Major (breaking) |
-| typescript | 4.9.4 | 5.9.3 / 6.0.2 | 2 major versions |
-| dayjs | 1.11.10 | 1.11.13 | 3 patches |
-| immer | 9.0.16 | 10.1.1 | Major (breaking) |
-| jotai | 2.6.0 | 2.15.1 | 9 minor |
-| slate* | 0.123.0 | 0.123.0 (latest) | Current |
-| react-router-dom | 6.30.3 | 7.6.0 | Major (breaking, Remix merge) |
-| prismjs | 1.30.0 | 1.30.0 | Current (last published 2024-12) |
-| ua-parser-js | 1.0.35 | 2.0.6 | Major (breaking) |
-| dateformat | 5.0.3 | 5.0.3 | **STALE — last published March 2020** |
-
----
-
-## 8. ELIMINATION STATUS
-
-| Package | Status | Notes |
-|---|---|---|
-| await-to-js | TODO | 3 lines — inline as `src/app/utils/await-to.ts` |
-| dateformat | TODO | Replace with dayjs equivalents |
-| badwords-list | TODO | Inline word list |
-| millify | TODO | Inline ~150 lines |
-| react-blurhash | TODO | Inline 77-line component |
-| react-error-boundary | TODO | Inline ~100 lines |
-| @fontsource/inter | KEEP | npm is fine for fonts; bundler tree-shakes unused weights |
-| file-saver | KEEP | Edge case coverage (IE, Safari) still useful |
-| is-hotkey | KEEP | Used heavily in editor, well-tested |
-| react-colorful | KEEP | Lightweight, well-maintained, 0 deps |
-| react-range | KEEP | Decent adoption, 0 deps |
-| react-google-recaptcha | EVALUATE | Check if still used in production |
-| sanitize-html | KEEP | Critical security boundary — DO NOT inline |
-| matrix-js-sdk | KEEP | Official SDK — cannot replace |
-| folds | KEEP | Cinny's own UI lib — too large to inline |
-| @vanilla-extract/* | KEEP | Build pipeline — zero-runtime CSS |
-| react-aria | KEEP | Accessibility — too complex to inline |
-| slate* | KEEP | Rich text — too complex to inline |
-| pdfjs-dist | KEEP | PDF rendering — too complex to inline |
-| prismjs | KEEP | Syntax highlighting — too complex to inline |
-| linkifyjs/* | KEEP | Link detection regex is non-trivial |
-| blurhash | KEEP | Algorithm is non-trivial, 0 deps |
-| emojibase/* | KEEP | Auto-generated Unicode data |
-| @atlaskit/pragmatic-drag-and-drop* | KEEP | Complex DnD engine |
-| browser-encrypt-attachment | KEEP | Matrix E2EE — critical, complex crypto |
-
----
-
-## 9. IMMEDIATE ACTIONS
-
-1. **`cd cinny && npm install`** — sync lockfile with package.json (sanitize-html 2.12.1→2.17.4, matrix-widget-api 1.13→1.16, element-call-embedded 0.16→0.19)
-2. **Inline `await-to-js`** — create `src/app/utils/await-to.ts`, replace 3 imports
-3. **Replace `dateformat`** with `dayjs` — audit 4 call sites, build a ~20-line mapping
-4. **Inline `badwords-list`** — extract word array, drop the prerelease dependency
+1. **`npm install pdfjs-dist@6.2.108`** — high-severity arbitrary JS execution
+   from a malicious PDF, reachable from any room attachment. Re-test the PDF
+   viewer (`src/app/plugins/pdfjs-dist.ts` sets `workerSrc` to the copied
+   `pdf.worker.min.js`; the v6 worker filename may differ, so check
+   `vite.config.js`'s copy target).
+2. **`npm install react-router-dom@7.18.2`** — open redirect / XSS.
+3. **`npm install ua-parser-js@2.0.10`** — ReDoS.
+4. **`npm install vite@8.2.1`** (dev) and let Renovate's lockfile maintenance
+   clear the transitive low/moderate set.
+5. Confirm Renovate is actually installed on the repository. The ungated
+   `vulnerabilityAlerts` config in `.github/renovate.json` does nothing if the
+   app is not enabled — in which case switch npm to Dependabot (uncomment the
+   npm ecosystem there and disable Renovate's npm manager, never both at once).
+6. Leave `badwords-list@2.0.1-4` alone (§4).
