@@ -142,6 +142,24 @@ export const getBlobSafeMimeType = (mimeType: string) => {
   return type;
 };
 
+/**
+ * Blob-safe MIME type for a renderer that only ever produces an `<img>`.
+ *
+ * Stricter than `getBlobSafeMimeType`: the sender-declared type must be one of
+ * the inert raster formats, so `image/svg+xml` (script-bearing) and every
+ * non-image type collapse to the octet-stream fallback. Decoding is unaffected —
+ * browsers sniff image bytes and ignore the declared type for `<img>` — but the
+ * resulting `blob:` URL can no longer be navigated to as active content in our
+ * own origin (the image viewer's "open in browser" button does exactly that).
+ */
+export const getImageSafeMimeType = (mimeType?: string) => {
+  const safeType = getBlobSafeMimeType(mimeType ?? '');
+  if (!IMAGE_MIME_TYPES.includes(safeType)) {
+    return FALLBACK_MIMETYPE;
+  }
+  return safeType;
+};
+
 export const safeFile = (f: File) => {
   const safeType = getBlobSafeMimeType(f.type);
   if (safeType !== f.type) {

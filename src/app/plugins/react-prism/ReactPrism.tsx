@@ -307,6 +307,8 @@ import 'prismjs/components/prism-arduino.js';
 import './ReactPrism.css';
 // using classNames .prism-dark .prism-light from ReactPrism.css
 
+import { MAX_HIGHLIGHT_LENGTH } from './constants';
+
 export default function ReactPrism({
   children,
 }: {
@@ -316,7 +318,11 @@ export default function ReactPrism({
 
   useEffect(() => {
     const el = codeRef.current;
-    if (el) Prism.highlightElement(el);
+    // Enforced here as well as at the call site: this is the only place that
+    // knows highlighting is synchronous, so the bound belongs with it.
+    if (el && (el.textContent?.length ?? 0) <= MAX_HIGHLIGHT_LENGTH) {
+      Prism.highlightElement(el);
+    }
   }, []);
 
   return <>{children(codeRef as MutableRefObject<null>)}</>;

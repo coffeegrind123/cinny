@@ -23,6 +23,28 @@ const copyFiles = {
       dest: '',
       rename: { stripBase: true, name: 'pdf.worker.min.js' },
     },
+    // pdfjs-dist 6 moved JBIG2, JPEG 2000 and colour-management decoding into
+    // WebAssembly modules the worker fetches at runtime from `wasmUrl`. Without
+    // them, scanned PDFs (JBIG2 is the standard scanner codec) render blank
+    // images. `quickjs-eval.*` is deliberately NOT copied: it is the sandbox for
+    // JavaScript embedded in a PDF, which this client never enables, and not
+    // shipping it means a future default flip cannot quietly start running
+    // sender-authored script.
+    {
+      src: 'node_modules/pdfjs-dist/wasm/{jbig2,openjpeg,qcms_bg}.wasm',
+      dest: 'pdfjs/wasm',
+      rename: { stripBase: true },
+    },
+    {
+      src: 'node_modules/pdfjs-dist/wasm/*_nowasm_fallback.js',
+      dest: 'pdfjs/wasm',
+      rename: { stripBase: true },
+    },
+    {
+      src: 'node_modules/pdfjs-dist/iccs/*.icc',
+      dest: 'pdfjs/iccs',
+      rename: { stripBase: true },
+    },
     {
       src: 'netlify.toml',
       dest: '',

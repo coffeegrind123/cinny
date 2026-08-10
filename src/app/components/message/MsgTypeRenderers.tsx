@@ -25,7 +25,11 @@ import {
   MATRIX_SPOILER_PROPERTY_NAME,
   MATRIX_SPOILER_REASON_PROPERTY_NAME,
 } from '../../../types/matrix/common';
-import { FALLBACK_MIMETYPE, getBlobSafeMimeType } from '../../utils/mimeTypes';
+import {
+  FALLBACK_MIMETYPE,
+  getBlobSafeMimeType,
+  getImageSafeMimeType,
+} from '../../utils/mimeTypes';
 import { parseGeoUri, scaleYDimension } from '../../utils/common';
 import { Attachment, AttachmentBox, AttachmentContent, AttachmentHeader } from './attachment';
 import { FileHeader, FileDownloadButton } from './FileHeader';
@@ -207,7 +211,7 @@ export function MImage({ content, renderImageContent, outlined }: MImageProps) {
         {renderImageContent({
           body: content.body || 'Image',
           info: imgInfo,
-          mimeType: imgInfo?.mimetype,
+          mimeType: getImageSafeMimeType(imgInfo?.mimetype),
           url: mxcUrl,
           encInfo: content.file,
           markedAsSpoiler: content[MATRIX_SPOILER_PROPERTY_NAME],
@@ -432,7 +436,7 @@ export function MSticker({ content, renderImageContent }: MStickerProps) {
       {renderImageContent({
         body: content.body || 'Sticker',
         info: imgInfo,
-        mimeType: imgInfo?.mimetype,
+        mimeType: getImageSafeMimeType(imgInfo?.mimetype),
         url: mxcUrl,
         encInfo: content.file,
       })}

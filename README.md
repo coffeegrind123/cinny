@@ -101,7 +101,7 @@ npm run build # Compiles the app into the dist/ directory
 ```
 
 ### Running with Docker
-This repository includes a Dockerfile, which builds the application from source and serves it with Nginx on port 80. To
+This repository includes a Dockerfile, which builds the application from source and serves it with Nginx on **port 8080**. To
 use this locally, you can build the container like so:
 ```
 docker build -t cinny:latest .
@@ -109,7 +109,15 @@ docker build -t cinny:latest .
 
 You can then run the container you've built with a command similar to this:
 ```
-docker run -p 8080:80 cinny:latest
+docker run -p 8080:8080 cinny:latest
 ```
 
-This will forward your `localhost` port 8080 to the container's port 80. You can visit the app in your browser by navigating to `http://localhost:8080`.
+This will forward your `localhost` port 8080 to the container's port 8080. You can visit the app in your browser by navigating to `http://localhost:8080`.
+
+> **Upgrading from an image that listened on port 80:** the container now runs
+> as the unprivileged user `101:101` rather than root, and an unprivileged
+> process cannot bind a port below 1024 — so Nginx listens on 8080 instead.
+> Change the container side of your port mapping (`-p 80:80` → `-p 80:8080`,
+> `-p 8080:80` → `-p 8080:8080`), and update the `ports:`/`targetPort` in any
+> Compose file, Kubernetes manifest or reverse-proxy upstream that names port 80
+> on this container. The published (host) port is yours to choose as before.

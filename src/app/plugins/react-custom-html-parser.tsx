@@ -44,6 +44,7 @@ import {
 import { onEnterOrSpace } from '../utils/keyboard';
 import { copyToClipboard, tryDecodeURIComponent } from '../utils/dom';
 import { useTimeoutToggle } from '../hooks/useTimeoutToggle';
+import { MAX_HIGHLIGHT_LENGTH } from './react-prism/constants';
 
 const ReactPrism = lazy(() => import('./react-prism/ReactPrism'));
 
@@ -440,7 +441,11 @@ export const getReactCustomHtmlParser = (
         if (name === 'code') {
           if (parent && 'name' in parent && parent.name === 'pre') {
             const codeReact = domToReact(toDOMNodes(children), opts);
-            if (typeof codeReact === 'string') {
+            // Oversized blocks skip highlighting entirely — see
+            // MAX_HIGHLIGHT_LENGTH for the measurements behind the bound. Doing
+            // the check here (not only inside ReactPrism) also avoids fetching
+            // the 287-grammar chunk for a block we would refuse to highlight.
+            if (typeof codeReact === 'string' && codeReact.length <= MAX_HIGHLIGHT_LENGTH) {
               // attributesToProps() widens every value to `string | boolean`; read the
               // raw attribute instead, which domhandler types as a plain string.
               let lang: string | undefined = attribs.class;

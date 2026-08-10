@@ -4,13 +4,13 @@ import type { GetViewportParameters } from 'pdfjs-dist/types/src/display/api';
 import { useAsyncCallback } from '../hooks/useAsyncCallback';
 import { trimTrailingSlash } from '../utils/common';
 
+const assetBase = () => trimTrailingSlash(import.meta.env.BASE_URL);
+
 export const usePdfJSLoader = () =>
   useAsyncCallback(
     useCallback(async () => {
       const pdf = await import('pdfjs-dist');
-      pdf.GlobalWorkerOptions.workerSrc = `${trimTrailingSlash(
-        import.meta.env.BASE_URL
-      )}/pdf.worker.min.js`;
+      pdf.GlobalWorkerOptions.workerSrc = `${assetBase()}/pdf.worker.min.js`;
       return pdf;
     }, [])
   );
@@ -21,7 +21,18 @@ export const usePdfDocumentLoader = (pdfJS: typeof PdfJsDist | undefined, src: s
       if (!pdfJS) {
         throw new Error('PdfJS is not loaded');
       }
-      const doc = await pdfJS.getDocument(src).promise;
+      // pdfjs-dist 6 dropped the bare-string overload of getDocument; the URL
+      // now has to be named explicitly in DocumentInitParameters.
+      //
+      // `wasmUrl`/`iccUrl` point at the assets vite.config.js copies out of the
+      // package. Both default to a path relative to the worker, which does not
+      // exist in this bundle layout — leaving them unset silently degrades
+      // JBIG2 (scanned documents) and JPEG 2000 images to blank output.
+      const doc = await pdfJS.getDocument({
+        url: src,
+        wasmUrl: `${assetBase()}/pdfjs/wasm/`,
+        iccUrl: `${assetBase()}/pdfjs/iccs/`,
+      }).promise;
       return doc;
     }, [pdfJS, src])
   );

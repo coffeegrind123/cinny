@@ -72,8 +72,13 @@ const elementToCustomHtml = (node: CustomElement, children: string): string => {
       return `<a href="${encodeURI(matrixTo)}">${sanitizeText(node.name)}</a>`;
     }
     case BlockType.Emoticon:
+      // `key` is escaped like every sibling attribute. The `mxc://` prefix test
+      // constrains only the start of the string, so the remainder can still
+      // carry a quote and close the attribute early — and an emoticon node can
+      // be reconstructed from received HTML by the editor's parser (input.ts),
+      // which makes the value remote input on the message-edit round trip.
       return node.key.startsWith('mxc://')
-        ? `<img data-mx-emoticon src="${node.key}" alt="${sanitizeText(
+        ? `<img data-mx-emoticon src="${sanitizeText(node.key)}" alt="${sanitizeText(
             node.shortcode
           )}" title="${sanitizeText(node.shortcode)}" height="32" />`
         : sanitizeText(node.key);

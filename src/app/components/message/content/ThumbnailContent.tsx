@@ -4,7 +4,7 @@ import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { AsyncStatus, useAsyncCallback } from '../../../hooks/useAsyncCallback';
 import { decryptFile, downloadEncryptedMedia, mxcUrlToHttp } from '../../../utils/matrix';
 import { useMediaAuthentication } from '../../../hooks/useMediaAuthentication';
-import { FALLBACK_MIMETYPE } from '../../../utils/mimeTypes';
+import { getImageSafeMimeType } from '../../../utils/mimeTypes';
 
 export type ThumbnailContentProps = {
   info: IThumbnailContent;
@@ -27,7 +27,7 @@ export function ThumbnailContent({ info, renderImage }: ThumbnailContentProps) {
       if (!mediaUrl) throw new Error('Invalid media URL');
       if (encInfo) {
         const fileContent = await downloadEncryptedMedia(mediaUrl, (encBuf) =>
-          decryptFile(encBuf, thumbInfo.mimetype ?? FALLBACK_MIMETYPE, encInfo)
+          decryptFile(encBuf, getImageSafeMimeType(thumbInfo.mimetype), encInfo)
         );
         return URL.createObjectURL(fileContent);
       }

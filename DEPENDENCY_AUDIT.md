@@ -1,7 +1,8 @@
 # Dependency Security Audit Report
 
-**Date:** 2026-08-10 (previous revision: 2026-05-15 — superseded, it described a
-manifest three major upgrade rounds out of date)
+**Date:** 2026-08-11 (revised — §1 and §9 now record the advisories as *cleared*;
+previous revisions: 2026-08-10, and 2026-05-15 which described a manifest three
+major upgrade rounds out of date)
 **Project:** cinny (Matrix client fork — coffeegrind123/cinny, branch `desktop-notifications`)
 **Manifest:** 60 `dependencies`, 38 `devDependencies`
 **Resolved tree:** 950 packages (241 prod, 640 dev, 133 optional)
@@ -33,31 +34,60 @@ The 2026-05-15 report is obsolete in most of its specifics. Corrections:
 
 ---
 
-## 1. Open advisories (the part that matters)
+## 1. Open advisories — **cleared 2026-08-11**
 
-`npm audit` reports **22 advisories: 10 high, 5 moderate, 7 low**. Only the
-direct dependencies are actionable here; the rest are transitive and clear
-themselves when their parent is bumped.
+`npm audit` now reports **0 advisories**, down from **22 (10 high, 5 moderate,
+7 low)**.
 
-### Runtime (shipped to browsers) — fix these
+### Runtime (shipped to browsers) — fixed
 
-| Package | Pinned | Severity | Advisory | Fixed in |
+| Package | Was | Now | Severity | Advisory |
 |---|---|---|---|---|
-| **pdfjs-dist** | 5.7.284 | **high** | Arbitrary JavaScript execution when opening a malicious PDF | 6.2.108 |
-| **react-router-dom** / react-router | 7.15.1 | **high** | Open redirect via backslash in `<Link>`/`useNavigate` (CVE-2025-68470 bypass); RSCErrorHandler missing protocol validation (XSS) | 7.18.2 |
-| **ua-parser-js** | 2.0.9 | moderate | ReDoS in `withClientHints()` via unbounded `Sec-CH-UA-Model` parsing | 2.0.10 |
+| **pdfjs-dist** | 5.7.284 | **6.2.108** | high | Arbitrary JavaScript execution when opening a malicious PDF |
+| **react-router-dom** / react-router | 7.15.1 | **7.18.2** | high | Open redirect via backslash in `<Link>`/`useNavigate` (CVE-2025-68470 bypass); RSCErrorHandler missing protocol validation (XSS) |
+| **ua-parser-js** | 2.0.9 | **2.0.10** | moderate | ReDoS in `withClientHints()` via unbounded `Sec-CH-UA-Model` parsing |
+| **lodash** (via `slate-dom`/`slate-react`) | 4.17.21 | **4.18.1** (override) | high | Prototype pollution in `_.unset`/`_.omit`; code injection via `_.template`. The only vulnerable package that actually reached the browser bundle — `slate` uses just `debounce` and `throttle`, so the bump is inert for us. |
 
-All three parse attacker-controlled input: a PDF attachment from any room, a
-URL from any message, a UA string. The pdfjs one is a direct RCE-in-the-page
-primitive and should be treated as the top priority.
+All of these parse attacker-controlled input: a PDF attachment from any room, a
+URL from any message, a UA string, editor state.
 
-### Build/dev only — no runtime exposure, still worth clearing
+**pdfjs-dist 5 → 6 is a major bump and needed two code changes** —
+`getDocument()` lost its bare-string overload (`{ url }` now), and v6 moved
+JBIG2 / JPEG 2000 / colour-management decoding into WebAssembly modules the
+worker fetches from `wasmUrl` at runtime. Those assets are not in the bundle by
+default; without them scanned PDFs (JBIG2 is *the* scanner codec) render blank
+with no error. `vite.config.js` now copies them to `pdfjs/wasm/` and
+`pdfjs/iccs/`, and `src/app/plugins/pdfjs-dist.ts` points `wasmUrl`/`iccUrl` at
+them. `quickjs-eval.*` — the sandbox for JavaScript embedded in a PDF — is
+deliberately *not* copied.
 
-| Package | Pinned | Severity | Note |
+Verified in headless Chrome against the built output: worker loads, both sample
+PDFs render with non-blank pixel counts, all three `.wasm` assets and the ICC
+profile return 200, console clean. The app also boots and routes (login ↔
+register) on react-router 7.18.2.
+
+### Build/dev only — fixed
+
+| Package | Was | Now | Severity |
 |---|---|---|---|
-| **vite** | 8.0.13 | high | Fixed in 8.2.1 |
-| **vite-plugin-top-level-await** | 1.6.0 | moderate | Pulls a vulnerable `uuid` |
-| postcss, lodash, js-yaml, nanoid, brace-expansion, tmp, fast-uri, esbuild, @babel/core, commitizen, inquirer, external-editor, @vanilla-extract/* | transitive | high→low | All clear via parent bumps |
+| **vite** | 8.0.13 | **8.2.1** | high |
+| **@babel/core** | ≤7.29.0 | **^7.29.6** (override) | low — arbitrary file read via `sourceMappingURL` |
+| **esbuild** | 0.28.0 | **^0.28.2** (override) | low — dev-server file read on Windows |
+| **brace-expansion** | 1.1.14 / 2.1.0 / 5.0.6 | **^5.0.9** (override) | high — exponential-time expansion DoS |
+| **js-yaml** | 4.1.1 | **^4.3.1** (override) | high — quadratic CPU via merge keys / `!!omap` |
+| **fast-uri** | 3.1.2 | **^3.1.5** (override) | high — host confusion |
+| **tmp** | 0.0.33 | **^0.2.7** (override) | high — path traversal / symlink write |
+| **uuid** | 10.0.0 | **^11.1.1** (override) | moderate |
+| postcss, nanoid | transitive | cleared by the `vite` bump | high |
+
+`overrides` in `package.json` is doing the work for the transitive set. npm's
+own suggestion for the last five was to **downgrade `@vanilla-extract/vite-plugin`
+from 5.2.2 to 3.9.4** — two majors back — because that plugin pins the
+vulnerable `@babel/core` and `esbuild`. Overriding the two root causes directly
+clears the same advisories without regressing the CSS build.
+
+Verified after every override: `tsc --noEmit` clean, `vite build` exit 0, no
+source maps in `dist`, no inline script in `index.html`, app boots.
 
 ### Why this list existed at all
 
@@ -217,17 +247,23 @@ bots are allowed to move the pins. See §1.
 
 ## 9. Immediate actions
 
-1. **`npm install pdfjs-dist@6.2.108`** — high-severity arbitrary JS execution
-   from a malicious PDF, reachable from any room attachment. Re-test the PDF
-   viewer (`src/app/plugins/pdfjs-dist.ts` sets `workerSrc` to the copied
-   `pdf.worker.min.js`; the v6 worker filename may differ, so check
-   `vite.config.js`'s copy target).
-2. **`npm install react-router-dom@7.18.2`** — open redirect / XSS.
-3. **`npm install ua-parser-js@2.0.10`** — ReDoS.
-4. **`npm install vite@8.2.1`** (dev) and let Renovate's lockfile maintenance
-   clear the transitive low/moderate set.
-5. Confirm Renovate is actually installed on the repository. The ungated
-   `vulnerabilityAlerts` config in `.github/renovate.json` does nothing if the
-   app is not enabled — in which case switch npm to Dependabot (uncomment the
-   npm ecosystem there and disable Renovate's npm manager, never both at once).
+1. ~~`npm install pdfjs-dist@6.2.108`~~ — **done 2026-08-11.** Major bump; see
+   §1 for the two code changes it required and the runtime verification.
+2. ~~`npm install react-router-dom@7.18.2`~~ — **done.**
+3. ~~`npm install ua-parser-js@2.0.10`~~ — **done.**
+4. ~~`npm install vite@8.2.1`~~ — **done.** The transitive set did *not* clear
+   itself from parent bumps alone; it needed the `overrides` block in
+   `package.json` (§1). Renovate lockfile maintenance may drop those overrides
+   back out of date — re-check `npm audit` after any lockfile-only PR, and
+   remove an override once its parent has moved past the pin on its own.
+5. **Still open:** confirm Renovate is actually installed on the repository. The
+   ungated `vulnerabilityAlerts` config in `.github/renovate.json` does nothing
+   if the app is not enabled — in which case switch npm to Dependabot (uncomment
+   the npm ecosystem there and disable Renovate's npm manager, never both at
+   once). This is the control that stops the list in §1 rebuilding itself.
 6. Leave `badwords-list@2.0.1-4` alone (§4).
+7. `@vanilla-extract/vite-plugin` has a standing advisory chain with no forward
+   fix — the only version npm considers clean is 3.9.4, two majors back. It is
+   clear today only because the two root causes (`@babel/core`, `esbuild`) are
+   overridden. Re-check when vanilla-extract publishes a release that unpins
+   them.

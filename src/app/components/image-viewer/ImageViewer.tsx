@@ -7,6 +7,7 @@ import { useZoom } from '../../hooks/useZoom';
 import { usePan } from '../../hooks/usePan';
 import { downloadMedia } from '../../utils/matrix';
 import { ScreenSize, useScreenSizeContext } from '../../hooks/useScreenSize';
+import { webUrlOrUndefined } from '../../utils/safeUrl';
 
 export type ImageViewerProps = {
   alt: string;
@@ -70,7 +71,11 @@ export const ImageViewer = as<'div', ImageViewerProps>(
     };
 
     const handleOpenExternal = () => {
-      window.open(externalUrl || src, '_blank', 'noopener,noreferrer');
+      // `externalUrl` is a link lifted out of message content, so it is chosen
+      // by the sender: reject anything that is not http(s) before it reaches
+      // window.open, which the native shell forwards to the OS URL opener.
+      // `src` stays as-is — it is our own blob:/media URL, never remote input.
+      window.open(webUrlOrUndefined(externalUrl) ?? src, '_blank', 'noopener,noreferrer');
     };
 
     const zoomCursor = zoom === 1 ? 'zoom-in' : 'zoom-out';

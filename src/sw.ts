@@ -157,6 +157,37 @@ interface MatrixPushNotification {
   counts?: { unread?: number; missed_calls?: number };
 }
 
+// The push payload is written by the push gateway, which relays whatever the
+// homeserver sent — neither is trusted here. Two sinks make the shape matter:
+// the notification body (rendered by the OS) and the room id, which is handed
+// back to the app and used to build a router path. So every field is checked
+// for type, length and — for identifiers — grammar before it is used.
+
+const MAX_NOTIFICATION_TEXT = 500;
+
+// Matrix identifier grammar: a sigil, an opaque localpart, and a server name.
+// Deliberately narrow — the characters excluded from the localpart (`/ ? # \`
+// and whitespace) are exactly the ones that would let a room id escape its path
+// segment. Server names allow `[` `]` `:` for IPv6 literals and ports.
+const ROOM_ID_REG = /^[!#][^\s:\/?#\\]{1,255}:[A-Za-z0-9.\-\[\]:]{1,255}$/;
+// Event ids are unpadded url-safe base64 since room v3; v1/v2 use the
+// `$localpart:server` form, still accepted here.
+const EVENT_ID_REG = /^\$[A-Za-z0-9+\/=_-]{1,255}(?::[A-Za-z0-9.\-\[\]:]{1,255})?$/;
+
+const asRoomId = (value: unknown): string | undefined =>
+  typeof value === 'string' && ROOM_ID_REG.test(value) ? value : undefined;
+
+const asEventId = (value: unknown): string | undefined =>
+  typeof value === 'string' && EVENT_ID_REG.test(value) ? value : undefined;
+
+/** A non-empty string, trimmed of control characters and capped in length. */
+const asText = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  // eslint-disable-next-line no-control-regex
+  const clean = value.replace(/[\u0000-\u001f\u007f]/g, ' ').trim();
+  return clean.length === 0 ? undefined : clean.slice(0, MAX_NOTIFICATION_TEXT);
+};
+
 self.addEventListener('push', (event: PushEvent) => {
   event.waitUntil(handlePush(event));
 });
@@ -169,31 +200,43 @@ async function handlePush(event: PushEvent) {
     // Some gateways send plain text or empty payload
     payload = { title: 'New message' };
   }
+  if (typeof payload !== 'object' || payload === null) payload = {};
 
-  const notif: MatrixPushNotification = payload.notification ?? payload;
-  const sender = notif.sender_display_name || notif.sender || '';
-  const title = notif.room_name || notif.room_alias || sender || payload.title || 'New message';
+  const rawNotif = payload.notification ?? payload;
+  const notif: MatrixPushNotification =
+    typeof rawNotif === 'object' && rawNotif !== null ? rawNotif : {};
+  const roomName = asText(notif.room_name);
+  const sender = asText(notif.sender_display_name) ?? asText(notif.sender);
+  const title = roomName ?? asText(notif.room_alias) ?? sender ?? asText(payload.title) ?? 'New message';
   const body =
-    notif.content?.body ||
-    payload.body ||
-    (sender && notif.room_name ? `${sender}: …` : 'You have a new message');
+    asText(notif.content?.body) ??
+    asText(payload.body) ??
+    (sender && roomName ? `${sender}: …` : 'You have a new message');
+
+  const roomId = asRoomId(notif.room_id) ?? asRoomId(payload.roomId);
+  const eventId = asEventId(notif.event_id) ?? asEventId(payload.eventId);
 
   await self.registration.showNotification(title, {
     body,
     icon: '/public/res/svg/cinny.svg',
     badge: '/public/res/svg/cinny.svg',
-    tag: notif.event_id || payload.eventId || 'matrix-push',
+    tag: eventId ?? 'matrix-push',
     renotify: true,
     data: {
-      roomId: notif.room_id || payload.roomId,
-      eventId: notif.event_id || payload.eventId,
+      roomId,
+      eventId,
     },
   } as NotificationOptions);
 }
 
 self.addEventListener('notificationclick', (event: NotificationEvent) => {
   event.notification.close();
-  const { roomId, eventId } = (event.notification.data || {}) as { roomId?: string; eventId?: string };
+  // Re-validated rather than trusted: a notification posted by a previous
+  // service worker build outlives that build, so `data` is not guaranteed to
+  // have come from the version of handlePush above.
+  const data = (event.notification.data || {}) as { roomId?: unknown; eventId?: unknown };
+  const roomId = asRoomId(data.roomId);
+  const eventId = asEventId(data.eventId);
 
   event.waitUntil(
     (async () => {
