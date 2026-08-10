@@ -89,23 +89,48 @@ clears the same advisories without regressing the CSS build.
 Verified after every override: `tsc --noEmit` clean, `vite build` exit 0, no
 source maps in `dist`, no inline script in `index.html`, app boots.
 
-### Why this list existed at all
+### Why this list existed at all — and why the 2026-08-10 fix did not work
 
-Both dependency bots were configured so that **no npm update could land
-without a human first approving it** (npm was commented out in
-`.github/dependabot.yml`; Renovate was gated behind
-`:dependencyDashboardApproval`). That is why a high-severity pdf.js advisory
-sat unpatched. Fixed 2026-08-10:
+The 2026-08-10 revision recorded this as fixed: "Renovate owns npm; routine
+bumps stay gated by the dependency dashboard, but `vulnerabilityAlerts` is
+`dependencyDashboardApproval: false`, so security PRs open by themselves."
 
-- **Renovate owns npm.** Routine bumps stay gated by the dependency dashboard,
-  but `vulnerabilityAlerts` is now `dependencyDashboardApproval: false`, so
-  security PRs open by themselves. `osvVulnerabilityAlerts` is on so it does not
-  depend solely on GitHub advisories. npm updates also carry a 3-day
-  `minimumReleaseAge` (a compromised publish is usually yanked inside a day);
-  security fixes bypass that delay.
-- **Dependabot owns github-actions and docker**, and Renovate's
-  `github-actions`/`dockerfile`/`docker-compose` managers are disabled, so the
-  two bots never open competing PRs for the same manifest.
+**None of that was in effect.** Checked against the GitHub API on 2026-08-11
+rather than against the config file:
+
+| Check | Result |
+|---|---|
+| `GET /repos/coffeegrind123/cinny/vulnerability-alerts` | **404** — Dependabot alerts off |
+| `GET /repos/coffeegrind123/cinny/automated-security-fixes` | `{"enabled": false}` |
+| Renovate PRs / branches on either repo | none |
+| `has_issues` on either repo | **false** |
+
+Renovate is not installed. And even if it were, Issues are disabled on both
+repositories — so the dependency dashboard that `:dependencyDashboardApproval`
+gates every routine npm update behind **cannot be created**, and the
+`vulnerabilityAlerts` block that was supposed to bypass it is part of the same
+inert config. Nothing was watching npm at all. That is the actual reason a
+high-severity pdf.js advisory sat unpatched, and it would have happened again.
+
+A config file is not a control until something reads it. Verify the bot exists
+and is running before recording a supply-chain gap as closed.
+
+Fixed 2026-08-11:
+
+- **Dependabot alerts and automated security fixes enabled** on
+  `coffeegrind123/cinny` and `coffeegrind123/prinny-client` (a repository
+  setting, not a file — `PUT .../vulnerability-alerts` and
+  `.../automated-security-fixes`, both now confirming enabled).
+- **Dependabot owns npm**, plus github-actions and docker here, and npm,
+  github-actions and cargo in prinny-client. It needs no app install and no
+  Issues.
+- **Renovate's npm manager is disabled** in both `renovate.json` files, so
+  installing the app later cannot produce two bots on one manifest. Each
+  disabled block carries the swap instructions.
+- prinny-client also gained a **cargo** ecosystem — `cargo audit` is a CI gate
+  there and found real advisories (rustls-webpki certificate path validation,
+  quinn-proto remote memory exhaustion), so a bump nobody proposes is a red
+  build nobody can fix.
 
 ---
 

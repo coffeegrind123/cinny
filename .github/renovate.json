@@ -37,6 +37,10 @@
     "prPriority": 10
   },
   "osvVulnerabilityAlerts": true,
+  "npm": {
+    "description": "DISABLED 2026-08-11. Renovate is not installed on this repository — no Renovate PRs, no Renovate branches — and Issues are disabled, so the dependency dashboard that `:dependencyDashboardApproval` gates every routine npm update behind cannot be created. Everything above about npm was therefore inert, and 22 advisories accumulated (see DEPENDENCY_AUDIT.md §1). npm now belongs to Dependabot (.github/dependabot.yml). If you install the Renovate app and want it back, re-enable this AND remove the npm ecosystem from dependabot.yml in the same change — never run both on one manifest.",
+    "enabled": false
+  },
   "github-actions": {
     "description": "Owned by Dependabot (.github/dependabot.yml) so the two bots never open competing PRs for the same manifest.",
     "enabled": false

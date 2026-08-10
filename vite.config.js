@@ -14,7 +14,15 @@ import buildConfig from './build.config';
 const copyFiles = {
   targets: [
     {
-      src: 'node_modules/@element-hq/element-call-embedded/dist/**/*',
+      // The vendored widget ships its own source maps — 18 MB across 9 files,
+      // every byte of it served to every visitor and never requested unless
+      // devtools is open. Production maps are stripped from our own bundle
+      // (`build.sourcemap: false`); excluding them here applies the same rule to
+      // vendored code instead of exempting it.
+      src: [
+        'node_modules/@element-hq/element-call-embedded/dist/**/*',
+        '!node_modules/@element-hq/element-call-embedded/dist/**/*.map',
+      ],
       dest: 'public/element-call',
       rename: { stripBase: 4 },
     },
