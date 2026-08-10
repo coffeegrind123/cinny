@@ -2,6 +2,14 @@
 
 User-facing changes per commit. Most recent at the top.
 
+## 10.08.2026
+
+- `22f0979` Updated **sanitize-html to 2.17.6** — a security release for the HTML sanitizer every incoming message body passes through. Upstream cinny `90837f7`.
+- `3ef594f8` Upgraded the **in-app call stack to element-call 0.20.1** (from 0.19.3) and **matrix-js-sdk to 41.7.0**. Fixes the **call settings and reaction buttons doing nothing** — element-call moved its settings button to a new `data-testid` and our control layer was still walking `previousElementSibling` off the leave button, so it was clicking the wrong nodes. **Screenshare and spotlight buttons now update their state**, the **mic/video buttons disable while a toggle is in flight** (instead of letting you desync them with fast clicks), and **incoming-call popups no longer appear for voice rooms**. `plugins/call/CallControl.ts`, `CallEmbedProvider.tsx`, `call-status/CallControl.tsx`, `call/CallControls.tsx`, `call/Controls.tsx`, `call/PrescreenControls.tsx`. Upstream cinny `e379714`.
+- `aba72c2` Fixed **"Manage devices" opening a dead page** on homeservers that have moved to the stable spec — account management now uses the stable MSC2965 action names instead of the unstable `org.matrix.msc2965.*` ones. `useAccountManagement.ts`. Upstream cinny `a9245c8`.
+- `03ad4e7` Fixed **long space names and descriptions overflowing the lobby header** instead of truncating. `LobbyHero.css.tsx`, `page/style.css.ts`. Upstream cinny `762e99a`.
+- `69fc00c` Updated **folds to 2.7.1** (the UI component library). Upstream cinny `730a748`.
+
 ## 07.06.2026
 
 - `c9ca749` Unified **people + message search into the members drawer** — the search box moved into the drawer header and the **"N Members"** title moved down beside the Filter/Sort chips. One box now drives both: matching members filter the list instantly, and a new **Messages** section below shows matching messages (with a "Search older messages" button to page deeper). The standalone search icon and search panel are gone on desktop; mobile/tablet keep the search overlay since there's no drawer there. New `RoomMessageResults.tsx` renders the inline results for encrypted (local scan) and unencrypted (server) rooms alike. `MembersDrawer.tsx`, `Room.tsx`, `RoomViewHeader.tsx`.

@@ -3,8 +3,12 @@
 Tracks upstream `cinnyapp/cinny` commits cherry-picked into our fork (`coffeegrind123/cinny`, branch `desktop-notifications`).
 
 **Fork base:** `6a05ff5` (v4.11.1-era)
-**Last sync:** 2026-05-17 (formal merge of `upstream/dev` @ `e89b8f7` via `-X ours`)
-**Start from:** `e89b8f7` — next time, fetch upstream and check commits AFTER this one
+**Last sync:** 2026-08-10 (formal merge of `upstream/dev` @ `33f4ba36` via `-X ours`)
+**Start from:** `33f4ba36` — next time, fetch upstream and check commits AFTER this one
+
+> **2026-08-10:** Second sync. Same shape as the first: cherry-picked the
+> meaningful commits, then `git merge upstream/dev -X ours` to bring the
+> upstream SHAs into our history so GitHub stops counting us behind.
 
 > **2026-05-17:** Did an explicit `git merge upstream/dev -X ours` to bring
 > upstream commit SHAs into our history (every patch was already applied
@@ -68,15 +72,61 @@ Status: `[x]` backported · `[-]` skipped (CI/deps/docs noise) · `[~]` partial/
 | `e89b8f7` | `[-]` | chore(release): 4.12.1 [skip ci] | Release tag bump |
 | `4916efa9` | `[x]` | fix: call drop (#2954) | Conflicts in useCall.ts/useCallEmbed.ts/CallEmbedProvider.tsx/CallMemberCard.tsx/RoomTimeline.tsx/package.json/lock — took upstream (reverts slot-based membership API back to `rtcSession.memberships`), kept our named `{ FocusTrap }` import + our newer deps/lockfile |
 | `cf2810b3` | `[-]` | chore: remove semantic-release and keep script (#2946) | Dormant tooling — our fork uses prinny-client's own release pipeline, not semantic-release; skipped to avoid ~9.8k-line lockfile churn on devDeps that never ship |
-| `80fd8863` | `[-]` | chore: Release v4.12.2 (#2956) | Release/version stamp — we maintain an independent version line (4.11.x); skipped — **START HERE next sync** |
+| `80fd8863` | `[-]` | chore: Release v4.12.2 (#2956) | Release/version stamp — we maintain an independent version line (4.11.x) |
+
+### 2026-08-10 sync session
+
+Range: `80fd8863..upstream/dev` (`33f4ba36`) — 25 commits.
+
+| SHA | Status | Description | Notes |
+|-----|--------|-------------|-------|
+| `762e99a9` | `[x]` | fix: space title and description overflow in lobby (#2969) | Clean — two `minWidth: 0` additions (page/style.css.ts, LobbyHero.css.tsx) |
+| `e3797145` | `[~]` | chore(deps): update element-call 0.19.1 → v0.20.1 (#2992) | Conflicts in package.json/lock. Took upstream's `@element-hq/element-call-embedded` 0.20.1 (ours was 0.19.3 from our own dep audit) and `matrix-js-sdk` 41.7.0 (ours was 41.5.0); kept our newer jotai/linkify/matrix-widget-api/etc. All 7 source files auto-merged: element-call 0.20.x moved the settings button to `[data-testid="settings-bottom-left\|center"]` and the reactions button now anchors off the leave button, so the old `previousElementSibling` chain in `plugins/call/CallControl.ts` was pointing at the wrong nodes. Also brings async mic/video toggles (buttons disable mid-toggle) and suppresses the incoming-call popup in call rooms. Lockfile reconciled with `npm install --package-lock-only`, our tauri-plugin entries intact |
+| `ee421a71` | `[-]` | chore(deps): bump docker/setup-buildx-action 3.12.0 → 4.1.0 (#2964) | CI dep — we don't ship upstream's docker workflow |
+| `7841d1dc` | `[-]` | chore(deps): bump docker/login-action 4.1.0 → 4.2.0 (#2965) | CI dep |
+| `b76f1a60` | `[-]` | chore(deps): bump docker/metadata-action 5.10.0 → 6.1.0 (#2966) | CI dep |
+| `f8baf3f2` | `[-]` | chore(deps): bump docker/build-push-action 7.1.0 → 7.2.0 (#2967) | CI dep |
+| `70b8d03c` | `[-]` | chore(deps): lock file maintenance (#2995) | Reverted upstream 8 commits later by `5e00d517`; net no-op, and a ~7k-line lockfile churn against a dep set that is no longer ours |
+| `69515e8e` | `[-]` | chore: release v4.12.3 (#2996) | Release/version stamp — independent version line |
+| `6280dfa5` | `[-]` | chore: Specify `tag_name` for tarball upload (#2998) | CI — upstream's release workflow, not ours |
+| `b0b1ac64` | `[-]` | chore(deps): bump nginx 1.29.8-alpine → 1.31.2-alpine (#2999) | CI dep (upstream Dockerfile) |
+| `e00625b8` | `[-]` | chore(deps): bump softprops/action-gh-release 3.0.0 → 3.0.1 (#3000) | CI dep |
+| `b4338d1c` | `[-]` | chore(deps): bump docker/setup-qemu-action 3.7.0 → 4.1.0 (#3003) | CI dep |
+| `8db07e93` | `[-]` | chore(deps): bump nwtgck/actions-netlify 3.0.0 → 4.0.0 (#3001) | CI dep — we don't deploy to Netlify |
+| `126e3860` | `[-]` | chore(deps): bump actions/checkout 6.0.2 → 7.0.0 (#3002) | CI dep |
+| `5e00d517` | `[-]` | revert: "chore(deps): lock file maintenance" (#3006) | Revert of `70b8d03c`, which we skipped |
+| `ba742d4f` | `[-]` | chore: Fix typo in discussion template (#3031) | Docs only |
+| `a9245c8f` | `[x]` | fix: update device management endpoint (#3022) | Clean — `useAccountManagement.ts`, moves off the unstable `org.matrix.msc2965.*` account-management action names to the stable MSC2965 ones |
+| `cb858da1` | `[-]` | chore(deps): bump docker/metadata-action 6.1.0 → 6.2.0 (#3012) | CI dep |
+| `6dbbea83` | `[-]` | chore(deps): bump docker/setup-buildx-action 4.1.0 → 4.2.0 (#3016) | CI dep |
+| `c46fe682` | `[-]` | chore(deps): bump docker/build-push-action 7.2.0 → 7.3.0 (#3015) | CI dep |
+| `2193d258` | `[-]` | chore(deps): bump docker/setup-qemu-action 4.1.0 → 4.2.0 (#3014) | CI dep |
+| `ce9ae932` | `[-]` | chore(deps): bump docker/login-action 4.2.0 → 4.4.0 (#3013) | CI dep |
+| `730a748a` | `[~]` | fix(deps): update folds to v2.7.1 (#3049) | Conflict in package.json — took only `folds` 2.7.1, kept our newer focus-trap-react/html-parser/i18next/immer and our `hls.js` |
+| `90837f72` | `[x]` | fix(deps): update sanitize-html to v2.17.6 [security] (#3051) | Conflict in package.json — took only `sanitize-html` 2.17.6, kept our newer react-i18next/react-range/react-router-dom/slate. **Security fix, do not skip** |
+| `33f4ba36` | `[-]` | chore: Release v4.12.6 (#3053) | Release/version stamp — **START HERE next sync** |
 
 ---
 
 ## Summary
 
+### Cumulative
+
+- **Backported:** 22 commits
+- **Skipped:** 48 commits (CI/deps, release stamps, docs)
+
+### 2026-05-15 session
+
 - **Backported:** 17 commits (4 features + 10 bugfixes + 1 security merge + 1 dep bump + 1 UI)
 - **Skipped:** 29 commits (18 CI/deps + 6 release chore + 2 docs + 3 other noise)
 - **Conflicts resolved:** UrlPreviewCard.tsx (×2), RoomNavItem.tsx, Room.tsx, package-lock.json
+
+### 2026-08-10 session
+
+- **Backported:** 5 commits (1 security dep + 1 dep bump + 1 call-stack upgrade + 2 bugfixes)
+- **Skipped:** 20 commits (16 CI/deps + 3 release stamps + 1 docs)
+- **Conflicts resolved:** package.json (×3), package-lock.json (×3)
+- **Verified:** `npm run typecheck` clean, `npm run build` clean
 
 ## Process (reference for future syncs)
 
@@ -85,7 +135,7 @@ Status: `[x]` backported · `[-]` skipped (CI/deps/docs noise) · `[~]` partial/
 git fetch upstream --tags
 
 # 2. Check what's new since last sync (start from the "START HERE" marker above)
-git log --oneline 80fd8863..upstream/dev --reverse --no-merges
+git log --oneline 33f4ba36..upstream/dev --reverse --no-merges
 
 # 3. Filter out noise (chore, CI deps, docs)
 # 4. Cherry-pick meaningful commits oldest-first
