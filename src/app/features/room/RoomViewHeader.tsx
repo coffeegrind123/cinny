@@ -1,5 +1,5 @@
 import React, { MouseEventHandler, forwardRef, useState } from 'react';
-import { useAtom } from 'jotai';
+import { useAtom, useSetAtom } from 'jotai';
 import { FocusTrap } from 'focus-trap-react';
 import {
   Box,
@@ -45,7 +45,7 @@ import {
 } from '../../utils/matrix';
 import { useUserPresence } from '../../hooks/useUserPresence';
 import { PresenceBadge } from '../../components/presence';
-import { roomSearchOpenAtom } from '../../state/roomSearch';
+import { roomSearchFocusRequestAtom, roomSearchOpenAtom } from '../../state/roomSearch';
 import { _SearchPathSearchParams } from '../../pages/paths';
 import * as css from './RoomViewHeader.css';
 import { useRoomUnread } from '../../state/hooks/unread';
@@ -436,6 +436,7 @@ export function RoomViewHeader({ callView }: { callView?: boolean }) {
   const dmUserPresence = useUserPresence(dmUserId ?? '');
 
   const [searchOpen, setSearchOpen] = useAtom(roomSearchOpenAtom);
+  const requestSearchFocus = useSetAtom(roomSearchFocusRequestAtom);
   const handleSearchClick = () => {
     if (callView) {
       // No right-side drawer in call view — fall back to the global search page.
@@ -446,6 +447,15 @@ export function RoomViewHeader({ callView }: { callView?: boolean }) {
         ? getSpaceSearchPath(getCanonicalAliasOrRoomId(mx, space.roomId))
         : getHomeSearchPath();
       navigate(withSearchParam(path, searchParams));
+      return;
+    }
+    if (screenSize === ScreenSize.Desktop) {
+      // Desktop has no search overlay — people + message search lives in the
+      // members drawer. Open it if needed and put the caret in its search box,
+      // so the toolbar button is a real entry point rather than the search
+      // being reachable only by opening the member list and noticing the field.
+      setPeopleDrawer(true);
+      requestSearchFocus((n) => n + 1);
       return;
     }
     setSearchOpen((open) => !open);
@@ -553,31 +563,41 @@ export function RoomViewHeader({ callView }: { callView?: boolean }) {
         </Box>
 
         <Box shrink="No">
-          {/* On desktop the members drawer hosts a unified people + message
-              search, so the standalone search button is hidden there. Smaller
-              screens have no drawer, so they keep the search overlay button. */}
-          {screenSize !== ScreenSize.Desktop && (
-            <TooltipProvider
-              position="Bottom"
-              offset={4}
-              tooltip={
-                <Tooltip>
-                  <Text>Search</Text>
-                </Tooltip>
-              }
-            >
-              {(triggerRef) => (
-                <IconButton
-                  fill="None"
-                  ref={triggerRef}
-                  onClick={handleSearchClick}
-                  aria-pressed={!callView && searchOpen}
-                >
-                  <Icon size="400" src={Icons.Search} filled={!callView && searchOpen} />
-                </IconButton>
-              )}
-            </TooltipProvider>
-          )}
+          {/* Search is always reachable from the toolbar. On desktop the button
+              opens the members drawer and focuses its unified people + message
+              search; smaller screens have no drawer, so it toggles the search
+              overlay instead. */}
+          <TooltipProvider
+            position="Bottom"
+            offset={4}
+            tooltip={
+              <Tooltip>
+                <Text>Search</Text>
+              </Tooltip>
+            }
+          >
+            {(triggerRef) => (
+              <IconButton
+                fill="None"
+                ref={triggerRef}
+                onClick={handleSearchClick}
+                aria-label="Search"
+                // Only a toggle on smaller screens, where it shows/hides the
+                // search overlay. On desktop it is a plain action — it focuses
+                // the drawer's search box — so it carries no pressed state; the
+                // drawer's own button already reflects whether that is open.
+                aria-pressed={
+                  screenSize === ScreenSize.Desktop ? undefined : !callView && searchOpen
+                }
+              >
+                <Icon
+                  size="400"
+                  src={Icons.Search}
+                  filled={screenSize !== ScreenSize.Desktop && !callView && searchOpen}
+                />
+              </IconButton>
+            )}
+          </TooltipProvider>
           <TooltipProvider
             position="Bottom"
             offset={4}

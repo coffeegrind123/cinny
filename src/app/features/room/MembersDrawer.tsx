@@ -2,10 +2,12 @@ import React, {
   ChangeEventHandler,
   MouseEventHandler,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
+import { useAtom } from 'jotai';
 import {
   Avatar,
   Badge,
@@ -44,6 +46,7 @@ import { getMemberDisplayName, getMemberSearchStr } from '../../utils/room';
 import { getMxIdLocalPart } from '../../utils/matrix';
 import { useSetSetting, useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
+import { roomSearchFocusRequestAtom } from '../../state/roomSearch';
 import { millify } from '../../plugins/millify';
 import { ScrollTopContainer } from '../../components/scroll-top-container';
 import { UserAvatar } from '../../components/user-avatar';
@@ -229,6 +232,20 @@ export function MembersDrawer({ room, members }: MembersDrawerProps) {
     },
     [navigateRoom, screenSize, setPeopleDrawer]
   );
+
+  // The toolbar search button has no drawer of its own to open on desktop, so it
+  // raises a request here and we put the caret in the search box. The request is
+  // consumed (reset to 0) rather than just observed, so opening the member list
+  // any other way — including the very next time — does not steal focus into
+  // search. This also covers the mount case: the button opens the drawer and
+  // raises the request in the same click, so the drawer often only mounts after.
+  const [searchFocusRequest, setSearchFocusRequest] = useAtom(roomSearchFocusRequestAtom);
+  useEffect(() => {
+    if (searchFocusRequest === 0) return;
+    searchInputRef.current?.focus();
+    searchInputRef.current?.select();
+    setSearchFocusRequest(0);
+  }, [searchFocusRequest, setSearchFocusRequest]);
 
   const clearSearch = useCallback(() => {
     if (searchInputRef.current) {
