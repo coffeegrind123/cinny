@@ -79,13 +79,13 @@ export function ReadReceiptAvatars({ room, userIds, maxVisible = 3 }: ReadReceip
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             ) : (
-              <Text size="T100">{name[0]?.toUpperCase()}</Text>
+              <Text size="T200">{name[0]?.toUpperCase()}</Text>
             )}
           </Box>
         );
       })}
       {overflow > 0 && (
-        <Text size="T100" style={{ marginLeft: toRem(-2) }}>
+        <Text size="T200" style={{ marginLeft: toRem(-2) }}>
           +{overflow}
         </Text>
       )}

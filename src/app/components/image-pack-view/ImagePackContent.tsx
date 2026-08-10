@@ -19,7 +19,7 @@ import * as css from './style.css';
 import { useFilePicker } from '../../hooks/useFilePicker';
 import { CompactUploadCardRenderer } from '../upload-card';
 import { UploadSuccess } from '../../state/upload';
-import { getImageInfo, TUploadContent } from '../../utils/matrix';
+import { getImageInfo, getUploadContentName, TUploadContent } from '../../utils/matrix';
 import { getImageFileUrl, loadImageElement, renameFile } from '../../utils/dom';
 import { replaceSpaceWithDash, suffixRename } from '../../utils/common';
 import { getFileNameWithoutExt } from '../../utils/mimeTypes';
@@ -122,7 +122,7 @@ export const ImagePackContent = as<'div', ImagePackContentProps>(
           info: getImageInfo(imgEl, data.file),
         };
         const image = PackImageReader.fromPackImage(
-          getFileNameWithoutExt(data.file.name),
+          getFileNameWithoutExt(getUploadContentName(data.file)),
           packImage
         );
         if (!image) return;

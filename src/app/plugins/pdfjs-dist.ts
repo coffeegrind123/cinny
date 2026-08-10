@@ -42,6 +42,7 @@ export const createPage = async (
   canvas.height = pageViewport.height;
 
   page.render({
+    canvas,
     canvasContext: context,
     viewport: pageViewport,
   });

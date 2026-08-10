@@ -12,7 +12,7 @@ export const UrlPreview = style([
     backgroundColor: color.SurfaceVariant.Container,
     color: color.SurfaceVariant.OnContainer,
     borderLeft: `4px solid ${color.Success.Main}`,
-    borderRadius: config.radii.R200,
+    borderRadius: config.radii.R300,
     overflow: 'hidden',
     cursor: 'pointer',
 
@@ -49,7 +49,7 @@ export const UrlPreviewImg = style([
     objectPosition: 'center',
     cursor: 'pointer',
     display: 'block',
-    borderRadius: `${config.radii.R200} ${config.radii.R200} 0 0`,
+    borderRadius: `${config.radii.R300} ${config.radii.R300} 0 0`,
   },
 ]);
 
@@ -60,7 +60,7 @@ export const UrlPreviewImgInside = style([
     height: toRem(80),
     objectFit: 'cover',
     objectPosition: 'center',
-    borderRadius: config.radii.R200,
+    borderRadius: config.radii.R300,
     flexShrink: 0,
     cursor: 'pointer',
   },
@@ -86,7 +86,7 @@ export const UrlPreviewVideo = style([
     maxHeight: toRem(640),
     objectFit: 'contain',
     backgroundColor: 'black',
-    borderRadius: `${config.radii.R200} ${config.radii.R200} 0 0`,
+    borderRadius: `${config.radii.R300} ${config.radii.R300} 0 0`,
     display: 'block',
   },
 ]);

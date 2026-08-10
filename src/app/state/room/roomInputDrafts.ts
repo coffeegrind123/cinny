@@ -12,7 +12,9 @@ export type TUploadMetadata = {
 };
 
 export type TUploadItem = {
-  file: TUploadContent;
+  // Always a File: either the picked/dropped/pasted file itself, or the File that
+  // encryptFile() wraps the ciphertext in. Only `originalFile` can widen to Blob.
+  file: File;
   originalFile: TUploadContent;
   metadata: TUploadMetadata;
   encInfo: EncryptedAttachmentInfo | undefined;

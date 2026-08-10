@@ -75,7 +75,9 @@ export class TauriHlsLoader {
                 ((arrayBufferOrTypedArray as unknown) as Uint8Array).byteOffset,
                 ((arrayBufferOrTypedArray as unknown) as Uint8Array).byteOffset +
                   ((arrayBufferOrTypedArray as unknown) as Uint8Array).byteLength
-              );
+                // .buffer is typed ArrayBufferLike (the SharedArrayBuffer arm can
+                // never occur for an IPC response), and slice() preserves that.
+              ) as ArrayBuffer;
 
         const now = performance.now();
         this.stats.loading.first = now;

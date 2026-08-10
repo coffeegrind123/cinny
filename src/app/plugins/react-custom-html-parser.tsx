@@ -1,6 +1,7 @@
 /* eslint-disable jsx-a11y/alt-text */
 import React, {
   ComponentPropsWithoutRef,
+  JSX,
   ReactEventHandler,
   Suspense,
   lazy,
@@ -14,13 +15,14 @@ import {
   attributesToProps,
   domToReact,
 } from 'html-react-parser';
+import type { DOMNode } from 'html-react-parser';
 import { MatrixClient } from 'matrix-js-sdk';
 import classNames from 'classnames';
 import { Box, Chip, config, Header, Icon, IconButton, Icons, Scroll, Text, toRem } from 'folds';
 import { IntermediateRepresentation, Opts as LinkifyOpts, OptFn } from 'linkifyjs';
 import Linkify from 'linkify-react';
 import { ErrorBoundary } from 'react-error-boundary';
-import { ChildNode } from 'domhandler';
+import { CDATA, ChildNode, Document } from 'domhandler';
 import * as css from '../styles/CustomHtml.css';
 import {
   getMxIdLocalPart,
@@ -205,6 +207,18 @@ export const highlightText = (
   });
 
 /**
+ * domhandler types `Element.children` as `ChildNode[]`, whose union carries two
+ * arms — `CDATA` and `Document` — that html-react-parser's `DOMNode` does not
+ * accept. Neither can occur here: CDATA nodes only exist in XML mode, and a
+ * Document node is only ever the parse root, never a child. Narrowing keeps the
+ * call sites honest instead of casting the mismatch away.
+ */
+const toDOMNodes = (nodes: ChildNode[]): DOMNode[] =>
+  nodes.filter(
+    (node): node is DOMNode => !(node instanceof CDATA) && !(node instanceof Document)
+  );
+
+/**
  * Recursively extracts and concatenates all text content from an array of ChildNode objects.
  *
  * @param {ChildNode[]} nodes - An array of ChildNode objects to extract text from.
@@ -302,7 +316,7 @@ export function CodeBlock({
         hideTrack
       >
         <div id="code-block-content" className={css.CodeBlockInternal}>
-          {domToReact(children, opts)}
+          {domToReact(toDOMNodes(children), opts)}
         </div>
       </Scroll>
       {largeCodeBlock && !expanded && <Box className={css.CodeBlockBottomShadow} />}
@@ -330,7 +344,7 @@ export const getReactCustomHtmlParser = (
         if (name === 'h1') {
           return (
             <Text {...props} className={css.Heading} size="H2">
-              {domToReact(children, opts)}
+              {domToReact(toDOMNodes(children), opts)}
             </Text>
           );
         }
@@ -338,7 +352,7 @@ export const getReactCustomHtmlParser = (
         if (name === 'h2') {
           return (
             <Text {...props} className={css.Heading} size="H3">
-              {domToReact(children, opts)}
+              {domToReact(toDOMNodes(children), opts)}
             </Text>
           );
         }
@@ -346,7 +360,7 @@ export const getReactCustomHtmlParser = (
         if (name === 'h3') {
           return (
             <Text {...props} className={css.Heading} size="H4">
-              {domToReact(children, opts)}
+              {domToReact(toDOMNodes(children), opts)}
             </Text>
           );
         }
@@ -354,7 +368,7 @@ export const getReactCustomHtmlParser = (
         if (name === 'h4') {
           return (
             <Text {...props} className={css.Heading} size="H4">
-              {domToReact(children, opts)}
+              {domToReact(toDOMNodes(children), opts)}
             </Text>
           );
         }
@@ -362,7 +376,7 @@ export const getReactCustomHtmlParser = (
         if (name === 'h5') {
           return (
             <Text {...props} className={css.Heading} size="H5">
-              {domToReact(children, opts)}
+              {domToReact(toDOMNodes(children), opts)}
             </Text>
           );
         }
@@ -370,7 +384,7 @@ export const getReactCustomHtmlParser = (
         if (name === 'h6') {
           return (
             <Text {...props} className={css.Heading} size="H6">
-              {domToReact(children, opts)}
+              {domToReact(toDOMNodes(children), opts)}
             </Text>
           );
         }
@@ -378,7 +392,7 @@ export const getReactCustomHtmlParser = (
         if (name === 'p') {
           return (
             <Text {...props} className={classNames(css.Paragraph, css.MarginSpaced)} size="Inherit">
-              {domToReact(children, opts)}
+              {domToReact(toDOMNodes(children), opts)}
             </Text>
           );
         }
@@ -390,7 +404,7 @@ export const getReactCustomHtmlParser = (
         if (name === 'blockquote') {
           return (
             <Text {...props} size="Inherit" as="blockquote" className={css.BlockQuote}>
-              {domToReact(children, opts)}
+              {domToReact(toDOMNodes(children), opts)}
             </Text>
           );
         }
@@ -398,23 +412,25 @@ export const getReactCustomHtmlParser = (
         if (name === 'ul') {
           return (
             <ul {...props} className={css.List}>
-              {domToReact(children, opts)}
+              {domToReact(toDOMNodes(children), opts)}
             </ul>
           );
         }
         if (name === 'ol') {
           return (
             <ol {...props} className={css.List}>
-              {domToReact(children, opts)}
+              {domToReact(toDOMNodes(children), opts)}
             </ol>
           );
         }
 
         if (name === 'code') {
           if (parent && 'name' in parent && parent.name === 'pre') {
-            const codeReact = domToReact(children, opts);
+            const codeReact = domToReact(toDOMNodes(children), opts);
             if (typeof codeReact === 'string') {
-              let lang = props.className;
+              // attributesToProps() widens every value to `string | boolean`; read the
+              // raw attribute instead, which domhandler types as a plain string.
+              let lang: string | undefined = attribs.class;
               if (lang === 'language-rs') lang = 'language-rust';
               else if (lang === 'language-js') lang = 'language-javascript';
               else if (lang === 'language-ts') lang = 'language-typescript';
@@ -435,13 +451,13 @@ export const getReactCustomHtmlParser = (
           } else {
             return (
               <Text as="code" size="T300" className={css.Code} {...props}>
-                {domToReact(children, opts)}
+                {domToReact(toDOMNodes(children), opts)}
               </Text>
             );
           }
         }
 
-        if (name === 'a' && testMatrixTo(tryDecodeURIComponent(props.href))) {
+        if (name === 'a' && testMatrixTo(tryDecodeURIComponent(attribs.href))) {
           const content = children.find((child) => !(child instanceof DOMText))
             ? undefined
             : children.map((c) => (c instanceof DOMText ? c.data : '')).join();
@@ -449,7 +465,7 @@ export const getReactCustomHtmlParser = (
           const mention = renderMatrixMention(
             mx,
             roomId,
-            tryDecodeURIComponent(props.href),
+            tryDecodeURIComponent(attribs.href),
             makeMentionCustomProps(params.handleMentionClick, content)
           );
 
@@ -468,14 +484,14 @@ export const getReactCustomHtmlParser = (
               aria-pressed
               style={{ cursor: 'pointer' }}
             >
-              {domToReact(children, opts)}
+              {domToReact(toDOMNodes(children), opts)}
             </span>
           );
         }
 
         if (name === 'img') {
-          const htmlSrc = mxcUrlToHttp(mx, props.src, params.useAuthentication);
-          if (htmlSrc && props.src.startsWith('mxc://') === false) {
+          const htmlSrc = mxcUrlToHttp(mx, attribs.src, params.useAuthentication);
+          if (htmlSrc && attribs.src.startsWith('mxc://') === false) {
             return (
               <a href={htmlSrc} target="_blank" rel="noreferrer noopener">
                 {props.alt || props.title || htmlSrc}

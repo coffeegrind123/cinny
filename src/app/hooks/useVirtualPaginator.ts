@@ -166,16 +166,22 @@ export const useVirtualPaginator = <TScrollElement extends HTMLElement>(
 
   const initialRenderRef = useRef(true);
 
-  const restoreScrollRef = useRef<{
-    scrollTop: number;
-    anchorOffsetTop: number;
-    anchorItem: number;
-  }>();
+  const restoreScrollRef = useRef<
+    | {
+        scrollTop: number;
+        anchorOffsetTop: number;
+        anchorItem: number;
+      }
+    | undefined
+  >(undefined);
 
-  const scrollToItemRef = useRef<{
-    index: number;
-    opts?: ScrollToOptions;
-  }>();
+  const scrollToItemRef = useRef<
+    | {
+        index: number;
+        opts?: ScrollToOptions;
+      }
+    | undefined
+  >(undefined);
 
   const propRef = useRef({
     range,

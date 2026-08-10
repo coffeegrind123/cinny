@@ -25,9 +25,9 @@ export const useCallEmbed = (): CallEmbed | undefined => {
   return callEmbed;
 };
 
-const CallEmbedRefContext = createContext<RefObject<HTMLDivElement> | undefined>(undefined);
+const CallEmbedRefContext = createContext<RefObject<HTMLDivElement | null> | undefined>(undefined);
 export const CallEmbedRefContextProvider = CallEmbedRefContext.Provider;
-export const useCallEmbedRef = (): RefObject<HTMLDivElement> => {
+export const useCallEmbedRef = (): RefObject<HTMLDivElement | null> => {
   const ref = useContext(CallEmbedRefContext);
   if (!ref) {
     throw new Error('CallEmbedRef is not provided!');
@@ -120,7 +120,7 @@ export const useCallThemeSync = (embed: CallEmbed) => {
   }, [theme.kind, embed]);
 };
 
-export const useCallEmbedPlacementSync = (containerViewRef: RefObject<HTMLDivElement>): void => {
+export const useCallEmbedPlacementSync = (containerViewRef: RefObject<HTMLDivElement | null>): void => {
   const callEmbedRef = useCallEmbedRef();
 
   const syncCallEmbedPlacement = useCallback(() => {

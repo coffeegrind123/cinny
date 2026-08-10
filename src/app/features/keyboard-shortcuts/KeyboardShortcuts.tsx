@@ -89,7 +89,11 @@ export function KeyboardShortcuts({ requestClose }: KeyboardShortcutsProps) {
             clickOutsideDeactivates: true,
             onDeactivate: requestClose,
             escapeDeactivates: stopPropagation,
-            fallbackFocus: () => scrollRef.current || false,
+            // focus-trap's FocusTarget has no `false` arm — returning one threw at
+            // runtime rather than doing nothing. Unreachable in practice: the Scroll
+            // below carries tabIndex={0} and is always mounted inside the trap, so a
+            // focusable node always exists and this is never consulted.
+            fallbackFocus: () => scrollRef.current ?? document.body,
           }}
         >
           <Modal size="500" flexHeight>

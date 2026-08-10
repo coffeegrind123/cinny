@@ -113,7 +113,12 @@ export const encryptFile = async (
 }> => {
   const dataBuffer = await file.arrayBuffer();
   const encryptedAttachment = await encryptAttachment(dataBuffer);
-  const encFile = new File([encryptedAttachment.data], file.name, {
+  // A Blob has no `name` — and generateThumbnailContent() encrypts exactly that:
+  // the canvas Blob from getThumbnail(). `new File([...], undefined)` stringifies
+  // its name argument, so encrypted thumbnails were being uploaded as a file
+  // literally called "undefined".
+  const name = file instanceof File ? file.name : 'attachment';
+  const encFile = new File([encryptedAttachment.data], name, {
     type: file.type,
   });
   return {
@@ -134,6 +139,12 @@ export const decryptFile = async (
 };
 
 export type TUploadContent = File | Blob;
+
+// Display name for something being uploaded. Everything the user picks, drops or
+// pastes is a File; the Blob arm of TUploadContent covers generated content such
+// as canvas thumbnails, which has no name of its own.
+export const getUploadContentName = (file: TUploadContent): string =>
+  file instanceof File ? file.name : 'attachment';
 
 export type ContentUploadOptions = {
   name?: string;

@@ -3,7 +3,7 @@ import { Box, Chip, Icon, IconButton, Icons, Text, color, config, toRem } from '
 import { UploadCard, UploadCardError, UploadCardProgress } from './UploadCard';
 import { UploadStatus, UploadSuccess, useBindUploadAtom } from '../../state/upload';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
-import { TUploadContent } from '../../utils/matrix';
+import { getUploadContentName, TUploadContent } from '../../utils/matrix';
 import { bytesToSize, getFileTypeIcon } from '../../utils/common';
 import {
   roomUploadAtomFamily,
@@ -28,7 +28,7 @@ function PreviewImage({ fileItem }: PreviewImageProps) {
         height: toRem(152),
         filter: metadata.markedAsSpoiler ? 'blur(44px)' : undefined,
       }}
-      alt={originalFile.name}
+      alt={getUploadContentName(originalFile)}
       src={fileUrl}
     />
   );
@@ -206,7 +206,7 @@ export function UploadCardRenderer({
       }
     >
       <Text size="H6" truncate>
-        {file.name}
+        {getUploadContentName(file)}
       </Text>
       {upload.status === UploadStatus.Success && (
         <Icon style={{ color: color.Success.Main }} src={Icons.Check} size="100" />

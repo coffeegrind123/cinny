@@ -250,7 +250,7 @@ export const getEventIdAbsoluteIndex = (
 type RoomTimelineProps = {
   room: Room;
   eventId?: string;
-  roomInputRef: RefObject<HTMLElement>;
+  roomInputRef: RefObject<HTMLElement | null>;
   editor: Editor;
 };
 
@@ -514,7 +514,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
   const imagePackRooms: Room[] = useImagePackRooms(room.roomId, roomToParents);
 
   const [unreadInfo, setUnreadInfo] = useState(() => getRoomUnreadInfo(room, true));
-  const readUptoEventIdRef = useRef<string>();
+  const readUptoEventIdRef = useRef<string | undefined>(undefined);
   if (unreadInfo) {
     readUptoEventIdRef.current = unreadInfo.readUptoEventId;
   }
@@ -1747,7 +1747,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
         <MessageBase space={messageSpacing}>
           <Box gap="100" justifyContent="End" alignItems="Center">
             <Line style={{ flexGrow: 1 }} variant="Success" size="300" />
-            <Badge as="span" size="400" variant="Success" fill="Solid" radii="200">
+            <Badge as="span" size="400" variant="Success" fill="Solid" radii="300">
               <Text size="L400">NEW</Text>
             </Badge>
           </Box>

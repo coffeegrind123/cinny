@@ -43,7 +43,7 @@ export function useSystemTray() {
       });
 
       await TrayIcon.new({
-        icon: await defaultWindowIcon(),
+        icon: (await defaultWindowIcon()) ?? undefined,
         menu,
         menuOnLeftClick: false,
         tooltip: 'Prinny Client',

@@ -3,7 +3,7 @@ import { Chip, Icon, IconButton, Icons, Text, color } from 'folds';
 import { UploadCard, UploadCardError, CompactUploadCardProgress } from './UploadCard';
 import { TUploadAtom, UploadStatus, UploadSuccess, useBindUploadAtom } from '../../state/upload';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
-import { TUploadContent } from '../../utils/matrix';
+import { getUploadContentName, TUploadContent } from '../../utils/matrix';
 import { bytesToSize, getFileTypeIcon } from '../../utils/common';
 import { useMediaConfig } from '../../hooks/useMediaConfig';
 
@@ -77,7 +77,7 @@ export function CompactUploadCardRenderer({
       {upload.status === UploadStatus.Success ? (
         <>
           <Text size="H6" truncate>
-            {file.name}
+            {getUploadContentName(file)}
           </Text>
           <Icon style={{ color: color.Success.Main }} src={Icons.Check} size="100" />
         </>

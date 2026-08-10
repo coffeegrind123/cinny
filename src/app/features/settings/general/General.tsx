@@ -763,7 +763,7 @@ function Editor() {
             <Box gap="100">
               <Button
                 size="300"
-                variant={readReceiptStyle === 'cinny' ? 'Primary' : 'SurfaceVariant'}
+                variant={readReceiptStyle === 'cinny' ? 'Primary' : 'Secondary'}
                 fill={readReceiptStyle === 'cinny' ? 'Solid' : 'None'}
                 radii="Pill"
                 onClick={() => setReadReceiptStyle('cinny')}
@@ -772,7 +772,7 @@ function Editor() {
               </Button>
               <Button
                 size="300"
-                variant={readReceiptStyle === 'element' ? 'Primary' : 'SurfaceVariant'}
+                variant={readReceiptStyle === 'element' ? 'Primary' : 'Secondary'}
                 fill={readReceiptStyle === 'element' ? 'Solid' : 'None'}
                 radii="Pill"
                 onClick={() => setReadReceiptStyle('element')}

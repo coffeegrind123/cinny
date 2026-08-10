@@ -21,7 +21,7 @@ import { FocusTrap } from 'focus-trap-react';
 import { RenderViewerProps, ImageOverlay } from '../ImageOverlay';
 import { AsyncStatus, useAsyncCallback } from '../../hooks/useAsyncCallback';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
-import { UrlPreview, UrlPreviewContent, UrlPreviewImg, UrlPreviewImgInside } from './UrlPreview';
+import { UrlPreview, UrlPreviewContent, UrlPreviewImg } from './UrlPreview';
 import {
   getIntersectionObserverEntry,
   useIntersectionObserver,
@@ -178,7 +178,11 @@ function ProxiedVideo({
       muted={isGif}
       playsInline
       preload="metadata"
-      referrerPolicy="no-referrer"
+      // React types have no referrerPolicy on <video> (the HTML spec has no such
+      // content attribute on media elements) but we emit it on purpose — see the
+      // Twitter/X media note in CLAUDE.md. A spread renders it identically while
+      // skipping excess-property checking.
+      {...{ referrerPolicy: 'no-referrer' }}
       style={{ aspectRatio: aspect }}
       onClick={(e) => e.stopPropagation()}
     />
@@ -322,7 +326,11 @@ function HlsVideo({
       loop
       playsInline
       preload="metadata"
-      referrerPolicy="no-referrer"
+      // React types have no referrerPolicy on <video> (the HTML spec has no such
+      // content attribute on media elements) but we emit it on purpose — see the
+      // Twitter/X media note in CLAUDE.md. A spread renders it identically while
+      // skipping excess-property checking.
+      {...{ referrerPolicy: 'no-referrer' }}
       style={{ aspectRatio: aspect, width: '100%' }}
       className={className}
       onClick={(e) => e.stopPropagation()}
@@ -507,7 +515,7 @@ export const UrlPreviewCard = as<
       <UrlPreview {...props} ref={ref}>
         <Box grow="Yes" direction="Column" style={{ position: 'relative', minWidth: 0 }}>
           <IconButton
-            size="200" radii="300" variant="SurfaceVariant"
+            size="300" radii="300" variant="SurfaceVariant"
             onClick={(e) => { e.stopPropagation(); setDismissed(true); }}
             aria-label="Dismiss embed"
             style={{ position: 'absolute', top: 4, right: 4, zIndex: 1 }}
@@ -659,7 +667,7 @@ export const UrlPreviewCard = as<
       <UrlPreview {...props} ref={ref}>
         <Box grow="Yes" direction="Column" style={{ position: 'relative', minWidth: 0 }}>
           <IconButton
-            size="200" radii="300" variant="SurfaceVariant"
+            size="300" radii="300" variant="SurfaceVariant"
             onClick={(e) => { e.stopPropagation(); setDismissed(true); }}
             aria-label="Dismiss embed"
             style={{ position: 'absolute', top: 4, right: 4, zIndex: 1 }}
@@ -879,7 +887,7 @@ export const UrlPreviewCard = as<
       <Box grow="Yes" direction="Column" style={{ position: 'relative', minWidth: 0 }}>
         {/* Dismiss button */}
         <IconButton
-          size="200"
+          size="300"
           radii="300"
           variant="SurfaceVariant"
           onClick={(e) => { e.stopPropagation(); setDismissed(true); }}
@@ -984,8 +992,8 @@ export const UrlPreviewCard = as<
             alt={title || ''}
             title={title}
             tabIndex={0}
-            onKeyDown={(evt) => onEnterOrSpace(() => setViewerSrc(imgUrl))(evt)}
-            onClick={() => setViewerSrc(imgUrl)}
+            onKeyDown={(evt) => onEnterOrSpace(() => setViewerSrc(imgUrl ?? undefined))(evt)}
+            onClick={() => setViewerSrc(imgUrl ?? undefined)}
           />
         )}
 

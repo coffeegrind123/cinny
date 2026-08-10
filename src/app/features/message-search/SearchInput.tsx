@@ -4,7 +4,7 @@ import { Box, Text, Input, Icon, Icons, Spinner, Chip, config } from 'folds';
 type SearchProps = {
   active?: boolean;
   loading?: boolean;
-  searchInputRef: RefObject<HTMLInputElement>;
+  searchInputRef: RefObject<HTMLInputElement | null>;
   onSearch: (term: string) => void;
   onReset: () => void;
 };

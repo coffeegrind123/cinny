@@ -127,7 +127,7 @@ export const ImageViewer = as<'div', ImageViewerProps>(
             <Text size="T300" truncate style={{ flex: 1, minWidth: 0 }}>
               {alt}
             </Text>
-            <IconButton size="200" radii="300" onClick={handleOpenExternal} aria-label="Open in browser">
+            <IconButton size="300" radii="300" onClick={handleOpenExternal} aria-label="Open in browser">
               <Icon size="50" src={Icons.External} />
             </IconButton>
           </Box>

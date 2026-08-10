@@ -162,7 +162,7 @@ export function Keybinds({ requestClose }: KeybindsProps) {
           <Box shrink="No" gap="200" alignItems="Center">
             <Button
               size="300"
-              variant="Surface"
+              variant="Secondary"
               fill="None"
               radii="Pill"
               onClick={handleResetAll}
@@ -207,8 +207,8 @@ export function Keybinds({ requestClose }: KeybindsProps) {
                                 />
                                 {isCustom && (
                                   <Button
-                                    size="200"
-                                    variant="Surface"
+                                    size="300"
+                                    variant="Secondary"
                                     fill="None"
                                     radii="Pill"
                                     onClick={() => handleReset(def.id)}

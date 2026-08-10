@@ -1,4 +1,5 @@
 import { MatrixClient } from 'matrix-js-sdk';
+import type { IPusher } from 'matrix-js-sdk';
 
 /**
  * Web Push subscription + Matrix pusher registration.
@@ -29,7 +30,7 @@ import { MatrixClient } from 'matrix-js-sdk';
 
 const APP_ID = 'in.cinny.app.web';
 
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = atob(base64);
@@ -117,6 +118,10 @@ export async function registerWebPushPusher(
           ? 'Chrome'
           : 'Browser',
       lang: navigator.language || 'en',
+      // IPusher['data'] is typed as just { format?, url?, brand? }, but the Matrix
+      // spec lets pusher data carry implementation-specific keys, and Sygnal's
+      // webpush pushkin requires endpoint/auth/p256dh to encrypt the payload
+      // against the browser's keys.
       data: {
         // Standard Matrix pusher data — `url` tells the homeserver where
         // to forward; `format: event_id_only` keeps message bodies off
@@ -133,7 +138,7 @@ export async function registerWebPushPusher(
           // sensible fallback notification if the room/event lookup fails.
           aps: { mutable_content: 1 },
         },
-      },
+      } as IPusher['data'],
       append: false,
     });
     return true;

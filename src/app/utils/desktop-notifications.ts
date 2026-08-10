@@ -357,7 +357,12 @@ export async function onNotificationAction(
           callback(extra);
         }
       });
-      unlisteners.push(() => listener());
+      // onAction() resolves to a PluginListener, whose teardown is
+      // .unregister() — calling the object itself threw "listener is not a
+      // function", so the listener was never actually removed.
+      unlisteners.push(() => {
+        listener.unregister();
+      });
     } catch (err) {
       console.error('[notif] Failed to register onAction listener:', err);
     }

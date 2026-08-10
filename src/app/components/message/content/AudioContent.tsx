@@ -45,7 +45,7 @@ export function AudioContent({ mimeType, url, encInfo }: AudioContentProps) {
   }, [needsBlob, loadSrc]);
 
   // Release the object URL when the component unmounts.
-  const blobRef = useRef<string>();
+  const blobRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (srcState.status === AsyncStatus.Success) blobRef.current = srcState.data;
   }, [srcState]);

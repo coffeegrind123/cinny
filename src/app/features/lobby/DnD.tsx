@@ -19,9 +19,9 @@ export type CanDropCallback = (item: HierarchyItem, container: DropContainerData
 
 export const useDraggableItem = (
   item: HierarchyItem,
-  targetRef: RefObject<HTMLElement>,
+  targetRef: RefObject<HTMLElement | null>,
   onDragging: (item?: HierarchyItem) => void,
-  dragHandleRef?: RefObject<HTMLElement>
+  dragHandleRef?: RefObject<HTMLElement | null>
 ): boolean => {
   const [dragging, setDragging] = useState(false);
 
@@ -119,7 +119,7 @@ export function AfterItemDropTarget({
 }
 
 export const useDnDMonitor = (
-  scrollRef: RefObject<HTMLElement>,
+  scrollRef: RefObject<HTMLElement | null>,
   onDragging: (item?: HierarchyItem) => void,
   onReorder: (item: HierarchyItem, container: DropContainerData) => void
 ) => {
