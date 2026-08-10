@@ -1,1 +1,0 @@
-import{d as e}from"./index-C6INohN-.js";async function t(t=0){await e(`plugin:process|exit`,{code:t})}async function n(){await e(`plugin:process|restart`)}export{t as exit,n as relaunch};
