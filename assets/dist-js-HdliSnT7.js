@@ -1,2 +1,0 @@
-import{d as e}from"./index-JZaLprBm.js";async function t(t=0){await e(`plugin:process|exit`,{code:t})}async function n(){await e(`plugin:process|restart`)}export{t as exit,n as relaunch};
-//# sourceMappingURL=dist-js-HdliSnT7.js.map
