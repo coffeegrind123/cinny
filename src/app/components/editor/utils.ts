@@ -221,6 +221,16 @@ export const moveCursor = (editor: Editor, withSpace?: boolean) => {
  * range restore, then focus the editor DOM node directly. If even that
  * fails the slate tree has been detached entirely (component
  * unmounting) — silently bail.
+ *
+ * Afterwards the caret MUST be put back. Slate drives every edit off
+ * `editor.selection`; leaving the editor focused with a null selection
+ * means each keystroke has to re-derive one from the DOM instead of
+ * continuing from the model, and characters end up landing at the same
+ * anchor repeatedly — which reads as text being typed in backwards.
+ * That is not hypothetical: the throwing branch above fires exactly when
+ * an emoticon element has just replaced the text node the selection
+ * pointed at, so picking an emoji and closing the board (which calls
+ * this) left the composer in precisely that state.
  */
 export const safeFocusEditor = (editor: Editor) => {
   try {
@@ -239,6 +249,14 @@ export const safeFocusEditor = (editor: Editor) => {
     el.focus({ preventScroll: true });
   } catch {
     // editor DOM node is gone — nothing more we can do
+    return;
+  }
+  try {
+    // End of the document is where the caret was headed anyway: this path is
+    // reached right after inserting an emoticon/mention at the cursor.
+    Transforms.select(editor, Editor.end(editor, []));
+  } catch {
+    // empty or detached tree — no valid point to select
   }
 };
 
