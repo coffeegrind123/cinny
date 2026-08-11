@@ -24,6 +24,7 @@ import { useSystemTray } from '../../hooks/useSystemTray';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { getInboxInvitesPath, getInboxNotificationsPath } from '../pathUtils';
 import { useRoomNavigate } from '../../hooks/useRoomNavigate';
+import { useWindowFocusedRef } from '../../hooks/useWindowFocused';
 import {
   getMemberDisplayName,
   getNotificationType,
@@ -189,6 +190,7 @@ function MessageNotifications() {
 
   const navigate = useNavigate();
   const { navigateRoom } = useRoomNavigate();
+  const windowFocusedRef = useWindowFocusedRef();
   const notificationSelected = useInboxNotificationsSelected();
   const selectedRoomId = useSelectedRoom();
 
@@ -330,7 +332,12 @@ function MessageNotifications() {
       data
     ) => {
       if (mx.getSyncState() !== 'SYNCING') return;
-      if (document.hasFocus() && (selectedRoomId === room?.roomId || notificationSelected)) return;
+      // Focus is read from the Tauri window when available: document.hasFocus()
+      // can report false inside a WebView while the window is plainly in front
+      // of the user, which is how OS toasts ended up firing at someone already
+      // looking at the app.
+      const focused = windowFocusedRef.current;
+      if (focused && (selectedRoomId === room?.roomId || notificationSelected)) return;
       if (
         !room ||
         !data.liveEvent ||
@@ -347,14 +354,17 @@ function MessageNotifications() {
       if ((mEvent as any).isEncrypted?.()) {
         const onDecrypted = () => {
           mEvent.off?.(MatrixEventEvent.Decrypted, onDecrypted);
-          sendNotif(mEvent, room);
+          // An OS toast is for when you are NOT looking at the app. While the
+          // window has focus the unread badge and the sound already tell you,
+          // so a toast on top of that is pure noise — even for another room.
+          if (!windowFocusedRef.current) sendNotif(mEvent, room);
           if (notificationSound) playSound();
         };
         mEvent.on?.(MatrixEventEvent.Decrypted, onDecrypted);
         return;
       }
 
-      sendNotif(mEvent, room);
+      if (!windowFocusedRef.current) sendNotif(mEvent, room);
       if (notificationSound) playSound();
     };
     mx.on(RoomEvent.Timeline, handleTimelineEvent);
