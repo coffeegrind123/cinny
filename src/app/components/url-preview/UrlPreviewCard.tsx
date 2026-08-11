@@ -944,7 +944,17 @@ export const UrlPreviewCard = as<
     !ogFallback &&
     !ogFallbackTried;
 
-  if (!effectivePreview && previewStatus.status !== AsyncStatus.Loading && !fallbackPending) {
+  // A link that IS the media plays without any preview data. A bare .mp4/.mp3
+  // serves no HTML, so the homeserver has nothing to scrape and returns an
+  // empty preview — which used to bail out here and render nothing at all.
+  const isDirectMediaLink = isWebUrl(url) && (isVideoUrl(url) || isAudioUrl(url));
+
+  if (
+    !effectivePreview &&
+    previewStatus.status !== AsyncStatus.Loading &&
+    !fallbackPending &&
+    !isDirectMediaLink
+  ) {
     return null;
   }
 
@@ -969,6 +979,12 @@ export const UrlPreviewCard = as<
     const imgUrl = isDirectImage
       ? rawOgImage
       : mxcUrlToHttp(mx, rawOgImage, useAuthentication, 512, 512, 'scale', false);
+
+    // og:image is a poster, never the media. When the link itself is the file,
+    // it is the only correct source — previously the <video> was pointed at
+    // og:image, so a direct .mp4 got an empty src and silently rendered nothing.
+    const directVideoUrl = isVideoUrl(url) && isWebUrl(url) ? url : '';
+    const directAudioUrl = isAudioUrl(url) && isWebUrl(url) ? url : '';
 
     const title = prev['og:title'] as string | undefined;
     const description = prev['og:description'] as string | undefined;
@@ -1093,31 +1109,32 @@ export const UrlPreviewCard = as<
         )}
 
         {/* Direct video URL */}
-        {!isYt && !hasOgVideo && isVideo && imgUrl && (
+        {!isYt && !hasOgVideo && isVideo && (directVideoUrl || imgUrl) && (
           <video
             className={urlPreviewCss.UrlPreviewVideo}
-            src={imgUrl}
+            src={directVideoUrl || imgUrl || undefined}
+            poster={directVideoUrl && imgUrl ? imgUrl : undefined}
             controls
             preload="metadata"
             style={ogVideoAspect ? { aspectRatio: ogVideoAspect } : undefined}
             onClick={(e) => e.stopPropagation()}
           >
-            <a href={imgUrl} target="_blank" rel="noreferrer">
+            <a href={directVideoUrl || imgUrl || undefined} target="_blank" rel="noreferrer">
               {title || 'Video'}
             </a>
           </video>
         )}
 
         {/* Audio embed */}
-        {isAudio && imgUrl && (
+        {isAudio && (directAudioUrl || imgUrl) && (
           <audio
             className={urlPreviewCss.UrlPreviewVideo}
-            src={imgUrl}
+            src={directAudioUrl || imgUrl || undefined}
             controls
             preload="metadata"
             onClick={(e) => e.stopPropagation()}
           >
-            <a href={imgUrl} target="_blank" rel="noreferrer">
+            <a href={directAudioUrl || imgUrl || undefined} target="_blank" rel="noreferrer">
               {title || 'Audio'}
             </a>
           </audio>
@@ -1231,8 +1248,11 @@ export const UrlPreviewCard = as<
 
   return (
     <UrlPreview {...props} ref={ref}>
-      {effectivePreview ? (
-        renderContent(effectivePreview as IPreviewUrlResponse)
+      {effectivePreview || isDirectMediaLink ? (
+        // A direct media link renders from the URL alone, so an absent preview
+        // is fine — without this it sat on the spinner forever waiting for
+        // metadata a raw .mp4 will never provide.
+        renderContent((effectivePreview ?? {}) as IPreviewUrlResponse)
       ) : (
         <Box grow="Yes" alignItems="Center" justifyContent="Center" style={{ padding: config.space.S400 }}>
           <Spinner variant="Secondary" size="400" />
