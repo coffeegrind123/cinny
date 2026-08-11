@@ -4,6 +4,10 @@ User-facing changes per commit. Most recent at the top.
 
 ## 11.08.2026
 
+- `bcb92f0` Improved **message search filling in as it goes**. It used to sit blank while it worked, then stop at the first match it found — so a single recent hit looked like the whole answer and older messages only turned up if you scrolled. Results now arrive a few at a time and keep coming until there is a proper list of them.
+- `bcb92f0` Improved **the settings menu on phones**, spacing the entries out and making each one a larger touch target so neighbouring rows are harder to hit by accident.
+- `bcb92f0` Added **link previews in encrypted rooms by default**. Note this asks your homeserver to fetch the link, which it cannot otherwise see inside an encrypted message — the setting turns it back off.
+- `bcb92f0` Improved **where the Telegram sticker import setting lives**, moving it from General to Emojis & Stickers, next to the packs it applies to.
 - `7679ea5` Improved **swiping toward a chat on mobile**, which now uncovers the conversation as you swipe, the same way swiping out of a chat reveals the list behind it. Previously there was nothing on the other side and the chat only appeared once the swipe finished. Rooms revealed this way are not marked as read — only opening one does that.
 - `7679ea5` Improved **search being the same everywhere**. The search button used to lead to two different screens depending on the window size, and the one on phones could only search messages. There is now a single search, and it finds both people and messages on every device.
 - `7679ea5` Fixed **the settings menu sitting against the top of the screen on mobile**, leaving a large gap below. The list is now centred vertically; the logout button stays where it was.
