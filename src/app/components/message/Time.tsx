@@ -37,7 +37,16 @@ export const Time = as<'span', TimeProps & ComponentProps<typeof Text>>(
     }
 
     return (
-      <Text as="time" style={{ flexShrink: 0 }} size="T200" priority="300" {...props} ref={ref}>
+      // userSelect: none — a timestamp is chrome, and including it in a
+      // selection is never what someone dragging across a message wanted.
+      <Text
+        as="time"
+        style={{ flexShrink: 0, userSelect: 'none' }}
+        size="T200"
+        priority="300"
+        {...props}
+        ref={ref}
+      >
         {time}
       </Text>
     );

@@ -807,7 +807,7 @@ export const Message = as<'div', MessageProps>(
           {tagIconSrc && <PowerIcon size="100" iconSrc={tagIconSrc} />}
         </Box>
         {messageLayout === MessageLayout.Modern && hover && (
-          <Box shrink="No">
+          <Box shrink="No" style={{ userSelect: 'none' }}>
             <Text as="span" size="T200" priority="300">
               @{getMxIdLocalPart(senderId)}
             </Text>

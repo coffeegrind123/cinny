@@ -181,7 +181,22 @@ export const BubbleLeftArrow = style({
   zIndex: 1,
 });
 
+/**
+ * Chrome around a message — sender name, timestamp, the hover-revealed mxid —
+ * is not content, and making it selectable actively breaks copying. The mxid
+ * only exists while hovered, so dragging across it mutates the DOM mid-drag
+ * and the browser re-anchors the selection somewhere else entirely, which is
+ * how a drag started at the timestamp ends up grabbing text from the left.
+ * Excluding it means a drag anywhere in the header starts cleanly on the
+ * message body, and a copied message contains the message rather than a
+ * timestamp glued to it.
+ */
+export const MessageChromeNoSelect = style({
+  userSelect: 'none',
+});
+
 export const Username = style({
+  userSelect: 'none',
   overflow: 'hidden',
   whiteSpace: 'nowrap',
   textOverflow: 'ellipsis',
