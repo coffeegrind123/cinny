@@ -54,9 +54,7 @@ import {
   getMemberDisplayName,
 } from '../../../utils/room';
 import {
-  getCanonicalAliasOrRoomId,
   getMxIdLocalPart,
-  isRoomAlias,
   mxcUrlToHttp,
 } from '../../../utils/matrix';
 import { markAsUnread } from '../../../utils/notifications';
@@ -336,7 +334,6 @@ export const MessageCopyLinkItem = as<
     onClose?: () => void;
   }
 >(({ room, mEvent, onClose, ...props }, ref) => {
-  const mx = useMatrixClient();
 
   const handleCopy = () => {
     const eventId = mEvent.getId();

@@ -1,4 +1,3 @@
-/* eslint-disable jsx-a11y/media-has-caption */
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { FocusTrap } from 'focus-trap-react';

@@ -10,7 +10,6 @@ import React, {
 import { useAtom, useAtomValue } from 'jotai';
 import { isKeyHotkey } from 'is-hotkey';
 import { EventType, IContent, MsgType, RelationType, Room } from 'matrix-js-sdk';
-import { ReactEditor } from 'slate-react';
 import { Transforms, Editor } from 'slate';
 import {
   Box,

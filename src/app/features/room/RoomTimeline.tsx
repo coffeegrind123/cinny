@@ -27,7 +27,6 @@ import {
 } from 'matrix-js-sdk';
 import { HTMLReactParserOptions } from 'html-react-parser';
 import classNames from 'classnames';
-import { ReactEditor } from 'slate-react';
 import { Editor } from 'slate';
 import to from 'await-to-js';
 import { useAtomValue, useSetAtom } from 'jotai';
@@ -42,7 +41,6 @@ import {
   Scroll,
   Text,
   as,
-  color,
   config,
   toRem,
 } from 'folds';

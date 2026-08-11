@@ -4,7 +4,6 @@ import {
   Box,
   Icon,
   Icons,
-  Modal,
   Overlay,
   OverlayBackdrop,
   OverlayCenter,

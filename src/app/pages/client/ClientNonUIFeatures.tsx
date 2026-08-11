@@ -171,7 +171,6 @@ function InviteNotifications() {
   }, [mx, invites, perviousInviteLen, showNotifications, notificationSound, notify, playSound]);
 
   return (
-    // eslint-disable-next-line jsx-a11y/media-has-caption
     <audio ref={audioRef} style={{ display: 'none' }}>
       <source src={InviteSound} type="audio/ogg" />
     </audio>
@@ -380,6 +379,7 @@ function MessageNotifications() {
     notify,
     selectedRoomId,
     useAuthentication,
+    windowFocusedRef,
   ]);
 
   // Prime the Tauri-desktop notification permission cache. The plugin's
@@ -422,7 +422,6 @@ function MessageNotifications() {
   }, [navigateRoom]);
 
   return (
-    // eslint-disable-next-line jsx-a11y/media-has-caption
     <audio ref={audioRef} style={{ display: 'none' }}>
       <source src={NotificationSound} type="audio/ogg" />
     </audio>

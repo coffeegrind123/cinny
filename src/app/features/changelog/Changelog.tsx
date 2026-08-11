@@ -9,7 +9,6 @@ import changelogMd from '../../../../CHANGELOG.md?raw';
 
 const REPO_RELEASES = 'https://github.com/coffeegrind123/prinny-client/releases';
 const CINNY_COMMIT_BASE = 'https://github.com/coffeegrind123/cinny/commit/';
-const CLIENT_COMMIT_BASE = 'https://github.com/coffeegrind123/prinny-client/commit/';
 
 function CodeSpan({ children }: { children: React.ReactNode }) {
   return (

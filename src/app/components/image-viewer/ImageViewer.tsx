@@ -23,7 +23,7 @@ export type ImageViewerProps = {
 export const ImageViewer = as<'div', ImageViewerProps>(
   ({ className, alt, src, requestClose, externalUrl, ...props }, ref) => {
     const { zoom, zoomIn, zoomOut, setZoom } = useZoom(0.2);
-    const { pan, cursor, onMouseDown } = usePan(zoom !== 1);
+    const { pan, onMouseDown } = usePan(zoom !== 1);
     const isMobile = useScreenSizeContext() === ScreenSize.Mobile;
     // Pinch-zoom state for touch devices. Tracks the initial distance and
     // zoom level at the start of a two-finger gesture so subsequent

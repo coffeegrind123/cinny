@@ -1,5 +1,4 @@
 import { atom } from 'jotai';
-import { settingsAtom } from './settings';
 
 export enum KeybindCategory {
   Messages = 'Messages',

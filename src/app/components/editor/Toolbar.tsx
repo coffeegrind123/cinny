@@ -47,7 +47,9 @@ function resolveFormatKey(id: string, fallback: string): string {
       const keys = settings.keybinds?.[id] ?? getKeybindDefinition(id)?.defaultKeys ?? fallback;
       return formatKeyCombo(keys);
     }
-  } catch {}
+  } catch {
+    // Malformed stored keybind — fall through to the default below.
+  }
   return formatKeyCombo(getKeybindDefinition(id)?.defaultKeys ?? fallback);
 }
 

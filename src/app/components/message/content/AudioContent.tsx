@@ -1,4 +1,3 @@
-/* eslint-disable jsx-a11y/media-has-caption */
 import { useCallback, useEffect, useRef } from 'react';
 import { Spinner, Text } from 'folds';
 import { EncryptedAttachmentInfo } from 'browser-encrypt-attachment';

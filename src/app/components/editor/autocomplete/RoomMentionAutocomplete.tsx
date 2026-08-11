@@ -1,6 +1,5 @@
 import { KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect } from 'react';
 import { Editor } from 'slate';
-import { ReactEditor } from 'slate-react';
 import { Avatar, Icon, Icons, MenuItem, Text } from 'folds';
 import { JoinRule, MatrixClient } from 'matrix-js-sdk';
 import { useAtomValue } from 'jotai';

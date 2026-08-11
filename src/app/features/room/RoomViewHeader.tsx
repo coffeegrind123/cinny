@@ -22,7 +22,6 @@ import {
   RectCords,
   Badge,
   Spinner,
-  Button,
 } from 'folds';
 import { useNavigate } from 'react-router-dom';
 import { Room } from 'matrix-js-sdk';
@@ -264,54 +263,6 @@ const RoomMenu = forwardRef<HTMLDivElement, RoomMenuProps>(({ room, requestClose
     </Menu>
   );
 });
-
-type CallMenuProps = {
-  onVoiceCall: () => void;
-  onVideoCall: () => void;
-  requestClose: () => void;
-};
-const CallMenu = forwardRef<HTMLDivElement, CallMenuProps>(
-  ({ requestClose, onVoiceCall, onVideoCall }, ref) => {
-    const handleVoice = () => {
-      onVoiceCall();
-      requestClose();
-    };
-    const handleVideo = () => {
-      onVideoCall();
-      requestClose();
-    };
-
-    return (
-      <Menu ref={ref} style={{ padding: config.space.S200, minWidth: toRem(150) }}>
-        <Box direction="Column" gap="200">
-          <Text size="L400">Start Call</Text>
-          <Box direction="Column" gap="200">
-            <Button
-              size="300"
-              variant="Success"
-              fill="Soft"
-              outlined
-              radii="300"
-              before={<Icon size="100" src={Icons.Phone} filled />}
-              onClick={handleVoice}
-            >
-              <Text size="B300">Voice</Text>
-            </Button>
-            <Button
-              size="300"
-              variant="Success"
-              radii="300"
-              before={<Icon size="100" src={Icons.VideoCamera} filled />}
-              onClick={handleVideo}
-            >
-              <Text size="B300">Video</Text>
-            </Button>
-          </Box>
-        </Box>
-      </Menu>
-    );
-  }
-);
 
 function CallButton({
   livekitSupported,

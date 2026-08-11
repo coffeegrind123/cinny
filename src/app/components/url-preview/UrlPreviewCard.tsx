@@ -531,7 +531,7 @@ export const UrlPreviewCard = as<
   // vxtwitter client-side fetch
   const [vxData, setVxData] = useState<any>(null);
   const [vxLoading, setVxLoading] = useState(false);
-  const [vxError, setVxError] = useState(false);
+  const [, setVxError] = useState(false);
   useEffect(() => {
     if (!twId) return;
     setVxLoading(true);
@@ -545,7 +545,7 @@ export const UrlPreviewCard = as<
   // Bluesky client-side fetch — public API, no auth needed.
   const [bskyData, setBskyData] = useState<any>(null);
   const [bskyLoading, setBskyLoading] = useState(false);
-  const [bskyError, setBskyError] = useState(false);
+  const [, setBskyError] = useState(false);
   useEffect(() => {
     if (!bskyPost) return;
     setBskyLoading(true);
