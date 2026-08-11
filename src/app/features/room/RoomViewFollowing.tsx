@@ -63,7 +63,13 @@ export const RoomViewFollowing = as<'div', RoomViewFollowingProps>(
                   escapeDeactivates: stopPropagation,
                 }}
               >
-                <Modal variant="Surface" size="300">
+                {/* flex column so EventReaders' maxHeight can shrink the modal
+                    to the size of the actual reader list. */}
+                <Modal
+                  variant="Surface"
+                  size="300"
+                  style={{ display: 'flex', flexDirection: 'column', maxHeight: '80vh' }}
+                >
                   <EventReaders room={room} eventId={eventId} requestClose={() => setOpen(false)} />
                 </Modal>
               </FocusTrap>

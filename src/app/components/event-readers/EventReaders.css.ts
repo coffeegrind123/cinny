@@ -4,7 +4,13 @@ import { DefaultReset, config } from 'folds';
 export const EventReaders = style([
   DefaultReset,
   {
-    height: '100%',
+    // Size to the number of readers rather than always filling the modal.
+    // `height: 100%` meant three people and thirty produced the same tall box,
+    // most of it empty. `maxHeight` lets the flex column shrink to its content
+    // while still capping at the viewport so a busy room stays scrollable.
+    maxHeight: '100%',
+    // Keeps a one-line list from collapsing to something cramped.
+    minHeight: 0,
   },
 ]);
 
