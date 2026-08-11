@@ -54,6 +54,17 @@ export const getFilesFromFileList = (fileList: FileList): File[] => {
   return files;
 };
 
+// `accept` must be a valid MIME pattern. A bare `*` is not one; `*/*` is.
+//
+// Browsers ignore an unparseable `accept` entry, so a bare `*` behaves fine on
+// web and desktop. Android does not have that luxury: the WebView hands
+// `acceptTypes` to `FileChooserParams.createIntent()`, which sets it as the
+// intent's MIME type. A bare `*` matches no intent filter, so no activity
+// resolves, wry's `onShowFileChooser` catches the ActivityNotFoundException and
+// calls back with null — the picker simply never appears. Tapping attach on
+// Android did nothing at all, and reported no error anywhere.
+const normalizeAccept = (accept: string): string => (accept === '*' ? '*/*' : accept);
+
 export const selectFile = <M extends boolean | undefined = undefined>(
   accept: string,
   multiple?: M
@@ -61,7 +72,7 @@ export const selectFile = <M extends boolean | undefined = undefined>(
   new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    if (accept) input.accept = accept;
+    if (accept) input.accept = normalizeAccept(accept);
     if (multiple) input.multiple = true;
 
     const changeHandler = () => {

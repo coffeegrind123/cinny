@@ -237,7 +237,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
     // the file picker dispatches into the active room's handleFiles —
     // RoomInput is mounted per-room so the binding is implicitly scoped.
     useKeybind('upload-file', () => {
-      pickFile('*');
+      pickFile('*/*');
     });
 
     // Escape from anywhere in the app should refocus the composer so users
@@ -642,7 +642,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
           }
           before={
             <IconButton
-              onClick={() => pickFile('*')}
+              onClick={() => pickFile('*/*')}
               variant="SurfaceVariant"
               size="300"
               radii="300"
