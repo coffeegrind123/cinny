@@ -1,5 +1,7 @@
 export * from './types';
 export * from './DummyStage';
+export * from './FallbackStage';
+export * from './HCaptchaStage';
 export * from './EmailStage';
 export * from './PasswordStage';
 export * from './ReCaptchaStage';

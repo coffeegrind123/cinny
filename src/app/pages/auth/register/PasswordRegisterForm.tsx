@@ -38,19 +38,32 @@ import {
   EmailStageDialog,
   ReCaptchaStageDialog,
   RegistrationTokenStageDialog,
+  FallbackStageDialog,
 } from '../../../components/uia-stages';
 import { useRegisterEmail } from '../../../hooks/useRegisterEmail';
 import { ConfirmPasswordMatch } from '../../../components/ConfirmPasswordMatch';
 import { UIAFlowOverlay } from '../../../components/UIAFlowOverlay';
 import { RequestEmailTokenCallback, RequestEmailTokenResponse } from '../../../hooks/types';
 
-export const SUPPORTED_REGISTER_STAGES = [
+/**
+ * Stages with a purpose-built dialog in this client. A flow made only of these
+ * is preferred, because completing it never leaves the app.
+ */
+export const NATIVE_REGISTER_STAGES: string[] = [
   AuthType.RegistrationToken,
   AuthType.Terms,
   AuthType.Recaptcha,
   AuthType.Email,
   AuthType.Dummy,
 ];
+
+/**
+ * Kept as the name Register.tsx imports. Anything outside this list is not
+ * unsupported any more — it is completed through the homeserver's own
+ * fallback page (see FallbackStageDialog) — but a flow needing no fallback is
+ * still the nicer one to pick when the server offers a choice.
+ */
+export const SUPPORTED_REGISTER_STAGES = NATIVE_REGISTER_STAGES;
 type RegisterFormInputs = {
   usernameInput: HTMLInputElement;
   passwordInput: HTMLInputElement;
@@ -161,6 +174,19 @@ function RegisterUIAFlow({
       )}
       {stageToComplete.type === AuthType.Dummy && (
         <AutoDummyStageDialog
+          stageData={stageToComplete}
+          submitAuthDict={handleAuthDict}
+          onCancel={handleCancel}
+        />
+      )}
+      {/*
+        Catch-all. Any stage without a native dialog above — m.login.msisdn, a
+        server-specific stage, anything added to the spec after this was
+        written — is handed to the homeserver's own fallback page instead of
+        rendering nothing and leaving the user stuck on a blank overlay.
+      */}
+      {!NATIVE_REGISTER_STAGES.includes(stageToComplete.type) && (
+        <FallbackStageDialog
           stageData={stageToComplete}
           submitAuthDict={handleAuthDict}
           onCancel={handleCancel}

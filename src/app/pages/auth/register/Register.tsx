@@ -59,21 +59,34 @@ export function Register() {
             flows={registerFlows.data.flows ?? []}
             supportedStages={SUPPORTED_REGISTER_STAGES}
           >
-            {(supportedFlows) =>
-              supportedFlows.length === 0 ? (
-                <Text style={{ color: color.Critical.Main }} size="T300">
-                  This application does not support registration on this homeserver.
-                </Text>
-              ) : (
+            {(supportedFlows) => {
+              // A flow made purely of natively-supported stages is preferred,
+              // but its absence no longer means registration is impossible:
+              // every remaining stage can be completed on the homeserver's own
+              // fallback page. Offer the server's flows as they are rather
+              // than refusing outright, which is what used to happen to anyone
+              // whose server required an unrecognised stage.
+              const flows =
+                supportedFlows.length > 0 ? supportedFlows : registerFlows.data.flows ?? [];
+
+              if (flows.length === 0) {
+                return (
+                  <Text style={{ color: color.Critical.Main }} size="T300">
+                    This homeserver offered no registration options.
+                  </Text>
+                );
+              }
+
+              return (
                 <PasswordRegisterForm
                   authData={registerFlows.data}
-                  uiaFlows={supportedFlows}
+                  uiaFlows={flows}
                   defaultUsername={registerSearchParams.username}
                   defaultEmail={registerSearchParams.email}
                   defaultRegisterToken={registerSearchParams.token}
                 />
-              )
-            }
+              );
+            }}
           </SupportedUIAFlowsLoader>
           <span data-spacing-node />
           {sso && <OrDivider />}
