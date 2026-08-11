@@ -22,7 +22,8 @@ import { allInvitesAtom } from '../../state/room-list/inviteList';
 import { usePreviousValue } from '../../hooks/usePreviousValue';
 import { useSystemTray } from '../../hooks/useSystemTray';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
-import { getInboxInvitesPath, getInboxNotificationsPath, getHomeRoomPath } from '../pathUtils';
+import { getInboxInvitesPath, getInboxNotificationsPath } from '../pathUtils';
+import { useRoomNavigate } from '../../hooks/useRoomNavigate';
 import {
   getMemberDisplayName,
   getNotificationType,
@@ -187,6 +188,7 @@ function MessageNotifications() {
   const [notificationContentMode] = useSetting(settingsAtom, 'notificationContentMode');
 
   const navigate = useNavigate();
+  const { navigateRoom } = useRoomNavigate();
   const notificationSelected = useInboxNotificationsSelected();
   const selectedRoomId = useSelectedRoom();
 
@@ -383,14 +385,19 @@ function MessageNotifications() {
     let unlisten: (() => void) | undefined;
     onNotificationAction(({ roomId, eventId }) => {
       if (roomId) {
-        navigate(getHomeRoomPath(roomId, eventId));
+        // navigateRoom, not a hardcoded Home path. A room that lives in a
+        // space or is a DM is not in Home's list, so /home/<roomId> rendered
+        // the room-preview card instead of the timeline — clicking the toast
+        // put you one click short of the conversation every time. This picks
+        // the space/direct/home route the rest of the app uses.
+        navigateRoom(roomId, eventId);
       }
       getCurrentWindow().setFocus().catch(() => {});
       getCurrentWindow().show().catch(() => {});
       getCurrentWindow().unminimize().catch(() => {});
     }).then((fn) => { unlisten = fn; });
     return () => { unlisten?.(); };
-  }, [navigate]);
+  }, [navigateRoom]);
 
   // Web push notification clicks: the SW posts a message picked up in
   // src/index.tsx and re-broadcast as a window CustomEvent.
@@ -398,11 +405,11 @@ function MessageNotifications() {
     const handler = (ev: Event) => {
       const detail = (ev as CustomEvent).detail as { roomId?: string; eventId?: string } | undefined;
       if (!detail?.roomId) return;
-      navigate(getHomeRoomPath(detail.roomId, detail.eventId));
+      navigateRoom(detail.roomId, detail.eventId);
     };
     window.addEventListener('cinny:notification-click', handler);
     return () => window.removeEventListener('cinny:notification-click', handler);
-  }, [navigate]);
+  }, [navigateRoom]);
 
   return (
     // eslint-disable-next-line jsx-a11y/media-has-caption
