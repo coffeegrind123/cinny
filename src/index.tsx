@@ -21,6 +21,43 @@ import { getFallbackSession } from './app/state/sessions';
 
 document.body.classList.add(configClass, varsClass);
 
+// A tab left open across a deploy is holding an index.html whose hashed chunks
+// the server has already pruned. Nothing fails until the app lazily imports one
+// — which for the crypto chunk is the moment someone signs in — and then the
+// import 404s and the whole app dies on "Failed to fetch dynamically imported
+// module". The service worker cannot save us here: it caches nothing, it only
+// injects auth headers on Matrix media.
+//
+// Vite fires `vite:preloadError` for exactly this case. Reloading pulls the
+// current index.html and its live chunk hashes, so the tab heals itself. The
+// timestamp guard matters: if a chunk is genuinely missing from the deploy,
+// reloading cannot fix it, and without the guard the tab would reload forever.
+// After one attempt we stop and let the error surface so the failure is
+// visible rather than an infinite spinner.
+const CHUNK_RELOAD_GUARD = 'cinny:chunk-reload-at';
+const CHUNK_RELOAD_COOLDOWN = 30 * 1000;
+
+window.addEventListener('vite:preloadError', (event) => {
+  let lastAttempt = 0;
+  try {
+    lastAttempt = Number(sessionStorage.getItem(CHUNK_RELOAD_GUARD) ?? 0);
+  } catch {
+    // sessionStorage throws in some privacy modes; treat as "never tried".
+  }
+
+  if (Date.now() - lastAttempt < CHUNK_RELOAD_COOLDOWN) return;
+
+  try {
+    sessionStorage.setItem(CHUNK_RELOAD_GUARD, String(Date.now()));
+  } catch {
+    // Without a usable guard, reloading risks a loop — let the error surface.
+    return;
+  }
+
+  event.preventDefault();
+  window.location.reload();
+});
+
 // Register Service Worker
 if ('serviceWorker' in navigator) {
   const swUrl =
