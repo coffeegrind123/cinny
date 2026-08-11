@@ -79,6 +79,24 @@ async function fetchBskyPost(actor: string, rkey: string): Promise<any> {
   return resp.json();
 }
 
+// Bluesky PROFILE urls: https://bsky.app/profile/{handle-or-did}, with no
+// trailing /post/{rkey}. Previously only post URLs were recognised, so a bare
+// profile link rendered no card at all.
+function getBskyProfileActor(url: string): string | null {
+  const m = url.match(
+    /^https?:\/\/(?:bsky\.app|cbsky\.app|psky\.app|deer\.social)\/profile\/([^/?#]+)\/?(?:[?#].*)?$/
+  );
+  return m ? m[1] : null;
+}
+
+async function fetchBskyProfile(actor: string): Promise<any> {
+  const resp = await fetch(
+    `${BSKY_API}/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(actor)}`
+  );
+  if (!resp.ok) throw new Error(`getProfile HTTP ${resp.status}`);
+  return resp.json();
+}
+
 const SOUNDCLOAK_HOST = 'sc1.maid.zone';
 const SOUNDCLOAK_RESTREAM_PATH = '/_/api/restream/';
 
@@ -506,6 +524,9 @@ export const UrlPreviewCard = as<
   // the viewer's IP to a host the message *sender* picked and tells that
   // sender when the message was rendered — a read receipt they control.
   const bskyPost = useBlueskyEmbeds ? getBskyPostInfo(url) : null;
+  // Gated identically to the post path: rendering a message must not fire an
+  // unprompted request to a host the *sender* chose.
+  const bskyActor = useBlueskyEmbeds && !bskyPost ? getBskyProfileActor(url) : null;
 
   // vxtwitter client-side fetch
   const [vxData, setVxData] = useState<any>(null);
@@ -535,6 +556,25 @@ export const UrlPreviewCard = as<
     // bskyPost is a fresh object each render — narrow deps to its primitives.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bskyPost?.actor, bskyPost?.rkey]);
+
+  // Bluesky profile fetch — public API, no auth.
+  const [bskyProfile, setBskyProfile] = useState<any>(null);
+  const [bskyProfileLoading, setBskyProfileLoading] = useState(false);
+  const [bskyProfileError, setBskyProfileError] = useState(false);
+  useEffect(() => {
+    if (!bskyActor) return;
+    setBskyProfileLoading(true);
+    setBskyProfileError(false);
+    fetchBskyProfile(bskyActor)
+      .then((d) => {
+        setBskyProfile(d);
+        setBskyProfileLoading(false);
+      })
+      .catch(() => {
+        setBskyProfileError(true);
+        setBskyProfileLoading(false);
+      });
+  }, [bskyActor]);
 
   const [viewerSrc, setViewerSrc] = useState<string>();
   const [expanded, setExpanded] = useState(false);
@@ -573,7 +613,7 @@ export const UrlPreviewCard = as<
     if (!clientPreviewFallback) return;
     if (previewStatus.status !== AsyncStatus.Error) return;
     if (ogFallbackTried) return;
-    if (twId || bskyPost || isYt) return;
+    if (twId || bskyPost || bskyActor || isYt) return;
     if (directAudio) return;
     setOgFallbackTried(true);
     fetchOgPreview(embedUrl).then((data) => {
@@ -588,6 +628,7 @@ export const UrlPreviewCard = as<
     twId,
     bskyPost?.actor,
     bskyPost?.rkey,
+    bskyActor,
     isYt,
     directAudio,
     embedUrl,
@@ -891,6 +932,86 @@ export const UrlPreviewCard = as<
       </UrlPreview>
     );
   }
+  // Bluesky PROFILE card. Every field comes from a third-party API, so the
+  // avatar is scheme-checked before it reaches an <img src> and the text
+  // fields render as React children (escaped) with hard length bounds.
+  if (bskyActor && dismissed) return null;
+  if (bskyActor && bskyProfile && !bskyProfileError) {
+    const pr = bskyProfile;
+    const handle = typeof pr.handle === 'string' ? pr.handle.slice(0, 253) : bskyActor;
+    const displayName =
+      typeof pr.displayName === 'string' && pr.displayName.trim()
+        ? pr.displayName.slice(0, 120)
+        : handle;
+    const description =
+      typeof pr.description === 'string' ? pr.description.slice(0, 500) : '';
+    const avatar = webUrlOrUndefined(pr.avatar);
+    const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : 0);
+
+    return (
+      <UrlPreview {...props} ref={ref}>
+        <Box
+          as="a"
+          {...{ href: safeUrl, target: '_blank', rel: 'noreferrer noopener' }}
+          direction="Column"
+          gap="200"
+          style={{ padding: config.space.S300, textDecoration: 'none', color: 'inherit' }}
+        >
+          <Box gap="300" alignItems="Center">
+            {avatar && (
+              <img
+                src={avatar}
+                alt=""
+                width={48}
+                height={48}
+                style={{ borderRadius: '50%', flexShrink: 0, objectFit: 'cover' }}
+              />
+            )}
+            <Box direction="Column" grow="Yes" style={{ minWidth: 0 }}>
+              <Text size="T300" truncate>
+                <b>{displayName}</b>
+              </Text>
+              <Text size="T200" priority="300" truncate>
+                @{handle}
+              </Text>
+            </Box>
+          </Box>
+
+          {description && (
+            <Text size="T200" style={{ whiteSpace: 'pre-wrap' }}>
+              {description}
+            </Text>
+          )}
+
+          <Box gap="300" wrap="Wrap">
+            <Text size="T200" priority="300">
+              <b>{num(pr.followersCount).toLocaleString()}</b> followers
+            </Text>
+            <Text size="T200" priority="300">
+              <b>{num(pr.followsCount).toLocaleString()}</b> following
+            </Text>
+            <Text size="T200" priority="300">
+              <b>{num(pr.postsCount).toLocaleString()}</b> posts
+            </Text>
+            <Text size="T200" priority="400">
+              Bluesky
+            </Text>
+          </Box>
+        </Box>
+      </UrlPreview>
+    );
+  }
+  if (bskyActor && bskyProfileLoading) {
+    return (
+      <UrlPreview {...props} ref={ref}>
+        <Box grow="Yes" alignItems="Center" justifyContent="Center" style={{ padding: config.space.S400 }}>
+          <Spinner variant="Secondary" size="400" />
+        </Box>
+      </UrlPreview>
+    );
+  }
+  // bskyProfileError: fall through to the Matrix og: preview.
+
   if (bskyPost && bskyLoading) {
     return (
       <UrlPreview {...props} ref={ref}>
