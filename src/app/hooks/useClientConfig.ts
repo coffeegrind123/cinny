@@ -17,6 +17,15 @@ export type ClientConfig = {
     servers?: string[];
   };
 
+  // Combined public homeserver directory, merged daily from asra.gr,
+  // joinmatrix.org and privacydev.net. Backs the homeserver autocomplete on
+  // the login/register screen and the server browser in Explore.
+  //
+  // Must be a URL that sends `Access-Control-Allow-Origin` — the three
+  // upstream lists do not, which is exactly why this indirection exists.
+  // Unset uses the default hosted at https://prinny.app/api/servers.json.
+  publicServersUrl?: string;
+
   hashRouter?: HashRouterConfig;
 
   // Web Push (background notifications when the tab is closed). Both

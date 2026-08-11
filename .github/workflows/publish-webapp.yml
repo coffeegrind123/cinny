@@ -137,6 +137,59 @@ jobs:
           echo "::add-mask::${AUTH_HEADER#AUTHORIZATION: basic }"
           git -c "http.extraheader=${AUTH_HEADER}" push origin webapp-release
 
+      # ---------------------------------------------------------------------
+      # Deploy the same build to https://prinny.app/app/
+      #
+      # This is a SECOND build, not a copy of the one above: Vite bakes the
+      # public base path into every emitted asset URL, and the webapp-release
+      # build uses '/' for self-hosters serving from a domain root. Served from
+      # a subdirectory, those absolute '/assets/...' URLs would 404. Setting
+      # PRINNY_BASE=/app/ re-emits them as '/app/assets/...'.
+      #
+      # Deep links work without any SPA rewrite because the app runs with
+      # hashRouter enabled, so the path is always exactly /app/.
+      # ---------------------------------------------------------------------
+      # The token check lives inside `run`, not in an `if:`. A step's own
+      # step-level `env:` is not in scope for its `if:` expression, so
+      # `if: env.DEPLOY_TOKEN != ''` would read as empty and skip forever.
+      # Same in-script guard the dispatch step below uses.
+      - name: Rebuild and deploy to prinny.app
+        if: success()
+        env:
+          DEPLOY_TOKEN: ${{ secrets.PRINNY_APP_DEPLOY_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=4096'
+          VERSION: ${{ steps.meta.outputs.version }}
+          SOURCE_SHORT: ${{ steps.meta.outputs.source_short }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DEPLOY_TOKEN:-}" ]; then
+            echo "::warning::PRINNY_APP_DEPLOY_TOKEN not set — skipping prinny.app/app deploy"
+            exit 0
+          fi
+          PRINNY_BASE=/app/ npm --prefix source run build
+          AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "${DEPLOY_TOKEN}" | base64 -w0)"
+          echo "::add-mask::${AUTH_HEADER#AUTHORIZATION: basic }"
+          git -c "http.extraheader=${AUTH_HEADER}" \
+            clone --depth 1 https://github.com/coffeegrind123/prinny.app.git site
+          cd site
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if grep -q "x-access-token" .git/config; then
+            echo "::error::token leaked into site/.git/config"
+            exit 1
+          fi
+          # Replace the whole directory so deleted assets do not linger.
+          rm -rf app
+          mkdir -p app
+          cp -a ../source/dist/. app/
+          git add -A app
+          if git diff --cached --quiet; then
+            echo "No changes vs. previous deploy — skipping commit"
+            exit 0
+          fi
+          git commit -m "Deploy webapp v${VERSION} (cinny ${SOURCE_SHORT})"
+          git -c "http.extraheader=${AUTH_HEADER}" push origin HEAD:main
+
       # Reactive submodule bump for prinny-client. PAT must have `Contents:
       # write` on coffeegrind123/prinny-client (fine-grained) or `repo` scope
       # (classic). Stored as a secret in this repo. If unset, this step
