@@ -10,6 +10,7 @@ import { mDirectAtom } from '../state/mDirectList';
 import { getCanonicalAliasOrRoomId } from '../utils/matrix';
 import { getHomeRoomPath, getDirectRoomPath } from './pathUtils';
 import { getLastOpenedRoomId, setLastOpenedRoomId } from '../state/lastOpenedRoom';
+import { SidebarNav } from './client/SidebarNav';
 
 /**
  * Wraps room/channel nav list with a right-edge swipe gesture.
@@ -121,7 +122,6 @@ export function MobileSwipeOpen({ children }: { children: React.ReactNode }) {
       )}
       <div
         ref={ref}
-        data-mobile-swipe-open={isTracking ? 'true' : undefined}
         // Opaque, for the same reason MobileSwipeBack is. The page background
         // is painted by PageRoot, a parent of this element — so translating
         // this one slid the nav's contents off their own backdrop, leaving the
@@ -135,6 +135,7 @@ export function MobileSwipeOpen({ children }: { children: React.ReactNode }) {
         // and a positioned backdrop would paint over it no matter that it comes
         // first in the document.
         style={{
+          display: 'flex',
           width: '100%',
           height: '100%',
           touchAction: 'pan-y',
@@ -142,7 +143,27 @@ export function MobileSwipeOpen({ children }: { children: React.ReactNode }) {
           zIndex: 1,
         }}
       >
-        {children}
+        {/*
+          The client rail lives INSIDE the swiping layer on these three
+          screens, so it slides out with the room list as one piece and the
+          chat arrives at full width. Rendered from ClientLayout it sat outside
+          the animation entirely: the chat was uncovered beside it and then
+          jumped 66px left when the rail unmounted on arrival.
+          MobileFriendlyClientNav stands down on mobile here to avoid a second
+          copy; Explore and Inbox, which have no swipe surface, still get theirs
+          from ClientLayout.
+        */}
+        <div style={{ flexShrink: 0, display: 'flex' }}>
+          <SidebarNav />
+        </div>
+        <div
+          // The tracking highlight is scoped to the list, not the rail, so the
+          // rail's own active-tab marker is left alone mid-gesture.
+          data-mobile-swipe-open={isTracking ? 'true' : undefined}
+          style={{ flexGrow: 1, minWidth: 0, display: 'flex' }}
+        >
+          {children}
+        </div>
       </div>
     </>
   );

@@ -1,23 +1,22 @@
 import { ReactNode } from 'react';
 import { useMatch } from 'react-router-dom';
 import { ScreenSize, useScreenSizeContext } from '../hooks/useScreenSize';
-import { DIRECT_PATH, EXPLORE_PATH, HOME_PATH, INBOX_PATH, SPACE_PATH } from './paths';
+import { EXPLORE_PATH, INBOX_PATH } from './paths';
 
 type MobileFriendlyClientNavProps = {
   children: ReactNode;
 };
 export function MobileFriendlyClientNav({ children }: MobileFriendlyClientNavProps) {
   const screenSize = useScreenSizeContext();
-  const homeMatch = useMatch({ path: HOME_PATH, caseSensitive: true, end: true });
-  const directMatch = useMatch({ path: DIRECT_PATH, caseSensitive: true, end: true });
-  const spaceMatch = useMatch({ path: SPACE_PATH, caseSensitive: true, end: true });
   const exploreMatch = useMatch({ path: EXPLORE_PATH, caseSensitive: true, end: true });
   const inboxMatch = useMatch({ path: INBOX_PATH, caseSensitive: true, end: true });
 
-  if (
-    screenSize === ScreenSize.Mobile &&
-    !(homeMatch || directMatch || spaceMatch || exploreMatch || inboxMatch)
-  ) {
+  if (screenSize === ScreenSize.Mobile) {
+    // Home, Direct and Space render the rail themselves, inside MobileSwipeOpen,
+    // so it slides out with the room list instead of standing still beside the
+    // animation. Rendering it here as well would show two copies of it.
+    // Explore and Inbox have no swipe surface, so they still get it from here.
+    if (exploreMatch || inboxMatch) return children;
     return null;
   }
 
