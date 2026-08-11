@@ -39,6 +39,31 @@ jobs:
         working-directory: source
         run: node scripts/rebrand.mjs
 
+      # This repository has no release tags of its own — versions are minted by
+      # prinny-client's release pipeline, which stamps them into
+      # cinny/package.json via scripts/bump-version.mjs. Nothing stamped them
+      # here, so both webapp-release and prinny.app/app shipped whatever
+      # version happened to be committed (4.11.10) while releases were at
+      # 4.11.121, and the About screen reads package.json directly.
+      - name: Stamp version from the latest prinny-client release
+        working-directory: source
+        run: |
+          set -euo pipefail
+          TAG=$(curl -fsSL https://api.github.com/repos/coffeegrind123/prinny-client/releases/latest \
+                | node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).tag_name || ""')
+          VERSION=${TAG#v}
+          if [ -z "$VERSION" ]; then
+            echo "::warning::Could not resolve a release tag — leaving the committed version alone"
+            exit 0
+          fi
+          node -e '
+            const fs = require("fs");
+            const p = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            p.version = process.argv[1];
+            fs.writeFileSync("package.json", JSON.stringify(p, null, 2) + "\n");
+          ' "$VERSION"
+          echo "Stamped $VERSION"
+
       - name: Build
         working-directory: source
         env:

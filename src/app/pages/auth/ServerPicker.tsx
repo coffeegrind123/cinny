@@ -9,7 +9,7 @@ import React, {
   useState,
 } from 'react';
 import {
-  Header,
+  Box,
   Icon,
   IconButton,
   Icons,
@@ -19,28 +19,33 @@ import {
   PopOut,
   RectCords,
   Text,
+  color,
   config,
 } from 'folds';
-import { FocusTrap } from 'focus-trap-react';
 
-import { useDebounce } from '../../hooks/useDebounce';
-import { stopPropagation } from '../../utils/keyboard';
 import { usePublicServers } from '../../hooks/usePublicServers';
 import { useClientConfig } from '../../hooks/useClientConfig';
 import { ServerBrowser } from '../../components/ServerBrowser';
 
-// Suggestions shown under the input while typing. The directory holds ~1150
-// servers; a dropdown listing all of them is not a picker, it is a wall.
 const MAX_SUGGESTIONS = 8;
 
 /**
- * Homeserver input with inline completion.
+ * Homeserver field.
  *
- * Typing "tchn" fills the field with "tchncs.de" and selects the "cs.de" the
- * user did not type, exactly as a browser address bar does. Carrying on typing
- * overwrites the selection, so the completion never fights the user — and
- * Backspace/Delete suppress it, otherwise deleting a character would instantly
- * re-add it and the field could not be cleared.
+ * TWO RULES SHAPE THIS COMPONENT:
+ *
+ * 1. Typing NEVER touches the network. `onServerChange` is what makes
+ *    AuthLayout run `.well-known` discovery and connect, and it used to be
+ *    called on a 700ms debounce from every keystroke — so typing "matrix.org"
+ *    fired discovery at "matri", "matrix.o" and so on, each a real request
+ *    against a half-typed hostname. That is what made the field lag and what
+ *    made it connect to servers nobody asked for. It now fires only on an
+ *    explicit commit: the confirm button, Enter, a suggestion, or the browser.
+ *
+ * 2. Completion is inline and local. Typing "tchn" fills in "tchncs.de" with
+ *    the un-typed part selected, address-bar style, matched against the
+ *    already-downloaded directory. Deletion suppresses it, or the field could
+ *    never be cleared.
  */
 export function ServerPicker({
   server,
@@ -53,57 +58,49 @@ export function ServerPicker({
   allowCustomServer?: boolean;
   onServerChange: (server: string) => void;
 }) {
-  const [serverMenuAnchor, setServerMenuAnchor] = useState<RectCords>();
+  const [anchor, setAnchor] = useState<RectCords>();
   const [browserOpen, setBrowserOpen] = useState(false);
   const [suggestOpen, setSuggestOpen] = useState(false);
-  const [typed, setTyped] = useState('');
+  const [typed, setTyped] = useState(server);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const serverInputRef = useRef<HTMLInputElement>(null);
-  // Set on the keydown that precedes an input event, so the change handler can
-  // tell a deletion from an insertion before it decides to complete.
+  const inputRef = useRef<HTMLInputElement>(null);
   const deletingRef = useRef(false);
 
   const { publicServersUrl } = useClientConfig();
   const { data } = usePublicServers(publicServersUrl);
 
   useEffect(() => {
-    // sync input with it outside server changes
-    if (serverInputRef.current && serverInputRef.current.value !== server) {
-      serverInputRef.current.value = server;
+    if (inputRef.current && inputRef.current.value !== server) {
+      inputRef.current.value = server;
     }
+    setTyped(server);
   }, [server]);
 
-  const debounceServerSelect = useDebounce(onServerChange, { wait: 700 });
-
-  // Config list first — those are the operator's own picks — then the live
-  // directory, best-known first.
+  // Config list first — the operator's own picks — then the live directory.
   const candidates = useMemo(() => {
     const seen = new Set<string>();
     const out: string[] = [];
-    const add = (name: string) => {
-      const n = name.trim().toLowerCase();
-      if (n && !seen.has(n)) {
-        seen.add(n);
-        out.push(n);
+    const add = (n: string) => {
+      const v = n.trim().toLowerCase();
+      if (v && !seen.has(v)) {
+        seen.add(v);
+        out.push(v);
       }
     };
     serverList.forEach(add);
-    if (data) {
-      data.servers.forEach((s) => {
-        if (s.registration.open) add(s.name);
-      });
-    }
+    data?.servers.forEach((s) => {
+      if (s.registration.open) add(s.name);
+    });
     return out;
   }, [serverList, data]);
 
   const suggestions = useMemo(() => {
     const q = typed.trim().toLowerCase();
     if (!q) return serverList.slice(0, MAX_SUGGESTIONS);
-    // Prefix matches are what the inline completion is based on, so show them
-    // first; substring matches follow for the "I know it has 'chat' in it" case.
     const prefix: string[] = [];
     const contains: string[] = [];
     for (const name of candidates) {
+      if (name === q) continue;
       if (name.startsWith(q)) prefix.push(name);
       else if (name.includes(q)) contains.push(name);
       if (prefix.length >= MAX_SUGGESTIONS) break;
@@ -115,57 +112,53 @@ export function ServerPicker({
     (value: string): string | undefined => {
       const q = value.trim().toLowerCase();
       if (q.length < 2) return undefined;
-      return candidates.find((name) => name.startsWith(q) && name !== q);
+      return candidates.find((n) => n.startsWith(q) && n !== q);
     },
-    [candidates],
+    [candidates]
+  );
+
+  /** The only path to the network. */
+  const commit = useCallback(
+    (value: string) => {
+      const next = value.trim().toLowerCase();
+      if (!next) return;
+      if (inputRef.current) inputRef.current.value = next;
+      setTyped(next);
+      setSuggestOpen(false);
+      setActiveIndex(-1);
+      onServerChange(next);
+    },
+    [onServerChange]
   );
 
   const handleKeyDownCapture: KeyboardEventHandler<HTMLInputElement> = (evt) => {
     deletingRef.current = evt.key === 'Backspace' || evt.key === 'Delete';
   };
 
-  const handleServerChange: ChangeEventHandler<HTMLInputElement> = (evt) => {
+  const handleChange: ChangeEventHandler<HTMLInputElement> = (evt) => {
     const input = evt.target;
     const raw = input.value;
     setTyped(raw);
     setActiveIndex(-1);
     setSuggestOpen(raw.trim().length > 0);
 
-    const inputServer = raw.trim();
-    if (!inputServer) return;
-
-    // Inline completion: only when adding text at the very end of the field.
-    // Completing mid-edit (or while deleting) would fight the caret.
+    // Inline completion only while appending at the very end.
     const atEnd = input.selectionStart === raw.length && input.selectionEnd === raw.length;
-    if (!deletingRef.current && atEnd) {
-      const completion = bestCompletion(inputServer);
+    if (!deletingRef.current && atEnd && raw.trim()) {
+      const completion = bestCompletion(raw.trim());
       if (completion) {
         input.value = completion;
-        input.setSelectionRange(inputServer.length, completion.length);
-        // Discovery runs against what the user actually typed, not the
-        // speculative completion — otherwise a stray keystroke would send us
-        // off connecting to someone else's server.
-        debounceServerSelect(inputServer);
-        return;
+        input.setSelectionRange(raw.trim().length, completion.length);
+        setTyped(completion);
       }
     }
-    debounceServerSelect(inputServer);
-  };
-
-  const commit = (value: string) => {
-    const next = value.trim();
-    if (!next) return;
-    if (serverInputRef.current) serverInputRef.current.value = next;
-    setTyped(next);
-    setSuggestOpen(false);
-    setActiveIndex(-1);
-    onServerChange(next);
+    // Deliberately no onServerChange here. See rule 1 above.
   };
 
   const handleKeyDown: KeyboardEventHandler<HTMLInputElement> = (evt) => {
     if (evt.key === 'ArrowDown') {
       evt.preventDefault();
-      if (suggestions.length > 0) {
+      if (suggestions.length) {
         setSuggestOpen(true);
         setActiveIndex((i) => (i + 1) % suggestions.length);
       }
@@ -173,18 +166,21 @@ export function ServerPicker({
     }
     if (evt.key === 'ArrowUp') {
       evt.preventDefault();
-      if (suggestions.length > 0) {
-        setActiveIndex((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+      if (suggestions.length) setActiveIndex((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+      return;
+    }
+    if (evt.key === 'Escape') {
+      if (suggestOpen) {
+        evt.preventDefault();
+        setSuggestOpen(false);
       }
       return;
     }
-    if (evt.key === 'Escape' && suggestOpen) {
-      evt.preventDefault();
-      setSuggestOpen(false);
-      return;
-    }
-    // Accept the greyed-out completion without submitting.
-    if ((evt.key === 'Tab' || evt.key === 'ArrowRight') && evt.currentTarget.selectionStart !== evt.currentTarget.selectionEnd) {
+    // Accept the selected completion without submitting.
+    if (
+      (evt.key === 'Tab' || evt.key === 'ArrowRight') &&
+      evt.currentTarget.selectionStart !== evt.currentTarget.selectionEnd
+    ) {
       const { value } = evt.currentTarget;
       if (evt.key === 'Tab') evt.preventDefault();
       evt.currentTarget.setSelectionRange(value.length, value.length);
@@ -193,37 +189,35 @@ export function ServerPicker({
     }
     if (evt.key === 'Enter') {
       evt.preventDefault();
-      const picked = activeIndex >= 0 ? suggestions[activeIndex] : evt.currentTarget.value;
-      commit(picked);
+      commit(activeIndex >= 0 ? suggestions[activeIndex] : evt.currentTarget.value);
     }
   };
 
-  const handleServerSelect: MouseEventHandler<HTMLButtonElement> = (evt) => {
-    const selectedServer = evt.currentTarget.getAttribute('data-server');
-    if (selectedServer) commit(selectedServer);
-    setServerMenuAnchor(undefined);
+  const handleSuggestionClick: MouseEventHandler<HTMLButtonElement> = (evt) => {
+    const picked = evt.currentTarget.getAttribute('data-server');
+    if (picked) commit(picked);
   };
 
-  const handleOpenServerMenu: MouseEventHandler<HTMLElement> = (evt) => {
-    const target = evt.currentTarget.parentElement ?? evt.currentTarget;
-    setServerMenuAnchor(target.getBoundingClientRect());
-  };
-
+  // Typed value has diverged from the connected one, so there is something to
+  // confirm. Drives the confirm button's prominence.
+  const dirty = typed.trim().toLowerCase() !== server.trim().toLowerCase();
   const showSuggestions = allowCustomServer && suggestOpen && suggestions.length > 0;
+  const serverCount = data?.servers.length ?? 0;
 
   return (
-    <>
+    <Box direction="Column" gap="100">
       {browserOpen && (
         <ServerBrowser requestClose={() => setBrowserOpen(false)} onSelect={commit} />
       )}
+
       <PopOut
-        anchor={showSuggestions ? serverMenuAnchor ?? undefined : undefined}
+        anchor={showSuggestions ? anchor : undefined}
         position="Bottom"
         align="Start"
         offset={4}
         content={
           showSuggestions ? (
-            <Menu style={{ minWidth: 'var(--popout-anchor-width, 16rem)' }}>
+            <Menu style={{ maxHeight: '16rem', overflowY: 'auto' }}>
               <div style={{ padding: config.space.S100 }}>
                 {suggestions.map((name, index) => (
                   <MenuItem
@@ -233,7 +227,10 @@ export function ServerPicker({
                     variant={index === activeIndex ? 'Primary' : 'Surface'}
                     aria-pressed={name === server}
                     data-server={name}
-                    onClick={handleServerSelect}
+                    // onMouseDown preventDefault: blur fires before click and
+                    // would close the menu before the handler ever ran.
+                    onMouseDown={(evt: React.MouseEvent) => evt.preventDefault()}
+                    onClick={handleSuggestionClick}
                     onMouseEnter={() => setActiveIndex(index)}
                   >
                     <Text size="T300" truncate>
@@ -247,8 +244,7 @@ export function ServerPicker({
         }
       >
         <Input
-          ref={serverInputRef}
-          style={{ paddingRight: config.space.S200 }}
+          ref={inputRef}
           variant={allowCustomServer ? 'Background' : 'Surface'}
           outlined
           defaultValue={server}
@@ -256,87 +252,66 @@ export function ServerPicker({
           autoCorrect="off"
           autoCapitalize="none"
           spellCheck={false}
-          onChange={handleServerChange}
+          readOnly={!allowCustomServer}
+          onChange={handleChange}
           onKeyDownCapture={handleKeyDownCapture}
           onKeyDown={handleKeyDown}
-          onFocus={(evt) => {
-            setServerMenuAnchor(evt.currentTarget.getBoundingClientRect());
-          }}
-          onBlur={() => {
-            // Delayed so a click on a suggestion lands before the menu closes.
-            setTimeout(() => setSuggestOpen(false), 150);
-          }}
+          onFocus={(evt) => setAnchor(evt.currentTarget.getBoundingClientRect())}
+          onBlur={() => setSuggestOpen(false)}
           size="500"
-          readOnly={!allowCustomServer}
-          onClick={allowCustomServer ? undefined : handleOpenServerMenu}
           after={
-            <>
-              {allowCustomServer && (
-                <IconButton
-                  onClick={() => setBrowserOpen(true)}
-                  variant="Background"
-                  size="300"
-                  radii="300"
-                  title="Browse all public servers"
-                  aria-label="Browse all public servers"
-                >
-                  <Icon src={Icons.Search} />
-                </IconButton>
-              )}
-              {serverList.length === 0 ||
-              (serverList.length === 1 && !allowCustomServer) ? undefined : (
-                <PopOut
-                  anchor={serverMenuAnchor && !showSuggestions ? serverMenuAnchor : undefined}
-                  position="Bottom"
-                  align="End"
-                  offset={4}
-                  content={
-                    <FocusTrap
-                      focusTrapOptions={{
-                        initialFocus: false,
-                        onDeactivate: () => setServerMenuAnchor(undefined),
-                        clickOutsideDeactivates: true,
-                        isKeyForward: (evt: KeyboardEvent) => evt.key === 'ArrowDown',
-                        isKeyBackward: (evt: KeyboardEvent) => evt.key === 'ArrowUp',
-                        escapeDeactivates: stopPropagation,
-                      }}
-                    >
-                      <Menu>
-                        <Header size="300" style={{ padding: `0 ${config.space.S200}` }}>
-                          <Text size="L400">Homeserver List</Text>
-                        </Header>
-                        <div style={{ padding: config.space.S100, paddingTop: 0 }}>
-                          {serverList?.map((serverName) => (
-                            <MenuItem
-                              key={serverName}
-                              radii="300"
-                              aria-pressed={serverName === server}
-                              data-server={serverName}
-                              onClick={handleServerSelect}
-                            >
-                              <Text>{serverName}</Text>
-                            </MenuItem>
-                          ))}
-                        </div>
-                      </Menu>
-                    </FocusTrap>
-                  }
-                >
-                  <IconButton
-                    onClick={handleOpenServerMenu}
-                    variant={allowCustomServer ? 'Background' : 'Surface'}
-                    size="300"
-                    aria-pressed={!!serverMenuAnchor}
-                    radii="300"
-                  >
-                    <Icon src={Icons.ChevronBottom} />
-                  </IconButton>
-                </PopOut>
-              )}
-            </>
+            allowCustomServer ? (
+              <IconButton
+                onClick={() => commit(inputRef.current?.value ?? '')}
+                variant={dirty ? 'Success' : 'Background'}
+                size="300"
+                radii="300"
+                disabled={!dirty}
+                title="Connect to this homeserver"
+                aria-label="Connect to this homeserver"
+              >
+                <Icon src={Icons.Check} />
+              </IconButton>
+            ) : undefined
           }
         />
       </PopOut>
-    </>
+
+      {/*
+        A labelled control, not a bare magnifier tucked inside the field.
+        Browsing 1,150 servers is the main way most people will choose one, so
+        it needs to read as an action rather than be guessed at.
+      */}
+      {allowCustomServer && (
+        <Box
+          as="button"
+          type="button"
+          onClick={() => setBrowserOpen(true)}
+          alignItems="Center"
+          gap="100"
+          style={{
+            alignSelf: 'flex-start',
+            background: 'none',
+            border: 'none',
+            padding: `${config.space.S100} 0 0`,
+            cursor: 'pointer',
+            color: color.Primary.Main,
+          }}
+        >
+          <Icon size="50" src={Icons.Server} />
+          <Text as="span" size="T200" style={{ color: 'inherit', textDecoration: 'underline' }}>
+            {serverCount > 0
+              ? `Browse ${serverCount.toLocaleString()} public servers`
+              : 'Browse public servers'}
+          </Text>
+        </Box>
+      )}
+
+      {dirty && (
+        <Text size="T200" priority="400">
+          Press Enter or the ✓ to connect to <b>{typed.trim().toLowerCase()}</b>.
+        </Text>
+      )}
+    </Box>
   );
 }
