@@ -97,6 +97,7 @@ import {
   useIntersectionObserver,
 } from '../../hooks/useIntersectionObserver';
 import { markAsRead } from '../../utils/notifications';
+import { useIsRoomBackdrop } from '../../hooks/useRoomBackdrop';
 import { useDebounce } from '../../hooks/useDebounce';
 import { getResizeObserverEntry, useResizeObserver } from '../../hooks/useResizeObserver';
 import * as css from './RoomTimeline.css';
@@ -454,6 +455,7 @@ const getRoomUnreadInfo = (room: Room, scrollTo = false) => {
 
 export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimelineProps) {
   const mx = useMatrixClient();
+  const isBackdrop = useIsRoomBackdrop();
   const useAuthentication = useMediaAuthentication();
   const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
   const [messageLayout] = useSetting(settingsAtom, 'messageLayout');
@@ -647,7 +649,11 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
         // otherwise we update timeline without paginating
         // so timeline can be updated with evt like: edits, reactions etc
         if (atBottomRef.current) {
-          if (document.hasFocus() && (!unreadInfo || mEvt.getSender() === mx.getUserId())) {
+          if (
+            !isBackdrop &&
+            document.hasFocus() &&
+            (!unreadInfo || mEvt.getSender() === mx.getUserId())
+          ) {
             // Check if the document is in focus (user is actively viewing the app),
             // and either there are no unread messages or the latest message is from the current user.
             // If either condition is met, trigger the markAsRead function to send a read receipt.
@@ -688,7 +694,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
           setTimeline(getInitialTimeline(room));
           scrollToBottomRef.current.count += 1;
           scrollToBottomRef.current.smooth = false;
-          if (document.hasFocus()) {
+          if (!isBackdrop && document.hasFocus()) {
             requestAnimationFrame(() => markAsRead(mx, mEvt.getRoomId()!, hideActivity));
           }
           return;
@@ -698,7 +704,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
           setUnreadInfo(getRoomUnreadInfo(room));
         }
       },
-      [mx, room, unreadInfo, hideActivity]
+      [mx, room, unreadInfo, hideActivity, isBackdrop]
     )
   );
 
@@ -765,6 +771,10 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
   );
 
   const tryAutoMarkAsRead = useCallback(() => {
+    // A backdrop room is mounted behind the room list purely so a swipe has
+    // something to uncover. Reporting it read would clear an unread badge the
+    // user never looked at.
+    if (isBackdrop) return;
     const readUptoEventId = readUptoEventIdRef.current;
     if (!readUptoEventId) {
       requestAnimationFrame(() => markAsRead(mx, room.roomId, hideActivity));
@@ -775,7 +785,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
     if (latestTimeline === room.getLiveTimeline()) {
       requestAnimationFrame(() => markAsRead(mx, room.roomId, hideActivity));
     }
-  }, [mx, room, hideActivity]);
+  }, [mx, room, hideActivity, isBackdrop]);
 
   const debounceSetAtBottom = useDebounce(
     useCallback((entry: IntersectionObserverEntry) => {

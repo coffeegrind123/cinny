@@ -163,11 +163,28 @@ const getRoomMemberStr: SearchItemStrGetter<RoomMember> = (m, query) =>
 type MembersDrawerProps = {
   room: Room;
   members: RoomMember[];
+  /**
+   * Render as a full-width overlay rather than a fixed-width side panel. Used
+   * below the desktop breakpoint, where this is the whole screen instead of a
+   * column beside the timeline.
+   */
+  overlay?: boolean;
+  /**
+   * What the close button does. Defaults to collapsing the people drawer
+   * setting, which is right for the desktop side panel; the overlay passes its
+   * own dismiss instead, since hiding it must not also turn the drawer off for
+   * desktop.
+   */
+  onClose?: () => void;
 };
-export function MembersDrawer({ room, members }: MembersDrawerProps) {
+export function MembersDrawer({ room, members, overlay, onClose }: MembersDrawerProps) {
   const mx = useMatrixClient();
   const useAuthentication = useMediaAuthentication();
   const setPeopleDrawer = useSetSetting(settingsAtom, 'isPeopleDrawer');
+  const closeDrawer = useCallback(() => {
+    if (onClose) onClose();
+    else setPeopleDrawer(false);
+  }, [onClose, setPeopleDrawer]);
   const screenSize = useScreenSizeContext();
   const { navigateRoom } = useRoomNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -242,9 +259,9 @@ export function MembersDrawer({ room, members }: MembersDrawerProps) {
       navigateRoom(roomId, eventId);
       // On mobile/tablet the drawer overlays the timeline — close it so the
       // jumped-to message is visible.
-      if (screenSize !== ScreenSize.Desktop) setPeopleDrawer(false);
+      if (screenSize !== ScreenSize.Desktop) closeDrawer();
     },
-    [navigateRoom, screenSize, setPeopleDrawer]
+    [navigateRoom, screenSize, closeDrawer]
   );
 
   // The toolbar search button has no drawer of its own to open on desktop, so it
@@ -279,8 +296,12 @@ export function MembersDrawer({ room, members }: MembersDrawerProps) {
 
   return (
     <Box
-      className={classNames(css.MembersDrawer, ContainerColor({ variant: 'Background' }))}
+      className={classNames(
+        overlay ? css.MembersDrawerOverlay : css.MembersDrawer,
+        ContainerColor({ variant: 'Background' })
+      )}
       shrink="No"
+      grow={overlay ? 'Yes' : undefined}
       direction="Column"
     >
       <Header className={css.MembersDrawerHeader} variant="Background" size="600">
@@ -305,7 +326,7 @@ export function MembersDrawer({ room, members }: MembersDrawerProps) {
                 <IconButton
                   ref={triggerRef}
                   variant="Background"
-                  onClick={() => setPeopleDrawer(false)}
+                  onClick={closeDrawer}
                 >
                   <Icon src={Icons.Cross} />
                 </IconButton>

@@ -12,11 +12,12 @@ import {
   Overlay,
   OverlayBackdrop,
   OverlayCenter,
+  Scroll,
   Text,
 } from 'folds';
 import { FocusTrap } from 'focus-trap-react';
 import { General } from './general';
-import { PageNav, PageNavContent, PageNavHeader, PageRoot } from '../../components/page';
+import { PageNav, PageNavHeader, PageRoot } from '../../components/page';
 import { ScreenSize, useScreenSizeContext } from '../../hooks/useScreenSize';
 import { useSwipeGesture } from '../../hooks/useSwipeGesture';
 import { Account } from './account';
@@ -198,8 +199,8 @@ export function Settings({ initialPage, requestClose }: SettingsProps) {
               </Box>
             </PageNavHeader>
             <Box grow="Yes" direction="Column">
-              <PageNavContent>
-                <div style={{ flexGrow: 1 }} className={settingsCss.SettingsMobileMenu}>
+              <Scroll hideTrack visibility="Hover" variant="Background" size="300">
+                <div className={settingsCss.SettingsMobileMenu}>
                   {menuItems.map((item) => (
                     <MenuItem
                       key={item.name}
@@ -221,7 +222,7 @@ export function Settings({ initialPage, requestClose }: SettingsProps) {
                     </MenuItem>
                   ))}
                 </div>
-              </PageNavContent>
+              </Scroll>
               <Box style={{ padding: config.space.S200 }} shrink="No" direction="Column">
                 <UseStateProvider initial={false}>
                   {(logout, setLogout) => (

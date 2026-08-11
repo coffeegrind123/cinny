@@ -9,6 +9,7 @@ import { useMatrixClient } from '../hooks/useMatrixClient';
 import { mDirectAtom } from '../state/mDirectList';
 import { getCanonicalAliasOrRoomId } from '../utils/matrix';
 import { getHomeRoomPath, getDirectRoomPath } from './pathUtils';
+import { getLastOpenedRoomId, setLastOpenedRoomId } from '../state/lastOpenedRoom';
 
 /**
  * Wraps room/channel nav list with a right-edge swipe gesture.
@@ -28,13 +29,6 @@ import { getHomeRoomPath, getDirectRoomPath } from './pathUtils';
  * with no rooms) doesn't have a phantom swipe surface.
  */
 
-// Module-scoped so it survives remounts. MobileFriendlyPageNav swaps its
-// return between bare `children` (parent path) and a wrapping <div> backdrop
-// (room sub-path), which remounts this component on every in/out transition —
-// a plain useState would reset to undefined and break swiping back into the
-// last conversation. A module variable persists across those remounts.
-let lastOpenedRoomId: string | undefined;
-
 export function MobileSwipeOpen({ children }: { children: React.ReactNode }) {
   const screenSize = useScreenSizeContext();
   const navigate = useNavigate();
@@ -50,14 +44,14 @@ export function MobileSwipeOpen({ children }: { children: React.ReactNode }) {
   // value (module-scoped, see above) lets the user toggle in/out of the same
   // conversation via swipe even though this component remounts each transition.
   useEffect(() => {
-    if (selectedRoomId) lastOpenedRoomId = selectedRoomId;
+    if (selectedRoomId) setLastOpenedRoomId(selectedRoomId);
   }, [selectedRoomId]);
 
   // Resolve the target path. selectedRoomId / lastOpenedRoomId are resolved
   // here; the first-rendered-link fallback is deferred to gesture time
   // because it depends on DOM state that only exists after render.
   const resolveTargetPath = useCallback((): string | null => {
-    const target = selectedRoomId ?? lastOpenedRoomId;
+    const target = selectedRoomId ?? getLastOpenedRoomId();
     if (target) {
       const room = mx.getRoom(target);
       if (room) {
@@ -135,7 +129,18 @@ export function MobileSwipeOpen({ children }: { children: React.ReactNode }) {
         // background of their own. Painting the layer that actually moves
         // keeps it looking like one solid page sliding across.
         className={ContainerColor({ variant: 'Background' })}
-        style={{ width: '100%', height: '100%', touchAction: 'pan-y' }}
+        // Positioned with an explicit z-index so it stacks above
+        // MobileRoomBackdrop, which renders the last-opened room at z-index 0
+        // for this swipe to uncover. Without `position` this element is static,
+        // and a positioned backdrop would paint over it no matter that it comes
+        // first in the document.
+        style={{
+          width: '100%',
+          height: '100%',
+          touchAction: 'pan-y',
+          position: 'relative',
+          zIndex: 1,
+        }}
       >
         {children}
       </div>

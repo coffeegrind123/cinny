@@ -52,6 +52,7 @@ import { SidebarNav } from './client/SidebarNav';
 import { PageRoot } from '../components/page';
 import { ScreenSize } from '../hooks/useScreenSize';
 import { MobileFriendlyPageNav, MobileFriendlyClientNav } from './MobileFriendly';
+import { MobileRoomBackdrop } from './MobileRoomBackdrop';
 import { MobileSwipeOpen } from './MobileSwipeOpen';
 import { ClientInitStorageAtom } from './client/ClientInitStorageAtom';
 import { ClientNonUIFeatures } from './client/ClientNonUIFeatures';
@@ -173,7 +174,15 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
             </PageRoot>
           }
         >
-          {mobile ? null : <Route index element={<WelcomePage />} />}
+          {/*
+            On mobile the index route used to render nothing, which is why
+            swiping toward a chat uncovered flat colour: there was no other
+            side. MobileRoomBackdrop mounts the last-opened room beneath the
+            list so the gesture reveals the real conversation, mirroring the
+            back-swipe. It suppresses read receipts for that tree — see
+            RoomBackdropProvider.
+          */}
+          <Route index element={mobile ? <MobileRoomBackdrop /> : <WelcomePage />} />
           <Route path={_CREATE_PATH} element={<HomeCreateRoom />} />
           <Route path={_JOIN_PATH} element={<p>join</p>} />
           <Route path={_SEARCH_PATH} element={<HomeSearch />} />
@@ -202,7 +211,15 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
             </PageRoot>
           }
         >
-          {mobile ? null : <Route index element={<WelcomePage />} />}
+          {/*
+            On mobile the index route used to render nothing, which is why
+            swiping toward a chat uncovered flat colour: there was no other
+            side. MobileRoomBackdrop mounts the last-opened room beneath the
+            list so the gesture reveals the real conversation, mirroring the
+            back-swipe. It suppresses read receipts for that tree — see
+            RoomBackdropProvider.
+          */}
+          <Route index element={mobile ? <MobileRoomBackdrop /> : <WelcomePage />} />
           <Route path={_CREATE_PATH} element={<DirectCreate />} />
           <Route
             path={_ROOM_PATH}

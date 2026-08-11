@@ -9,7 +9,33 @@ export const SequenceCardStyle = style({
 // viewport). Make each menu item fill that width and centre its icon+label
 // group so the list reads as a centered, full-width menu rather than a narrow
 // left-aligned sidebar list.
-export const SettingsMobileMenu = style({});
+//
+// This element sits directly inside the Scroll, in the same position
+// PageNavContent's own div normally occupies, and repeats that padding. That
+// position is what makes `minHeight: 100%` resolve — the scroll viewport above
+// it has a definite height — which in turn is what lets the mobile rule below
+// centre the list vertically instead of leaving it stuck to the top of a tall,
+// mostly-empty screen. Nested one level deeper (inside PageNavContent) the
+// percentage has no definite height to resolve against and the centring
+// silently does nothing.
+export const SettingsMobileMenu = style({
+  minHeight: '100%',
+  boxSizing: 'border-box',
+  padding: config.space.S200,
+  paddingRight: 0,
+  paddingBottom: config.space.S700,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      // The tall bottom padding exists to keep the last item clear of the
+      // desktop nav's edge. Centring makes it an asymmetry instead, pushing
+      // the group visibly above true centre.
+      paddingBottom: config.space.S200,
+    },
+  },
+});
 globalStyle(`${SettingsMobileMenu} > button`, {
   '@media': {
     'screen and (max-width: 640px)': {

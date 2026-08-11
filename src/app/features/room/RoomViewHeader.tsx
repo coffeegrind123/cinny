@@ -400,16 +400,23 @@ export function RoomViewHeader({ callView }: { callView?: boolean }) {
       navigate(withSearchParam(path, searchParams));
       return;
     }
+    // Both branches land on the same component — the members drawer, which
+    // searches people and messages together. Desktop reveals it as the side
+    // panel; below that it opens full-screen over the timeline. Only the
+    // presentation differs, so the button means the same thing at every width.
     if (screenSize === ScreenSize.Desktop) {
-      // Desktop has no search overlay — people + message search lives in the
-      // members drawer. Open it if needed and put the caret in its search box,
-      // so the toolbar button is a real entry point rather than the search
-      // being reachable only by opening the member list and noticing the field.
+      // Open it if needed and put the caret in its search box, so the toolbar
+      // button is a real entry point rather than the search being reachable
+      // only by opening the member list and noticing the field.
       setPeopleDrawer(true);
       requestSearchFocus((n) => n + 1);
       return;
     }
-    setSearchOpen((open) => !open);
+    setSearchOpen((open) => {
+      // Focus only when opening; toggling shut should not pull the caret back.
+      if (!open) requestSearchFocus((n) => n + 1);
+      return !open;
+    });
   };
 
   const handleOpenMenu: MouseEventHandler<HTMLButtonElement> = (evt) => {

@@ -5,7 +5,6 @@ import { isKeyHotkey } from '../../utils/is-hotkey';
 import { useAtom, useAtomValue } from 'jotai';
 import { RoomView } from './RoomView';
 import { MembersDrawer } from './MembersDrawer';
-import { RoomSearch } from './RoomSearch';
 import { roomSearchOpenAtom } from '../../state/roomSearch';
 import { ScreenSize, useScreenSizeContext } from '../../hooks/useScreenSize';
 import { useSetting } from '../../state/hooks/settings';
@@ -23,6 +22,7 @@ import { CallChatView } from './CallChatView';
 import { MobileSwipeBack } from './MobileSwipeBack';
 import { useCallEmbed } from '../../hooks/useCallEmbed';
 import { useCallMembers, useCallSession } from '../../hooks/useCall';
+import { useIsRoomBackdrop } from '../../hooks/useRoomBackdrop';
 
 export function Room() {
   const { eventId } = useParams();
@@ -47,15 +47,20 @@ export function Room() {
   const members = useRoomMembers(mx, room.roomId);
   const chat = useAtomValue(callChatAtom);
 
+  // This listener is on `window`, so a backdrop room mounted behind the room
+  // list would answer Escape too — marking a room read that is not even on
+  // screen, and racing the visible room for the same key.
+  const isBackdrop = useIsRoomBackdrop();
   useKeyDown(
     window,
     useCallback(
       (evt) => {
+        if (isBackdrop) return;
         if (isKeyHotkey('escape', evt)) {
           markAsRead(mx, room.roomId, hideActivity);
         }
       },
-      [mx, room.roomId, hideActivity]
+      [mx, room.roomId, hideActivity, isBackdrop]
     )
   );
 
@@ -81,7 +86,22 @@ export function Room() {
             </Box>
             {searchOpen && screenSize !== ScreenSize.Desktop && (
               <Box style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
-                <RoomSearch key={room.roomId} room={room} />
+                {/*
+                  Same component the desktop side panel uses, rendered
+                  full-screen. There used to be a second, messages-only search
+                  view here, so the toolbar's search button led somewhere
+                  different depending purely on window width. Both were driven
+                  by the same hooks (useMessageSearch / useClientRoomSearch /
+                  SearchResultGroup), so collapsing onto this one costs no
+                  capability and gains people search on mobile.
+                */}
+                <MembersDrawer
+                  key={room.roomId}
+                  room={room}
+                  members={members}
+                  overlay
+                  onClose={() => setSearchOpen(false)}
+                />
               </Box>
             )}
           </Box>

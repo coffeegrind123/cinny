@@ -5,6 +5,14 @@ export const MembersDrawer = style({
   width: toRem(266),
 });
 
+// Below the desktop breakpoint this is not a column beside the timeline, it is
+// the whole screen, so it takes the full width instead of the sidebar's fixed
+// 266.
+export const MembersDrawerOverlay = style({
+  width: '100%',
+  minWidth: 0,
+});
+
 export const MembersDrawerHeader = style({
   flexShrink: 0,
   padding: `0 ${config.space.S200} 0 ${config.space.S300}`,

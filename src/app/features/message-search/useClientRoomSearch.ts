@@ -41,7 +41,7 @@ const toEventWithRoomId = (mEvent: MatrixEvent, roomId: string): IEventWithRoomI
   ({
     ...mEvent.getEffectiveEvent(),
     room_id: roomId,
-  } as IEventWithRoomId);
+  }) as IEventWithRoomId;
 
 const groupMatches = (events: MatrixEvent[], roomId: string): ResultGroup[] => {
   if (events.length === 0) return [];
@@ -77,7 +77,7 @@ const eventMatches = (mEvent: MatrixEvent, needle: string, words: string[]): boo
 
 /**
  * Client-side message search for a single (typically encrypted) room.
- * Mirrors the shape returned by {@link useMessageSearch} so `RoomSearch` can use
+ * Mirrors the shape returned by {@link useMessageSearch} so the drawer's message results can use
  * either interchangeably behind the same infinite-query.
  */
 export const useClientRoomSearch = (room: Room, term?: string) => {
@@ -139,8 +139,8 @@ export const useClientRoomSearch = (room: Room, term?: string) => {
             mEvent.getType() === EventType.RoomMessageEncrypted &&
             !mEvent.isDecryptionFailure()
               ? mx.decryptEventIfNeeded(mEvent).catch(() => undefined)
-              : undefined
-          )
+              : undefined,
+          ),
         );
 
         for (let i = 0; i < fresh.length; i += 1) {
@@ -212,6 +212,6 @@ export const useClientRoomSearch = (room: Room, term?: string) => {
         nextToken: hasMore ? String(nextOffset) : undefined,
       };
     },
-    [mx, room, term]
+    [mx, room, term],
   );
 };
