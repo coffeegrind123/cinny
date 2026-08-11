@@ -1,7 +1,7 @@
 {
   "name": "Prinny",
   "short_name": "Prinny",
-  "description": "Yet another matrix client",
+  "description": "A Matrix chat client that actually feels native.",
   "dir": "auto",
   "lang": "en-US",
   "display": "standalone",
