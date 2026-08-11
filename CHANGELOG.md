@@ -4,6 +4,7 @@ User-facing changes per commit. Most recent at the top.
 
 ## 11.08.2026
 
+- `3a1e9bb` Improved **what happens on a server that will not let apps complete sign-up**. Some servers require a step they keep to their own website. Instead of a blank error page, the app now says so plainly and links that server's actual sign-up page, so you can create the account there and come straight back to sign in.
 - `258978b` Added **support for servers that use hCaptcha**. Some homeservers run hCaptcha while still presenting it as the standard captcha step, and the app was drawing Google's box with an hCaptcha key — which can never be solved, so registration on those servers was impossible. The right captcha is now shown for each.
 - `258978b` Fixed **being turned away from servers with an unfamiliar sign-up step**. Anything the app does not handle itself — a phone-number check, a captcha provider it does not recognise, something a server invented — now opens the server's own sign-up page in a second window; finish there and you are brought straight back. Previously this said "this application does not support registration on this homeserver" and stopped.
 - `94a3982` Added **a directory of public Matrix servers**, replacing the matrixrooms.info room feed. Around 1,150 servers, merged and deduplicated every day from three independent lists (asra.gr, joinmatrix.org, privacydev.net). Explore now offers "Browse public servers" — pick any server and read its own public room directory, instead of one third party's view of which rooms are worth seeing.
