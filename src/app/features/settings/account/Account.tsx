@@ -1,5 +1,5 @@
 import { Box, Text, IconButton, Icon, Icons, Scroll } from 'folds';
-import { Page, PageContent, PageHeader } from '../../../components/page';
+import { Page, PageContent, PageContentCenter, PageHeader } from '../../../components/page';
 import { MatrixId } from './MatrixId';
 import { Profile } from './Profile';
 import { ContactInformation } from './ContactInfo';
@@ -28,12 +28,14 @@ export function Account({ requestClose }: AccountProps) {
       <Box grow="Yes">
         <Scroll hideTrack visibility="Hover">
           <PageContent>
-            <Box direction="Column" gap="700">
-              <Profile />
-              <MatrixId />
-              <ContactInformation />
-              <IgnoredUserList />
-            </Box>
+            <PageContentCenter>
+              <Box direction="Column" gap="700">
+                <Profile />
+                <MatrixId />
+                <ContactInformation />
+                <IgnoredUserList />
+              </Box>
+            </PageContentCenter>
           </PageContent>
         </Scroll>
       </Box>

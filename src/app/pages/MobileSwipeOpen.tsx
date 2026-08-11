@@ -2,6 +2,7 @@ import React, { useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAtomValue } from 'jotai';
 import { useSwipeGesture } from '../hooks/useSwipeGesture';
+import { ContainerColor } from '../styles/ContainerColor.css';
 import { ScreenSize, useScreenSizeContext } from '../hooks/useScreenSize';
 import { useSelectedRoom } from '../hooks/router/useSelectedRoom';
 import { useMatrixClient } from '../hooks/useMatrixClient';
@@ -127,6 +128,13 @@ export function MobileSwipeOpen({ children }: { children: React.ReactNode }) {
       <div
         ref={ref}
         data-mobile-swipe-open={isTracking ? 'true' : undefined}
+        // Opaque, for the same reason MobileSwipeBack is. The page background
+        // is painted by PageRoot, a parent of this element — so translating
+        // this one slid the nav's contents off their own backdrop, leaving the
+        // room list see-through with only the individual name chips carrying a
+        // background of their own. Painting the layer that actually moves
+        // keeps it looking like one solid page sliding across.
+        className={ContainerColor({ variant: 'Background' })}
         style={{ width: '100%', height: '100%', touchAction: 'pan-y' }}
       >
         {children}

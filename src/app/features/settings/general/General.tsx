@@ -29,7 +29,7 @@ import {
 } from 'folds';
 import { isKeyHotkey } from '../../../utils/is-hotkey';
 import { FocusTrap } from 'focus-trap-react';
-import { Page, PageContent, PageHeader } from '../../../components/page';
+import { Page, PageContent, PageContentCenter, PageHeader } from '../../../components/page';
 import { SequenceCard } from '../../../components/sequence-card';
 import { useSetting } from '../../../state/hooks/settings';
 import { DateFormat, MessageLayout, MessageSpacing, settingsAtom } from '../../../state/settings';
@@ -75,7 +75,7 @@ const ThemeSelector = as<'div', ThemeSelectorProps>(
         ))}
       </Box>
     </Menu>
-  )
+  ),
 );
 
 function SelectTheme({ disabled }: { disabled?: boolean }) {
@@ -764,7 +764,7 @@ function Editor() {
   const [usePiped, setUsePiped] = useSetting(settingsAtom, 'usePiped');
   const [clientPreviewFallback, setClientPreviewFallback] = useSetting(
     settingsAtom,
-    'clientPreviewFallback'
+    'clientPreviewFallback',
   );
   const [minimizeToTray, setMinimizeToTray] = useSetting(settingsAtom, 'minimizeToTray');
 
@@ -867,11 +867,7 @@ function Editor() {
       </SequenceCard>
       {isTauri() && (
         <>
-          <SequenceCard
-            className={SequenceCardStyle}
-            variant="SurfaceVariant"
-            direction="Column"
-          >
+          <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
             <SettingTile
               title="Minimize to Tray"
               description="When closing the window, hide to system tray instead of quitting."
@@ -880,11 +876,7 @@ function Editor() {
               }
             />
           </SequenceCard>
-          <SequenceCard
-            className={SequenceCardStyle}
-            variant="SurfaceVariant"
-            direction="Column"
-          >
+          <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
             <SettingTile
               title="Client-side link previews (fallback)"
               description="When your homeserver can't generate a link preview, fetch the page directly from this app to build the card. Helps sites that block your homeserver's preview fetcher. Requests are guarded against private/internal addresses."
@@ -1044,15 +1036,15 @@ function SelectMessageSpacing() {
 function Messages() {
   const [legacyUsernameColor, setLegacyUsernameColor] = useSetting(
     settingsAtom,
-    'legacyUsernameColor'
+    'legacyUsernameColor',
   );
   const [hideMembershipEvents, setHideMembershipEvents] = useSetting(
     settingsAtom,
-    'hideMembershipEvents'
+    'hideMembershipEvents',
   );
   const [hideNickAvatarEvents, setHideNickAvatarEvents] = useSetting(
     settingsAtom,
-    'hideNickAvatarEvents'
+    'hideNickAvatarEvents',
   );
   const [mediaAutoLoad, setMediaAutoLoad] = useSetting(settingsAtom, 'mediaAutoLoad');
   const [urlPreview, setUrlPreview] = useSetting(settingsAtom, 'urlPreview');
@@ -1163,12 +1155,14 @@ export function General({ requestClose }: GeneralProps) {
       <Box grow="Yes">
         <Scroll hideTrack visibility="Hover">
           <PageContent>
-            <Box direction="Column" gap="700">
-              <Appearance />
-              <DateAndTime />
-              <Editor />
-              <Messages />
-            </Box>
+            <PageContentCenter>
+              <Box direction="Column" gap="700">
+                <Appearance />
+                <DateAndTime />
+                <Editor />
+                <Messages />
+              </Box>
+            </PageContentCenter>
           </PageContent>
         </Scroll>
       </Box>

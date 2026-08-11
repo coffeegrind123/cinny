@@ -1,5 +1,5 @@
 import { Box, Text, IconButton, Icon, Icons, Scroll } from 'folds';
-import { Page, PageContent, PageHeader } from '../../../components/page';
+import { Page, PageContent, PageContentCenter, PageHeader } from '../../../components/page';
 import { SystemNotification } from './SystemNotification';
 import { AllMessagesNotifications } from './AllMessages';
 import { SpecialMessagesNotifications } from './SpecialMessages';
@@ -31,25 +31,27 @@ export function Notifications({ requestClose }: NotificationsProps) {
       <Box grow="Yes">
         <Scroll hideTrack visibility="Hover">
           <PageContent>
-            <Box direction="Column" gap="700">
-              <SystemNotification />
-              <AllMessagesNotifications />
-              <SpecialMessagesNotifications />
-              <KeywordMessagesNotifications />
-              <Box direction="Column" gap="100">
-                <Text size="L400">Block Messages</Text>
-                <SequenceCard
-                  className={SequenceCardStyle}
-                  variant="SurfaceVariant"
-                  direction="Column"
-                  gap="400"
-                >
-                  <SettingTile
-                    description={'This option has been moved to "Account > Block Users" section.'}
-                  />
-                </SequenceCard>
+            <PageContentCenter>
+              <Box direction="Column" gap="700">
+                <SystemNotification />
+                <AllMessagesNotifications />
+                <SpecialMessagesNotifications />
+                <KeywordMessagesNotifications />
+                <Box direction="Column" gap="100">
+                  <Text size="L400">Block Messages</Text>
+                  <SequenceCard
+                    className={SequenceCardStyle}
+                    variant="SurfaceVariant"
+                    direction="Column"
+                    gap="400"
+                  >
+                    <SettingTile
+                      description={'This option has been moved to "Account > Block Users" section.'}
+                    />
+                  </SequenceCard>
+                </Box>
               </Box>
-            </Box>
+            </PageContentCenter>
           </PageContent>
         </Scroll>
       </Box>

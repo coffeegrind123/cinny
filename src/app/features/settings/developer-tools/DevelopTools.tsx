@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Box, Text, IconButton, Icon, Icons, Scroll, Switch, Button } from 'folds';
 import { AccountDataEvents } from 'matrix-js-sdk';
-import { Page, PageContent, PageHeader } from '../../../components/page';
+import { Page, PageContent, PageContentCenter, PageHeader } from '../../../components/page';
 import { SequenceCard } from '../../../components/sequence-card';
 import { SequenceCardStyle } from '../styles.css';
 import { SettingTile } from '../../../components/setting-tile';
@@ -28,7 +28,7 @@ export function DeveloperTools({ requestClose }: DeveloperToolsProps) {
     async (type, content) => {
       await mx.setAccountData(type as keyof AccountDataEvents, content as never);
     },
-    [mx]
+    [mx],
   );
 
   if (accountDataType !== undefined) {
@@ -65,27 +65,10 @@ export function DeveloperTools({ requestClose }: DeveloperToolsProps) {
       <Box grow="Yes">
         <Scroll hideTrack visibility="Hover">
           <PageContent>
-            <Box direction="Column" gap="700">
-              <Box direction="Column" gap="100">
-                <Text size="L400">Options</Text>
-                <SequenceCard
-                  className={SequenceCardStyle}
-                  variant="SurfaceVariant"
-                  direction="Column"
-                  gap="400"
-                >
-                  <SettingTile
-                    title="Enable Developer Tools"
-                    after={
-                      <Switch
-                        variant="Primary"
-                        value={developerTools}
-                        onChange={setDeveloperTools}
-                      />
-                    }
-                  />
-                </SequenceCard>
-                {developerTools && (
+            <PageContentCenter>
+              <Box direction="Column" gap="700">
+                <Box direction="Column" gap="100">
+                  <Text size="L400">Options</Text>
                   <SequenceCard
                     className={SequenceCardStyle}
                     variant="SurfaceVariant"
@@ -93,34 +76,53 @@ export function DeveloperTools({ requestClose }: DeveloperToolsProps) {
                     gap="400"
                   >
                     <SettingTile
-                      title="Access Token"
-                      description="Copy access token to clipboard."
+                      title="Enable Developer Tools"
                       after={
-                        <Button
-                          onClick={() =>
-                            copyToClipboard(mx.getAccessToken() ?? '<NO_ACCESS_TOKEN_FOUND>')
-                          }
-                          variant="Secondary"
-                          fill="Soft"
-                          size="300"
-                          radii="300"
-                          outlined
-                        >
-                          <Text size="B300">Copy</Text>
-                        </Button>
+                        <Switch
+                          variant="Primary"
+                          value={developerTools}
+                          onChange={setDeveloperTools}
+                        />
                       }
                     />
                   </SequenceCard>
+                  {developerTools && (
+                    <SequenceCard
+                      className={SequenceCardStyle}
+                      variant="SurfaceVariant"
+                      direction="Column"
+                      gap="400"
+                    >
+                      <SettingTile
+                        title="Access Token"
+                        description="Copy access token to clipboard."
+                        after={
+                          <Button
+                            onClick={() =>
+                              copyToClipboard(mx.getAccessToken() ?? '<NO_ACCESS_TOKEN_FOUND>')
+                            }
+                            variant="Secondary"
+                            fill="Soft"
+                            size="300"
+                            radii="300"
+                            outlined
+                          >
+                            <Text size="B300">Copy</Text>
+                          </Button>
+                        }
+                      />
+                    </SequenceCard>
+                  )}
+                </Box>
+                {developerTools && (
+                  <AccountData
+                    expand={expand}
+                    onExpandToggle={setExpend}
+                    onSelect={setAccountDataType}
+                  />
                 )}
               </Box>
-              {developerTools && (
-                <AccountData
-                  expand={expand}
-                  onExpandToggle={setExpend}
-                  onSelect={setAccountDataType}
-                />
-              )}
-            </Box>
+            </PageContentCenter>
           </PageContent>
         </Scroll>
       </Box>

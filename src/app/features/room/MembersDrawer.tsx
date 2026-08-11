@@ -286,33 +286,9 @@ export function MembersDrawer({ room, members }: MembersDrawerProps) {
       <Header className={css.MembersDrawerHeader} variant="Background" size="600">
         <Box grow="Yes" alignItems="Center" gap="200">
           <Box grow="Yes">
-            <Input
-              ref={searchInputRef}
-              onChange={handleSearchChange}
-              style={{ paddingRight: config.space.S200 }}
-              placeholder="Search people & messages..."
-              variant="SurfaceVariant"
-              size="400"
-              radii="400"
-              autoComplete="off"
-              before={<Icon size="50" src={Icons.Search} />}
-              after={
-                result && (
-                  <Chip
-                    variant="Secondary"
-                    size="400"
-                    radii="Pill"
-                    aria-pressed
-                    onClick={clearSearch}
-                    after={<Icon size="50" src={Icons.Cross} />}
-                  >
-                    <Text size="B300">{`${result.items.length} ${
-                      result.items.length === 1 ? 'Person' : 'People'
-                    }`}</Text>
-                  </Chip>
-                )
-              }
-            />
+            <Text size="H5" truncate>
+              People
+            </Text>
           </Box>
           <Box shrink="No" alignItems="Center">
             <TooltipProvider
@@ -338,6 +314,35 @@ export function MembersDrawer({ room, members }: MembersDrawerProps) {
           </Box>
         </Box>
       </Header>
+      <Box className={css.MembersDrawerSearch} direction="Column" shrink="No">
+        <Input
+          ref={searchInputRef}
+          onChange={handleSearchChange}
+          style={{ paddingRight: config.space.S200 }}
+          placeholder="Search people & messages..."
+          variant="SurfaceVariant"
+          size="400"
+          radii="400"
+          autoComplete="off"
+          before={<Icon size="50" src={Icons.Search} />}
+          after={
+            result && (
+              <Chip
+                variant="Secondary"
+                size="400"
+                radii="Pill"
+                aria-pressed
+                onClick={clearSearch}
+                after={<Icon size="50" src={Icons.Cross} />}
+              >
+                <Text size="B300">{`${result.items.length} ${
+                  result.items.length === 1 ? 'Person' : 'People'
+                }`}</Text>
+              </Chip>
+            )
+          }
+        />
+      </Box>
       <Box className={css.MemberDrawerContentBase} grow="Yes">
         <Scroll ref={scrollRef} variant="Background" size="300" visibility="Hover" hideTrack>
           <Box className={css.MemberDrawerContent} direction="Column" gap="200">

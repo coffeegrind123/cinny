@@ -1,24 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Box,
-  Button,
-  color,
-  config,
-  Icon,
-  IconButton,
-  Icons,
-  Scroll,
-  Text,
-} from 'folds';
-import { Page, PageContent, PageHeader } from '../../../components/page';
+import { Box, Button, color, config, Icon, IconButton, Icons, Scroll, Text } from 'folds';
+import { Page, PageContent, PageContentCenter, PageHeader } from '../../../components/page';
 import { SequenceCard } from '../../../components/sequence-card';
 import { SequenceCardStyle } from '../styles.css';
 import { useSetting } from '../../../state/hooks/settings';
 import { settingsAtom } from '../../../state/settings';
-import {
-  KEYBIND_DEFINITIONS,
-  KeybindCategory,
-} from '../../../state/keybinds';
+import { KEYBIND_DEFINITIONS, KeybindCategory } from '../../../state/keybinds';
 import { formatKeyComboSplit } from '../../../utils/key-display';
 import { SettingTile } from '../../../components/setting-tile';
 
@@ -61,7 +48,12 @@ function KeyCombo({ keys }: { keys: string[] }) {
 }
 
 function eventToKeyString(event: KeyboardEvent): string | null {
-  if (event.key === 'Control' || event.key === 'Shift' || event.key === 'Alt' || event.key === 'Meta') {
+  if (
+    event.key === 'Control' ||
+    event.key === 'Shift' ||
+    event.key === 'Alt' ||
+    event.key === 'Meta'
+  ) {
     return null;
   }
   const parts: string[] = [];
@@ -103,12 +95,8 @@ function KeybindCapture({ currentKey, onCapture }: KeybindCaptureProps) {
         cursor: 'pointer',
         padding: config.space.S100,
         borderRadius: '6px',
-        border: capturing
-          ? `2px solid ${color.Primary.Main}`
-          : `2px solid transparent`,
-        backgroundColor: capturing
-          ? color.Primary.Container
-          : 'transparent',
+        border: capturing ? `2px solid ${color.Primary.Main}` : `2px solid transparent`,
+        backgroundColor: capturing ? color.Primary.Container : 'transparent',
       }}
     >
       {capturing ? (
@@ -132,7 +120,7 @@ export function Keybinds({ requestClose }: KeybindsProps) {
     (id: string, keyString: string) => {
       setKeybinds((prev) => ({ ...prev, [id]: keyString }));
     },
-    [setKeybinds]
+    [setKeybinds],
   );
 
   const handleReset = useCallback(
@@ -143,7 +131,7 @@ export function Keybinds({ requestClose }: KeybindsProps) {
         return next;
       });
     },
-    [setKeybinds]
+    [setKeybinds],
   );
 
   const handleResetAll = useCallback(() => {
@@ -179,53 +167,55 @@ export function Keybinds({ requestClose }: KeybindsProps) {
       <Box grow="Yes">
         <Scroll hideTrack visibility="Hover">
           <PageContent>
-            <Box direction="Column" gap="700">
-              {CATEGORY_ORDER.map((cat) => {
-                const items = KEYBIND_DEFINITIONS.filter((d) => d.category === cat);
-                if (items.length === 0) return null;
-                return (
-                  <Box key={cat} direction="Column" gap="100">
-                    <Text size="L400">{cat}</Text>
-                    <SequenceCard
-                      className={SequenceCardStyle}
-                      variant="SurfaceVariant"
-                      direction="Column"
-                      gap="400"
-                    >
-                      {items.map((def) => {
-                        const currentKey = keybinds[def.id] ?? def.defaultKeys;
-                        const isCustom = keybinds[def.id] !== undefined;
-                        return (
-                          <SettingTile
-                            key={def.id}
-                            title={def.description}
-                            after={
-                              <Box gap="100" alignItems="Center">
-                                <KeybindCapture
-                                  currentKey={currentKey}
-                                  onCapture={(ks) => handleCapture(def.id, ks)}
-                                />
-                                {isCustom && (
-                                  <Button
-                                    size="300"
-                                    variant="Secondary"
-                                    fill="None"
-                                    radii="Pill"
-                                    onClick={() => handleReset(def.id)}
-                                  >
-                                    <Text size="T200">Reset</Text>
-                                  </Button>
-                                )}
-                              </Box>
-                            }
-                          />
-                        );
-                      })}
-                    </SequenceCard>
-                  </Box>
-                );
-              })}
-            </Box>
+            <PageContentCenter>
+              <Box direction="Column" gap="700">
+                {CATEGORY_ORDER.map((cat) => {
+                  const items = KEYBIND_DEFINITIONS.filter((d) => d.category === cat);
+                  if (items.length === 0) return null;
+                  return (
+                    <Box key={cat} direction="Column" gap="100">
+                      <Text size="L400">{cat}</Text>
+                      <SequenceCard
+                        className={SequenceCardStyle}
+                        variant="SurfaceVariant"
+                        direction="Column"
+                        gap="400"
+                      >
+                        {items.map((def) => {
+                          const currentKey = keybinds[def.id] ?? def.defaultKeys;
+                          const isCustom = keybinds[def.id] !== undefined;
+                          return (
+                            <SettingTile
+                              key={def.id}
+                              title={def.description}
+                              after={
+                                <Box gap="100" alignItems="Center">
+                                  <KeybindCapture
+                                    currentKey={currentKey}
+                                    onCapture={(ks) => handleCapture(def.id, ks)}
+                                  />
+                                  {isCustom && (
+                                    <Button
+                                      size="300"
+                                      variant="Secondary"
+                                      fill="None"
+                                      radii="Pill"
+                                      onClick={() => handleReset(def.id)}
+                                    >
+                                      <Text size="T200">Reset</Text>
+                                    </Button>
+                                  )}
+                                </Box>
+                              }
+                            />
+                          );
+                        })}
+                      </SequenceCard>
+                    </Box>
+                  );
+                })}
+              </Box>
+            </PageContentCenter>
           </PageContent>
         </Scroll>
       </Box>

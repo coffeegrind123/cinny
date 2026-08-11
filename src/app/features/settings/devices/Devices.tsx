@@ -1,5 +1,5 @@
 import { Box, Text, IconButton, Icon, Icons, Scroll } from 'folds';
-import { Page, PageContent, PageHeader } from '../../../components/page';
+import { Page, PageContent, PageContentCenter, PageHeader } from '../../../components/page';
 import { SequenceCard } from '../../../components/sequence-card';
 import { SequenceCardStyle } from '../styles.css';
 import { SettingTile } from '../../../components/setting-tile';
@@ -48,19 +48,19 @@ export function Devices({ requestClose }: DevicesProps) {
   const verificationStatus = useDeviceVerificationStatus(
     crypto,
     mx.getSafeUserId(),
-    currentDevice?.device_id
+    currentDevice?.device_id,
   );
 
   const otherDevicesId = useDeviceIds(otherDevices);
   const unverifiedDeviceCount = useUnverifiedDeviceCount(
     crypto,
     mx.getSafeUserId(),
-    otherDevicesId
+    otherDevicesId,
   );
 
   const defaultSecretStorageKeyId = useSecretStorageDefaultKeyId();
   const defaultSecretStorageKeyContent = useSecretStorageKeyContent(
-    defaultSecretStorageKeyId ?? ''
+    defaultSecretStorageKeyId ?? '',
   );
 
   return (
@@ -82,80 +82,82 @@ export function Devices({ requestClose }: DevicesProps) {
       <Box grow="Yes">
         <Scroll hideTrack visibility="Hover">
           <PageContent>
-            <Box direction="Column" gap="700">
-              <Box direction="Column" gap="100">
-                <Text size="L400">Security</Text>
-                <SequenceCard
-                  className={SequenceCardStyle}
-                  variant="SurfaceVariant"
-                  direction="Column"
-                  gap="400"
-                >
-                  <SettingTile
-                    title="Device Verification"
-                    description="To verify device identity and grant access to encrypted messages."
-                    after={
-                      <>
-                        <EnableVerification visible={!crossSigningActive} />
-                        {crossSigningActive && (
-                          <Box gap="200" alignItems="Center">
-                            <VerificationStatusBadge
-                              verificationStatus={verificationStatus}
-                              otherUnverifiedCount={unverifiedDeviceCount}
-                            />
-                            <DeviceVerificationOptions />
-                          </Box>
-                        )}
-                      </>
-                    }
-                  />
-                </SequenceCard>
-              </Box>
-              <Box direction="Column" gap="100">
-                <Text size="L400">Current</Text>
-                {currentDevice ? (
+            <PageContentCenter>
+              <Box direction="Column" gap="700">
+                <Box direction="Column" gap="100">
+                  <Text size="L400">Security</Text>
                   <SequenceCard
                     className={SequenceCardStyle}
                     variant="SurfaceVariant"
                     direction="Column"
                     gap="400"
                   >
-                    <DeviceTile
-                      device={currentDevice}
-                      refreshDeviceList={refreshDeviceList}
-                      options={<DeviceLogoutBtn />}
-                    >
-                      {crypto && <DeviceKeyDetails crypto={crypto} />}
-                    </DeviceTile>
-                    {crossSigningActive &&
-                      verificationStatus === VerificationStatus.Unverified &&
-                      defaultSecretStorageKeyId &&
-                      defaultSecretStorageKeyContent && (
-                        <VerifyCurrentDeviceTile
-                          secretStorageKeyId={defaultSecretStorageKeyId}
-                          secretStorageKeyContent={defaultSecretStorageKeyContent}
-                        />
-                      )}
-                    {crypto && verificationStatus === VerificationStatus.Verified && (
-                      <BackupRestoreTile crypto={crypto} />
-                    )}
+                    <SettingTile
+                      title="Device Verification"
+                      description="To verify device identity and grant access to encrypted messages."
+                      after={
+                        <>
+                          <EnableVerification visible={!crossSigningActive} />
+                          {crossSigningActive && (
+                            <Box gap="200" alignItems="Center">
+                              <VerificationStatusBadge
+                                verificationStatus={verificationStatus}
+                                otherUnverifiedCount={unverifiedDeviceCount}
+                              />
+                              <DeviceVerificationOptions />
+                            </Box>
+                          )}
+                        </>
+                      }
+                    />
                   </SequenceCard>
-                ) : (
-                  <DeviceTilePlaceholder />
+                </Box>
+                <Box direction="Column" gap="100">
+                  <Text size="L400">Current</Text>
+                  {currentDevice ? (
+                    <SequenceCard
+                      className={SequenceCardStyle}
+                      variant="SurfaceVariant"
+                      direction="Column"
+                      gap="400"
+                    >
+                      <DeviceTile
+                        device={currentDevice}
+                        refreshDeviceList={refreshDeviceList}
+                        options={<DeviceLogoutBtn />}
+                      >
+                        {crypto && <DeviceKeyDetails crypto={crypto} />}
+                      </DeviceTile>
+                      {crossSigningActive &&
+                        verificationStatus === VerificationStatus.Unverified &&
+                        defaultSecretStorageKeyId &&
+                        defaultSecretStorageKeyContent && (
+                          <VerifyCurrentDeviceTile
+                            secretStorageKeyId={defaultSecretStorageKeyId}
+                            secretStorageKeyContent={defaultSecretStorageKeyContent}
+                          />
+                        )}
+                      {crypto && verificationStatus === VerificationStatus.Verified && (
+                        <BackupRestoreTile crypto={crypto} />
+                      )}
+                    </SequenceCard>
+                  ) : (
+                    <DeviceTilePlaceholder />
+                  )}
+                </Box>
+                {devices === undefined && <DevicesPlaceholder />}
+                {otherDevices && (
+                  <OtherDevices
+                    devices={otherDevices}
+                    refreshDeviceList={refreshDeviceList}
+                    showVerification={
+                      crossSigningActive && verificationStatus === VerificationStatus.Verified
+                    }
+                  />
                 )}
+                <LocalBackup />
               </Box>
-              {devices === undefined && <DevicesPlaceholder />}
-              {otherDevices && (
-                <OtherDevices
-                  devices={otherDevices}
-                  refreshDeviceList={refreshDeviceList}
-                  showVerification={
-                    crossSigningActive && verificationStatus === VerificationStatus.Verified
-                  }
-                />
-              )}
-              <LocalBackup />
-            </Box>
+            </PageContentCenter>
           </PageContent>
         </Scroll>
       </Box>

@@ -11,6 +11,13 @@ export const MembersDrawerHeader = style({
   borderBottomWidth: config.borderWidth.B300,
 });
 
+// The search field sits in its own band under the header rather than sharing
+// that row with the close button, so it can span the drawer's full width.
+export const MembersDrawerSearch = style({
+  flexShrink: 0,
+  padding: `${config.space.S200} ${config.space.S200} ${config.space.S100}`,
+});
+
 export const MemberDrawerContentBase = style({
   position: 'relative',
   overflow: 'hidden',
