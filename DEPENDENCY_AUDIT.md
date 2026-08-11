@@ -5,8 +5,12 @@
 `cz-conventional-changelog` dev tooling; previous revisions: 2026-08-10, and
 2026-05-15 which described a manifest three major upgrade rounds out of date)
 **Project:** cinny (Matrix client fork — coffeegrind123/cinny, branch `main`)
-**Manifest:** 60 `dependencies`, 35 `devDependencies`
-**Resolved tree:** 803 packages (240 prod, 499 dev, 101 optional)
+**Manifest:** 58 `dependencies`, 35 `devDependencies`
+**Resolved tree:** 801 packages (166 prod, 623 dev, 101 optional)
+
+The prod count fell from 240 to 166 without removing a single shipped
+package: moving `@vanilla-extract/vite-plugin` to `devDependencies` (§6)
+reclassified its whole subtree as build-time, which is what it always was.
 **Method:** `npm audit`, `npm outdated`, `npm view <pkg> versions`, plus
 `grep` over `src/` for each declared dependency.
 
@@ -215,29 +219,58 @@ upgrade checklist for that package.
 
 ---
 
-## 6. Declared but not imported from `src/`
+## 6. Declared but not imported — resolved 2026-08-11
 
-A plain grep over `src/` finds no reference to:
+Re-run as a single pass that extracts every module specifier in `src/`,
+`scripts/` and the config files, then diffs that against the manifest
+(rather than one grep per package). 95 declared, 80 distinct imported,
+21 never imported by name. Almost all 21 are false positives with a
+specific reason, which is why this list needs reading and not just
+executing:
 
 | Package | Verdict |
 |---|---|
-| `@vanilla-extract/vite-plugin` | **Used** — by `vite.config.js`, not `src/`. It is a devDependency in the wrong list (it sits in `dependencies`); harmless but misleading |
-| `slate-dom` | **Used indirectly** — peer of `slate-react`; keeping the explicit pin keeps the four slate packages on one version |
-| `react-range` | **Candidate for removal** — no importer found. Verify, then drop |
+| `@types/*` (10) | **Keep 9** — consumed implicitly by TypeScript, never imported. `@types/ua-parser-js` was the exception: ua-parser-js 2.x ships its own declarations, so the stub only competed with them. **Removed.** |
+| `eslint`, `prettier`, `typescript`, `@typescript-eslint/*`, `@eslint/compat`, `@eslint/eslintrc` | **Keep** — CLI tools and flat-config helpers, invoked by name, not imported |
+| `buffer` | **Keep** — reached as a *string* in `vite.config.js`: `inject({ Buffer: ['buffer', 'Buffer'] })`. No import statement will ever mention it |
+| `@element-hq/element-call-embedded` | **Keep** — copied out of `node_modules` by `viteStaticCopy` as a path, same blind spot as `buffer` |
+| `slate-dom` | **Keep** — peer of `slate-react`; the explicit pin holds the four slate packages on one version |
+| `@vanilla-extract/vite-plugin` | **Moved to `devDependencies`.** Imported only by `vite.config.js`. See the header note — this one line is what cut the prod count by 74 |
+| `react-range` | **Removed** — no reference in `src/` or any config file |
+
+`@tanstack/react-query-devtools` is *not* on this list and was checked
+separately: it is imported unconditionally from `src/app/pages/App.tsx`,
+so it stays in `dependencies` however it behaves in a prod build.
+
+**The lesson for the next pass:** a name-based scan cannot see a
+dependency reached by string path. Three of the seven rows above are that
+case. Never delete on a zero-hit scan alone.
 
 ---
 
-## 7. Inline / drop candidates (unchanged, still open)
+## 7. Inline / hand-roll candidates — measured 2026-08-11
 
-| Package | Size | Note |
-|---|---|---|
-| `await-to-js` | 3 lines | Trivially inlined |
-| `millify` | ~155 lines | Number formatting |
-| `react-blurhash` | ~77 lines | Canvas wrapper over `blurhash` |
-| `react-error-boundary` | ~100 lines | Thin React boundary |
-| `badwords-list` | static data | See §4 |
-| `is-hotkey` | ~30 lines | Used heavily in the editor; keep unless it goes stale |
-| `file-saver` | shim | `URL.createObjectURL` + anchor click covers modern browsers |
+Earlier revisions ranked these by source line count, which is the wrong
+number: it counts tests, type sources, sourcemaps and duplicate build
+variants that never reach a browser. Measured by the entry point npm
+actually resolves, **all six together ship 16.8 KB**:
+
+| Package | Shipped | Call sites | Verdict |
+|---|---|---|---|
+| `await-to-js` | 486 B | 9 | **Worth doing** — a 3-line local helper, no behaviour to get wrong |
+| `millify` | 3,849 B | 2 | **Worth doing** — `Intl.NumberFormat(…, { notation: 'compact' })` is standard and built in |
+| `file-saver` | 2,749 B | 6 | **Defensible** — it exists to shim browsers we no longer target; `URL.createObjectURL` + an anchor click covers the rest |
+| `react-blurhash` | 2,049 B | 2 | **Defensible** — a canvas wrapper over `blurhash`, which we already depend on directly. Touches rendering, so it needs eyes on a real image |
+| `react-error-boundary` | 3,007 B | 2 | **Keep** — `resetKeys`/`fallbackRender` semantics are easy to reimplement subtly wrong, and it is the component that catches everything else |
+| `is-hotkey` | 4,708 B | 21 | **Keep** — cross-platform key normalisation (meta vs ctrl, layout quirks) is precisely the thing you get wrong by hand, across 21 call sites |
+
+**Do not do this for bundle size.** 16.8 KB is 0.24% of the 7.1 MB entry
+chunk, next to 7.5 MB of crypto WASM — hand-rolling all six is
+unmeasurable to a user. The only honest argument is supply-chain surface:
+six fewer third parties to trust, out of 801. Weigh it as that, and skip
+any candidate whose replacement you would not want to own.
+
+`badwords-list` is static data — see §4, and leave the pin alone.
 
 `react-google-recaptcha` was previously marked "check if still used" — it **is**
 used, by `src/app/components/uia-stages/ReCaptchaStage.tsx`, for the
@@ -246,6 +279,28 @@ at runtime, which is why the shipped CSP allowlists
 `https://www.google.com/recaptcha/`, `https://www.gstatic.com/recaptcha/` and
 `https://recaptcha.net/recaptcha/` in `script-src`. Removing the package means
 removing those three sources too.
+
+---
+
+## 7a. The other manifest — `prinny-client/package.json`
+
+This report covers `cinny/package.json`, but the shell repo has its own,
+and it was carrying twelve unused runtime dependencies: `@tauri-apps/api`
+plus eleven `@tauri-apps/plugin-*`. All removed 2026-08-11.
+
+They read as obviously load-bearing — the app really does use those
+plugins. The catch is that a Tauri plugin has two halves, and the JS half
+is imported by the *frontend*, which is this project, resolving from
+`cinny/node_modules` against this manifest. The shell repo has no
+frontend at all: no `index.html`, no `src/`, `frontendDist` pointing at
+`../cinny/dist`, and a `beforeBuildCommand` that does `cd cinny`. Its only
+JavaScript is four `scripts/*.mjs` files using `@actions/github` and node
+builtins.
+
+So the rule, now recorded in a `//dependencies` note in that file: **a
+plugin's npm package belongs in `cinny/package.json`, beside the Rust
+crate in `src-tauri/Cargo.toml`.** The shell manifest should stay empty of
+runtime dependencies.
 
 ---
 
