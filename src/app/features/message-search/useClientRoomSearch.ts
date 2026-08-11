@@ -21,7 +21,14 @@ const PAGINATION_LIMIT = 100;
 // first page resolves from synced history plus a few hundred older events rather
 // than walking the whole room. Deeper history is reached by fetching more pages
 // (the cursor resumes pagination), so coverage still grows on demand.
-const MAX_PAGINATIONS_PER_PAGE = 8;
+//
+// Deliberately small. A page returns only once it finishes, so this number is
+// also how long the user stares at an empty list before ANY match appears — at
+// 8 a sparse term meant eight sequential round-trips of silence. Returning
+// early and letting the caller pull more pages turns the same total work into
+// results that arrive a few at a time. RoomMessageResults raises its own page
+// budget to match, so overall coverage is unchanged.
+const MAX_PAGINATIONS_PER_PAGE = 2;
 
 type ClientSearchCursor = {
   term: string;

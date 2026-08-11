@@ -436,7 +436,7 @@ export const ImagePackContent = as<'div', ImagePackContentProps>(
                   description={
                     telegramBotToken
                       ? 'Paste a t.me/addstickers link to add its static stickers to this pack.'
-                      : 'Add a Telegram bot token in Settings → General to import sticker packs. Telegram publishes sticker sets nowhere else.'
+                      : 'Add a Telegram bot token in Settings → Emojis & Stickers to import sticker packs. Telegram publishes sticker sets nowhere else.'
                   }
                   after={
                     <Button

@@ -1,5 +1,5 @@
 import { globalStyle, style } from '@vanilla-extract/css';
-import { config } from 'folds';
+import { config, toRem } from 'folds';
 
 export const SequenceCardStyle = style({
   padding: config.space.S300,
@@ -29,6 +29,12 @@ export const SettingsMobileMenu = style({
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'center',
+      // Spread the entries out. On a phone this list is the whole screen with
+      // room to spare, and packed at desktop density the rows sit close enough
+      // that a thumb can easily catch the neighbouring one.
+      gap: config.space.S200,
+      paddingLeft: config.space.S300,
+      paddingRight: config.space.S300,
       // The tall bottom padding exists to keep the last item clear of the
       // desktop nav's edge. Centring makes it an asymmetry instead, pushing
       // the group visibly above true centre.
@@ -41,6 +47,9 @@ globalStyle(`${SettingsMobileMenu} > button`, {
     'screen and (max-width: 640px)': {
       width: '100%',
       justifyContent: 'center',
+      // Comfortably past the ~44px minimum touch target, which the default
+      // row height sits under once the list is this sparse.
+      minHeight: toRem(52),
     },
   },
 });

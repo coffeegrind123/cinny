@@ -23,7 +23,16 @@ import { SearchResultGroup } from './SearchResultGroup';
 // enough to stall the client and to look like abuse from the homeserver's side.
 // Past this point the user drives it with the explicit "Search older messages"
 // button, which is unbounded by design because it is a deliberate action.
-const MAX_AUTO_SEARCH_PAGES = 5;
+// Raised from 5 alongside the drop in back-paginations per page (8 -> 2 in
+// useClientRoomSearch), so the ceiling on total work is unchanged — the same
+// budget is just spent in smaller instalments that each render as they land.
+const MAX_AUTO_SEARCH_PAGES = 20;
+
+// Keep auto-pulling until the list looks like a list. Stopping at the first
+// match, as this used to, meant one stray hit from recent history froze the
+// results there and everything older only appeared if the user happened to
+// scroll — which reads as search having finished when it has barely started.
+const MIN_RESULTS_BEFORE_PAUSE = 20;
 
 type RoomMessageResultsProps = {
   room: Room;
@@ -99,7 +108,11 @@ export function RoomMessageResults({ room, term, onOpen }: RoomMessageResultsPro
   }
 
   const autoBudgetLeft = autoPagesRef.current < MAX_AUTO_SEARCH_PAGES;
-  const stillScanning = groups.length === 0 && hasNextPage && autoBudgetLeft;
+  const resultCount = useMemo(
+    () => groups.reduce((total, group) => total + group.items.length, 0),
+    [groups]
+  );
+  const stillScanning = resultCount < MIN_RESULTS_BEFORE_PAUSE && hasNextPage && autoBudgetLeft;
   useEffect(() => {
     if (stillScanning && !isFetchingNextPage && status === 'success') {
       autoPagesRef.current += 1;

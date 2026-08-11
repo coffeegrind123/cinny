@@ -708,50 +708,6 @@ function DateAndTime() {
   );
 }
 
-function TelegramBotTokenInput() {
-  const [token, setToken] = useSetting(settingsAtom, 'telegramBotToken');
-  const [draft, setDraft] = useState(token);
-
-  useEffect(() => setDraft(token), [token]);
-
-  const hasChanges = draft !== token;
-
-  const handleSubmit: FormEventHandler<HTMLFormElement> = (evt) => {
-    evt.preventDefault();
-    setToken(draft.trim());
-  };
-
-  return (
-    <Box as="form" onSubmit={handleSubmit} gap="200">
-      <Box grow="Yes" direction="Column">
-        <Input
-          name="telegramBotTokenInput"
-          value={draft}
-          onChange={(evt) => setDraft(evt.currentTarget.value)}
-          // A bot token is a credential; treat it like one in the UI even
-          // though it only ever reaches api.telegram.org.
-          type="password"
-          autoComplete="off"
-          placeholder="123456:ABC-DEF..."
-          variant="Secondary"
-          radii="300"
-        />
-      </Box>
-      <Button
-        size="400"
-        variant={hasChanges ? 'Success' : 'Secondary'}
-        fill={hasChanges ? 'Solid' : 'Soft'}
-        outlined
-        radii="300"
-        disabled={!hasChanges}
-        type="submit"
-      >
-        <Text size="B400">Save</Text>
-      </Button>
-    </Box>
-  );
-}
-
 function Editor() {
   const [enterForNewline, setEnterForNewline] = useSetting(settingsAtom, 'enterForNewline');
   const [scrollOnSend, setScrollOnSend] = useSetting(settingsAtom, 'scrollOnSend');
@@ -850,13 +806,6 @@ function Editor() {
             <Switch variant="Primary" value={useBlueskyEmbeds} onChange={setUseBlueskyEmbeds} />
           }
         />
-      </SequenceCard>
-      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
-        <SettingTile
-          title="Telegram sticker import"
-          description="Bot token used to import sticker packs from t.me/addstickers links, in an image pack's settings. Create a bot with @BotFather on Telegram and paste its token — Telegram publishes sticker sets nowhere else, so there is no way to import without one. Stored on this device only, never sent to your homeserver, and used solely for requests to api.telegram.org."
-        />
-        <TelegramBotTokenInput />
       </SequenceCard>
       <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
         <SettingTile

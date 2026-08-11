@@ -101,10 +101,13 @@ const defaultSettings: Settings = {
   hideNickAvatarEvents: true,
   mediaAutoLoad: true,
   urlPreview: true,
-  // Off by default: generating a preview for a URL inside an end-to-end
-  // encrypted message means handing the homeserver a URL it could not
-  // otherwise read out of the ciphertext. Opt-in only.
-  encUrlPreview: false,
+  // On by default (product decision, 2026-08-11). Worth stating plainly rather
+  // than leaving implicit: asking for a preview of a URL inside an end-to-end
+  // encrypted message sends that URL to the homeserver, which could not read it
+  // out of the ciphertext otherwise. Link previews in encrypted rooms are what
+  // people expect to just work, and the settings tile says what it costs, so
+  // this defaults on and can be switched off there.
+  encUrlPreview: true,
   showHiddenEvents: false,
   legacyUsernameColor: false,
 
