@@ -4,6 +4,7 @@ User-facing changes per commit. Most recent at the top.
 
 ## 11.08.2026
 
+- `451148f` Fixed **the icon bar on the left not moving with the swipe on mobile**. It stayed put while the conversation list slid, then appeared or disappeared abruptly at the end, shifting everything sideways. It now slides away together with the list, and the chat opens at the full width of the screen without jumping.
 - `bcb92f0` Improved **message search filling in as it goes**. It used to sit blank while it worked, then stop at the first match it found — so a single recent hit looked like the whole answer and older messages only turned up if you scrolled. Results now arrive a few at a time and keep coming until there is a proper list of them.
 - `bcb92f0` Improved **the settings menu on phones**, spacing the entries out and making each one a larger touch target so neighbouring rows are harder to hit by accident.
 - `bcb92f0` Added **link previews in encrypted rooms by default**. Note this asks your homeserver to fetch the link, which it cannot otherwise see inside an encrypted message — the setting turns it back off.
