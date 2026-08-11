@@ -3,7 +3,7 @@
 **Date:** 2026-08-11 (revised — §1 and §9 now record the advisories as *cleared*;
 previous revisions: 2026-08-10, and 2026-05-15 which described a manifest three
 major upgrade rounds out of date)
-**Project:** cinny (Matrix client fork — coffeegrind123/cinny, branch `desktop-notifications`)
+**Project:** cinny (Matrix client fork — coffeegrind123/cinny, branch `main`)
 **Manifest:** 60 `dependencies`, 38 `devDependencies`
 **Resolved tree:** 950 packages (241 prod, 640 dev, 133 optional)
 **Method:** `npm audit`, `npm outdated`, `npm view <pkg> versions`, plus

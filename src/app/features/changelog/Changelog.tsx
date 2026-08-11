@@ -155,7 +155,7 @@ export function Changelog() {
               </a>
               {' / '}
               <a
-                href="https://github.com/coffeegrind123/cinny/commits/desktop-notifications"
+                href="https://github.com/coffeegrind123/cinny/commits/main"
                 target="_blank"
                 rel="noreferrer noopener"
                 style={{ color: color.Secondary.Main }}

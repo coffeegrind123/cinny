@@ -1,6 +1,6 @@
 # Cinny Upstream Backport Log
 
-Tracks upstream `cinnyapp/cinny` commits cherry-picked into our fork (`coffeegrind123/cinny`, branch `desktop-notifications`).
+Tracks upstream `cinnyapp/cinny` commits cherry-picked into our fork (`coffeegrind123/cinny`, branch `main`).
 
 **Fork base:** `6a05ff5` (v4.11.1-era)
 **Last sync:** 2026-08-10 (formal merge of `upstream/dev` @ `33f4ba36` via `-X ours`)
@@ -162,5 +162,5 @@ git log --oneline 33f4ba36..upstream/dev --reverse --no-merges
 # 5. Resolve conflicts — preserve our custom features (embeds, presence, mobile-push, etc.)
 
 # 6. Update this file with status of every new commit
-# 7. Push: git push origin desktop-notifications
+# 7. Push: git push origin main
 ```

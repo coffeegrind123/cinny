@@ -2,7 +2,7 @@ name: Publish webapp
 
 on:
   push:
-    branches: [desktop-notifications]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -22,7 +22,7 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: desktop-notifications
+          ref: main
           path: source
 
       - name: Setup node
