@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Badge, color, Icon, Icons, Text } from 'folds';
 import {
   SidebarAvatar,

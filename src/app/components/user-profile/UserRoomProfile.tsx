@@ -1,5 +1,4 @@
 import { Box, Button, config, Icon, Icons, Text } from 'folds';
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserHero, UserHeroName } from './UserHero';
 import { getMxIdServer, mxcUrlToHttp } from '../../utils/matrix';

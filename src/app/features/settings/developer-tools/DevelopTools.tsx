@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Box, Text, IconButton, Icon, Icons, Scroll, Switch, Button } from 'folds';
 import { AccountDataEvents } from 'matrix-js-sdk';
 import { Page, PageContent, PageHeader } from '../../../components/page';

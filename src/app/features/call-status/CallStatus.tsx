@@ -1,4 +1,3 @@
-import React from 'react';
 import { Box, Spinner } from 'folds';
 import classNames from 'classnames';
 import { LiveChip } from './LiveChip';

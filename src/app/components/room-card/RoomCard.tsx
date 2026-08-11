@@ -1,4 +1,4 @@
-import React, { ReactNode, useCallback, useRef, useState } from 'react';
+import { ReactNode, useCallback, useRef, useState } from 'react';
 import { MatrixError, Room } from 'matrix-js-sdk';
 import {
   Avatar,

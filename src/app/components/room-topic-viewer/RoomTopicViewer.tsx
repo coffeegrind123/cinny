@@ -1,4 +1,3 @@
-import React from 'react';
 import { as, Box, Header, Icon, IconButton, Icons, Modal, Scroll, Text } from 'folds';
 import classNames from 'classnames';
 import Linkify from 'linkify-react';

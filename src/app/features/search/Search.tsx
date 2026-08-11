@@ -15,7 +15,7 @@ import {
   Text,
   toRem,
 } from 'folds';
-import React, {
+import {
   ChangeEventHandler,
   KeyboardEventHandler,
   MouseEventHandler,

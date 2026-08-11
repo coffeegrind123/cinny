@@ -11,7 +11,7 @@ import {
   Text,
   TextArea,
 } from 'folds';
-import React, { FormEventHandler, useCallback, useMemo, useState } from 'react';
+import { FormEventHandler, useCallback, useMemo, useState } from 'react';
 import { useAtomValue } from 'jotai';
 import Linkify from 'linkify-react';
 import classNames from 'classnames';

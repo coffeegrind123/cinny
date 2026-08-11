@@ -1,4 +1,4 @@
-import React, { MouseEventHandler, ReactNode, useCallback, useRef } from 'react';
+import { MouseEventHandler, ReactNode, useCallback, useRef } from 'react';
 import {
   Avatar,
   Badge,

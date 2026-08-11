@@ -1,4 +1,3 @@
-import React from 'react';
 import { Room } from 'matrix-js-sdk';
 import { Chip, Icon, Icons, Text } from 'folds';
 import { useAtomValue } from 'jotai';

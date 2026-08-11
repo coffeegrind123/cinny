@@ -1,5 +1,5 @@
 /* eslint-disable no-param-reassign */
-import React, {
+import {
   ClipboardEventHandler,
   DragEventHandler,
   KeyboardEventHandler,

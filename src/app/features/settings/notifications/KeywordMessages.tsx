@@ -1,4 +1,4 @@
-import React, { ChangeEventHandler, FormEventHandler, useCallback, useMemo, useState } from 'react';
+import { ChangeEventHandler, FormEventHandler, useCallback, useMemo, useState } from 'react';
 import { IPushRule, IPushRules, PushRuleKind } from 'matrix-js-sdk';
 import { Box, Text, Badge, Button, Input, config, IconButton, Icons, Icon, Spinner } from 'folds';
 import { useAccountData } from '../../../hooks/useAccountData';

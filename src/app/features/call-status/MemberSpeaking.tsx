@@ -1,5 +1,4 @@
 import { Room } from 'matrix-js-sdk';
-import React from 'react';
 import { Box, Icon, Icons, Text } from 'folds';
 import { getMemberDisplayName } from '../../utils/room';
 import { getMxIdLocalPart } from '../../utils/matrix';

@@ -1,4 +1,3 @@
-import React from 'react';
 import * as css from './style.css';
 import { isJumboEmoji } from '../../utils/regex';
 

@@ -63,4 +63,15 @@ export default [
     files: ['**/*.ts'],
     rules: { 'no-undef': 'off' },
   },
+  {
+    // `import/named` cannot see TypeScript's type-only exports, so it reports
+    // every one of them as missing — `RectCords` from folds, `AuthDict` and
+    // `UIAFlow` from matrix-js-sdk, and 285 more. They all exist; the rule is
+    // resolving JavaScript exports against a TypeScript surface. eslint-plugin-import
+    // documents turning it off for TS precisely because the compiler already
+    // enforces this, and `npm run typecheck` is what actually catches a genuinely
+    // missing export.
+    files: ['**/*.{ts,tsx}'],
+    rules: { 'import/named': 'off' },
+  },
 ];

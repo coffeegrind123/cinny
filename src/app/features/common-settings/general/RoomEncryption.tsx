@@ -15,7 +15,7 @@ import {
   Spinner,
   Text,
 } from 'folds';
-import React, { useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { MatrixError } from 'matrix-js-sdk';
 import { FocusTrap } from 'focus-trap-react';
 import { SequenceCard } from '../../../components/sequence-card';

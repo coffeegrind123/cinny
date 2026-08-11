@@ -1,4 +1,3 @@
-import React from 'react';
 import { Avatar, Overlay, OverlayBackdrop, OverlayCenter, Text } from 'folds';
 import { FocusTrap } from 'focus-trap-react';
 import { useRoomAvatar, useRoomName, useRoomTopic } from '../../hooks/useRoomMeta';

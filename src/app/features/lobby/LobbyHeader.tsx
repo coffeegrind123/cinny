@@ -1,4 +1,4 @@
-import React, { MouseEventHandler, forwardRef, useState } from 'react';
+import { MouseEventHandler, forwardRef, useState } from 'react';
 import {
   Avatar,
   Box,

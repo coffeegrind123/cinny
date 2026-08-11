@@ -1,4 +1,4 @@
-import React, { FormEventHandler, useState } from 'react';
+import { FormEventHandler, useState } from 'react';
 import { FocusTrap } from 'focus-trap-react';
 import {
   Dialog,

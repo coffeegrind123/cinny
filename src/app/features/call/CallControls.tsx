@@ -1,4 +1,4 @@
-import React, { MouseEventHandler, useCallback, useRef, useState } from 'react';
+import { MouseEventHandler, useCallback, useRef, useState } from 'react';
 import {
   Box,
   Button,

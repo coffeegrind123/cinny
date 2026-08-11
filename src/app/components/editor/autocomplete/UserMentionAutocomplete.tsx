@@ -1,4 +1,4 @@
-import React, { useEffect, KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useEffect, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Editor } from 'slate';
 import { ReactEditor } from 'slate-react';
 import { Avatar, Icon, Icons, MenuItem, Text } from 'folds';

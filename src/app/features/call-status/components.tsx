@@ -1,4 +1,3 @@
-import React from 'react';
 import { Line } from 'folds';
 import * as css from './styles.css';
 

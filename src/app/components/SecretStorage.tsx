@@ -1,4 +1,4 @@
-import React, { FormEventHandler, useCallback } from 'react';
+import { FormEventHandler, useCallback } from 'react';
 import { Box, Text, Button, Spinner, color } from 'folds';
 import { decodeRecoveryKey, deriveRecoveryKeyFromPassphrase } from 'matrix-js-sdk/lib/crypto-api';
 import { PasswordInput } from './password-input';

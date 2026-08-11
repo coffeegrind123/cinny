@@ -1,4 +1,4 @@
-import React, { forwardRef } from 'react';
+import { forwardRef } from 'react';
 import { Menu, Box, Text, Chip } from 'folds';
 import dayjs from 'dayjs';
 import * as css from './styles.css';

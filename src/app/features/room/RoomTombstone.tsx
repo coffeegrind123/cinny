@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 import { Box, Button, Spinner, Text, color } from 'folds';
 
 import * as css from './RoomTombstone.css';

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Box, Text, Icon, Icons, config, IconSrc } from 'folds';
 import { SequenceCard } from '../sequence-card';
 import { SettingTile } from '../setting-tile';

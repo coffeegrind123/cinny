@@ -20,7 +20,7 @@ import {
   Text,
   toRem,
 } from 'folds';
-import React, { MouseEventHandler, useCallback, useState } from 'react';
+import { MouseEventHandler, useCallback, useState } from 'react';
 import { FocusTrap } from 'focus-trap-react';
 import { isKeyHotkey } from 'is-hotkey';
 import { useMatrixClient } from '../../hooks/useMatrixClient';

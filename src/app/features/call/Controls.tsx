@@ -1,4 +1,3 @@
-import React from 'react';
 import { Icon, IconButton, Icons, Line, Text, Tooltip, TooltipProvider } from 'folds';
 import { useAtom } from 'jotai';
 import * as css from './styles.css';

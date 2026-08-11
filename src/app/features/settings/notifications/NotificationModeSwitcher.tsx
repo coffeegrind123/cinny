@@ -12,7 +12,7 @@ import {
   Text,
 } from 'folds';
 import { IPushRule } from 'matrix-js-sdk';
-import React, { MouseEventHandler, useMemo, useState } from 'react';
+import { MouseEventHandler, useMemo, useState } from 'react';
 import { FocusTrap } from 'focus-trap-react';
 import { NotificationMode, useNotificationActionsMode } from '../../../hooks/useNotificationMode';
 import { stopPropagation } from '../../../utils/keyboard';

@@ -23,7 +23,7 @@ import {
   color,
   config,
 } from 'folds';
-import React, {
+import {
   FormEventHandler,
   MouseEventHandler,
   ReactNode,

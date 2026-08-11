@@ -1,4 +1,4 @@
-import React, { FormEventHandler, MouseEventHandler, useCallback, useMemo, useState } from 'react';
+import { FormEventHandler, MouseEventHandler, useCallback, useMemo, useState } from 'react';
 import {
   Box,
   Text,

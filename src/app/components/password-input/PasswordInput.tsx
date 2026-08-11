@@ -1,4 +1,4 @@
-import React, { ComponentProps, forwardRef } from 'react';
+import { ComponentProps, forwardRef } from 'react';
 import { Icon, IconButton, Input, config, Icons } from 'folds';
 import { UseStateProvider } from '../UseStateProvider';
 

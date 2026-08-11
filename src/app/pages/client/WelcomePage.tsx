@@ -1,4 +1,3 @@
-import React from 'react';
 import { Changelog } from '../../features/changelog/Changelog';
 
 // Used to be a Cinny-logo + Source/Support buttons hero. Replaced with the

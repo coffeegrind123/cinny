@@ -1,6 +1,6 @@
 import { JoinRule } from 'matrix-js-sdk';
 import { AvatarFallback, AvatarImage, Icon, Icons, color } from 'folds';
-import React, { ComponentProps, ReactEventHandler, ReactNode, forwardRef, useState } from 'react';
+import { ComponentProps, ReactEventHandler, ReactNode, forwardRef, useState } from 'react';
 import * as css from './RoomAvatar.css';
 import { getRoomIconSrc } from '../../utils/room';
 import colorMXID from '../../../util/colorMXID';

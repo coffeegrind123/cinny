@@ -1,4 +1,3 @@
-import React from 'react';
 import { Box, color, Spinner, Switch, Text } from 'folds';
 import { JoinRule, MatrixError } from 'matrix-js-sdk';
 import { RoomJoinRulesEventContent } from 'matrix-js-sdk/lib/types';

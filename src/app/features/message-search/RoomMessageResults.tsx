@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Box, Button, Icon, Icons, Spinner, Text, config, toRem } from 'folds';
 import { useAtomValue } from 'jotai';
 import { Room, SearchOrderBy } from 'matrix-js-sdk';

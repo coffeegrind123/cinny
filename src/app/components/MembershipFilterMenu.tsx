@@ -1,5 +1,4 @@
 import { FocusTrap } from 'focus-trap-react';
-import React from 'react';
 import { config, Menu, MenuItem, Text } from 'folds';
 import { stopPropagation } from '../utils/keyboard';
 import { useMembershipFilterMenu } from '../hooks/useMemberFilter';

@@ -1,4 +1,4 @@
-import React, { CSSProperties, useMemo } from 'react';
+import { CSSProperties, useMemo } from 'react';
 import { Avatar, Box, ContainerColor, as, color, toRem } from 'folds';
 import { randomNumberBetween } from '../../../utils/common';
 import { LinePlaceholder } from './LinePlaceholder';

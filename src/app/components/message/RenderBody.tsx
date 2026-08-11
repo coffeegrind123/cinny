@@ -1,4 +1,3 @@
-import React from 'react';
 import parse, { HTMLReactParserOptions } from 'html-react-parser';
 import Linkify from 'linkify-react';
 import { Opts } from 'linkifyjs';

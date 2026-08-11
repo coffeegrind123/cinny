@@ -1,4 +1,3 @@
-import React from 'react';
 import { as, Avatar } from 'folds';
 import classNames from 'classnames';
 import * as css from './styles.css';

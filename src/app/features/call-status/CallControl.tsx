@@ -1,5 +1,5 @@
 import { Box, Chip, Icon, IconButton, Icons, Spinner, Text, Tooltip, TooltipProvider } from 'folds';
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 import { useSetAtom } from 'jotai';
 import { StatusDivider } from './components';
 import { CallEmbed, useCallControlState } from '../../plugins/call';

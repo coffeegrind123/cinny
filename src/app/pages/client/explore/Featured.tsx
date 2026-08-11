@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Box, Button, Icon, IconButton, Icons, Scroll, Text } from 'folds';
 import { useAtomValue } from 'jotai';
 import { useClientConfig } from '../../../hooks/useClientConfig';

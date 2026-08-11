@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import { ReactNode } from 'react';
 import { AuthDict, AuthType, IAuthData, UIAFlow } from 'matrix-js-sdk';
 import { getUIAFlowForStages } from '../utils/matrix-uia';
 import { useSupportedUIAFlows, useUIACompleted, useUIAFlow } from '../hooks/useUIAFlows';
