@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { Box, Line } from 'folds';
 import { useParams } from 'react-router-dom';
-import { isKeyHotkey } from 'is-hotkey';
+import { isKeyHotkey } from '../../utils/is-hotkey';
 import { useAtom, useAtomValue } from 'jotai';
 import { RoomView } from './RoomView';
 import { MembersDrawer } from './MembersDrawer';

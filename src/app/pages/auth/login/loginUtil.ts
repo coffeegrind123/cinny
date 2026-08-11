@@ -1,4 +1,4 @@
-import to from 'await-to-js';
+import to from '../../../utils/await-to';
 import { LoginRequest, LoginResponse, MatrixError, createClient } from 'matrix-js-sdk';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';

@@ -8,7 +8,7 @@ import {
 } from 'react';
 import { MatrixError } from 'matrix-js-sdk';
 import { Box, color, Icon, Icons, Input, Spinner, Text, toRem } from 'folds';
-import { isKeyHotkey } from 'is-hotkey';
+import { isKeyHotkey } from '../../utils/is-hotkey';
 import { getMxIdServer } from '../../utils/matrix';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { replaceSpaceWithDash } from '../../utils/common';

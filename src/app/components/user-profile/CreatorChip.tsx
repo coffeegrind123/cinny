@@ -1,7 +1,7 @@
 import { Chip, config, Icon, Icons, Menu, MenuItem, PopOut, RectCords, Text } from 'folds';
 import { MouseEventHandler, useState } from 'react';
 import { FocusTrap } from 'focus-trap-react';
-import { isKeyHotkey } from 'is-hotkey';
+import { isKeyHotkey } from '../../utils/is-hotkey';
 import { useRoomCreatorsTag } from '../../hooks/useRoomCreatorsTag';
 import { PowerColorBadge, PowerIcon } from '../power';
 import { getPowerTagIconSrc } from '../../hooks/useMemberPowerTag';

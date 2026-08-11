@@ -13,8 +13,8 @@ import {
   color,
   Spinner,
 } from 'folds';
-import FileSaver from 'file-saver';
-import to from 'await-to-js';
+import FileSaver from '../utils/save-file';
+import to from '../utils/await-to';
 import { AuthDict, IAuthData, MatrixError, UIAuthCallback } from 'matrix-js-sdk';
 import { PasswordInput } from './password-input';
 import { ContainerColor } from '../styles/ContainerColor.css';

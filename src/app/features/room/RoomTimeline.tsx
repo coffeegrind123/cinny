@@ -28,7 +28,7 @@ import {
 import { HTMLReactParserOptions } from 'html-react-parser';
 import classNames from 'classnames';
 import { Editor } from 'slate';
-import to from 'await-to-js';
+import to from '../../utils/await-to';
 import { useAtomValue, useSetAtom } from 'jotai';
 import {
   Badge,
@@ -44,7 +44,7 @@ import {
   config,
   toRem,
 } from 'folds';
-import { isKeyHotkey } from 'is-hotkey';
+import { isKeyHotkey } from '../../utils/is-hotkey';
 import { Opts as LinkifyOpts } from 'linkifyjs';
 import { useTranslation } from 'react-i18next';
 import { eventWithShortcode, factoryEventSentBy, getMxIdLocalPart } from '../../utils/matrix';

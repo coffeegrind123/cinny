@@ -22,7 +22,7 @@ import {
 } from 'folds';
 import { MouseEventHandler, useCallback, useState } from 'react';
 import { FocusTrap } from 'focus-trap-react';
-import { isKeyHotkey } from 'is-hotkey';
+import { isKeyHotkey } from '../../utils/is-hotkey';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
 import { PowerColorBadge, PowerIcon } from '../power';

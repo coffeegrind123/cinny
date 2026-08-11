@@ -1,5 +1,5 @@
 import { useMemo, useCallback, KeyboardEventHandler, MutableRefObject } from 'react';
-import { isKeyHotkey } from 'is-hotkey';
+import { isKeyHotkey } from '../utils/is-hotkey';
 import { TextArea, Intent, TextAreaOperations, Cursor } from '../plugins/text-area';
 import { useTextAreaIntentHandler } from './useTextAreaIntent';
 import { GetTarget } from '../plugins/text-area/type';

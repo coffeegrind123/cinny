@@ -22,7 +22,7 @@ import {
 import { Editor, Transforms } from 'slate';
 import { IContent, IMentions, MatrixEvent, RelationType, Room } from 'matrix-js-sdk';
 import type { RoomMessageEventContent } from 'matrix-js-sdk/lib/types';
-import { isKeyHotkey } from 'is-hotkey';
+import { isKeyHotkey } from '../../../utils/is-hotkey';
 import {
   AUTOCOMPLETE_PREFIXES,
   AutocompletePrefix,

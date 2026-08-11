@@ -14,7 +14,7 @@ import {
   TooltipProvider,
   as,
 } from 'folds';
-import FileSaver from 'file-saver';
+import FileSaver from '../../../utils/save-file';
 import { EncryptedAttachmentInfo } from 'browser-encrypt-attachment';
 import { FocusTrap } from 'focus-trap-react';
 import { IFileInfo } from '../../../../types/matrix/common';

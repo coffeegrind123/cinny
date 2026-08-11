@@ -8,7 +8,7 @@ import React, {
   useState,
 } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
-import { isKeyHotkey } from 'is-hotkey';
+import { isKeyHotkey } from '../../utils/is-hotkey';
 import { EventType, IContent, MsgType, RelationType, Room } from 'matrix-js-sdk';
 import { Transforms, Editor } from 'slate';
 import {

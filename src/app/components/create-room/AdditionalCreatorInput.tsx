@@ -15,7 +15,7 @@ import {
   Text,
   toRem,
 } from 'folds';
-import { isKeyHotkey } from 'is-hotkey';
+import { isKeyHotkey } from '../../utils/is-hotkey';
 import { FocusTrap } from 'focus-trap-react';
 import {
   ChangeEventHandler,

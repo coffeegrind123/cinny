@@ -1,4 +1,4 @@
-import to from 'await-to-js';
+import to from '../../../utils/await-to';
 import { AuthDict, IAuthData, MatrixClient, MatrixError } from 'matrix-js-sdk';
 
 export type ResetPasswordResponse = Record<string, never>;

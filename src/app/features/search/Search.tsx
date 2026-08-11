@@ -25,7 +25,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { isKeyHotkey } from 'is-hotkey';
+import { isKeyHotkey } from '../../utils/is-hotkey';
 import { useAtom, useAtomValue } from 'jotai';
 import { Room } from 'matrix-js-sdk';
 import { useDirects, useOrphanSpaces, useRooms, useSpaces } from '../../state/hooks/roomList';

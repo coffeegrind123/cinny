@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { isKeyHotkey } from 'is-hotkey';
+import { isKeyHotkey } from '../../utils/is-hotkey';
 import { useNavigate } from 'react-router-dom';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useKeybind } from '../../hooks/useKeybind';

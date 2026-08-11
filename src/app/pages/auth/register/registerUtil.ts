@@ -1,4 +1,4 @@
-import to from 'await-to-js';
+import to from '../../../utils/await-to';
 import {
   IAuthData,
   MatrixClient,

@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { Box, Text, config } from 'folds';
 import { EventType } from 'matrix-js-sdk';
-import { isKeyHotkey } from 'is-hotkey';
+import { isKeyHotkey } from '../../utils/is-hotkey';
 import { useStateEvent } from '../../hooks/useStateEvent';
 import { StateEvent } from '../../../types/matrix/room';
 import { usePowerLevelsContext } from '../../hooks/usePowerLevels';

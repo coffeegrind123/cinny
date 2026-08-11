@@ -1,4 +1,4 @@
-import { isKeyHotkey } from 'is-hotkey';
+import { isKeyHotkey } from './is-hotkey';
 import { KeyboardEventHandler } from 'react';
 
 export interface KeyboardEventLike {

@@ -13,7 +13,7 @@ import {
   UploadProgress,
   UploadResponse,
 } from 'matrix-js-sdk';
-import to from 'await-to-js';
+import to from './await-to';
 import { IImageInfo, IThumbnailContent, IVideoInfo } from '../../types/matrix/common';
 import { AccountDataEvent } from '../../types/matrix/accountData';
 import { getStateEvent } from './room';

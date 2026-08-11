@@ -30,7 +30,7 @@ import {
   MenuItem,
 } from 'folds';
 import { Room } from 'matrix-js-sdk';
-import { isKeyHotkey } from 'is-hotkey';
+import { isKeyHotkey } from '../../utils/is-hotkey';
 import { FocusTrap } from 'focus-trap-react';
 import { stopPropagation } from '../../utils/keyboard';
 import { useDirectUsers } from '../../hooks/useDirectUsers';

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { isKeyHotkey } from 'is-hotkey';
+import { isKeyHotkey } from '../utils/is-hotkey';
 import { useSetting } from '../state/hooks/settings';
 import { settingsAtom } from '../state/settings';
 import { getKeybindDefinition } from '../state/keybinds';

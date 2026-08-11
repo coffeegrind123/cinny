@@ -21,7 +21,7 @@ import classNames from 'classnames';
 import { Box, Chip, config, Header, Icon, IconButton, Icons, Scroll, Text, toRem } from 'folds';
 import { IntermediateRepresentation, Opts as LinkifyOpts, OptFn } from 'linkifyjs';
 import Linkify from 'linkify-react';
-import { ErrorBoundary } from 'react-error-boundary';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import { CDATA, ChildNode, Document } from 'domhandler';
 import * as css from '../styles/CustomHtml.css';
 import {

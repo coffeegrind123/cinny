@@ -13,7 +13,7 @@ import {
   as,
 } from 'folds';
 import classNames from 'classnames';
-import { BlurhashCanvas } from 'react-blurhash';
+import { BlurhashCanvas } from '../../BlurhashCanvas';
 import { EncryptedAttachmentInfo } from 'browser-encrypt-attachment';
 import {
   IThumbnailContent,

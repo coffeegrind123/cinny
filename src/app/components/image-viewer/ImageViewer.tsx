@@ -1,5 +1,5 @@
 import React from 'react';
-import FileSaver from 'file-saver';
+import FileSaver from '../../utils/save-file';
 import classNames from 'classnames';
 import { Box, Chip, Icon, IconButton, Icons, Text, as, config } from 'folds';
 import * as css from './ImageViewer.css';

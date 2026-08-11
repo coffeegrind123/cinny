@@ -16,7 +16,7 @@ import {
   as,
 } from 'folds';
 import classNames from 'classnames';
-import { BlurhashCanvas } from 'react-blurhash';
+import { BlurhashCanvas } from '../../BlurhashCanvas';
 import { FocusTrap } from 'focus-trap-react';
 import { EncryptedAttachmentInfo } from 'browser-encrypt-attachment';
 import { IImageInfo, MATRIX_BLUR_HASH_PROPERTY_NAME } from '../../../../types/matrix/common';
