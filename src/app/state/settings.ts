@@ -68,6 +68,11 @@ export interface Settings {
   notificationContentMode: NotificationContentMode;
   usePiped: boolean;
   clientPreviewFallback: boolean;
+  // Telegram Bot API token, used only to import sticker packs from
+  // t.me/addstickers links. Telegram serves sticker sets nowhere else — the
+  // link itself carries no sticker data — and the Bot API returns 401 without
+  // a token. Empty string means the import UI stays hidden.
+  telegramBotToken: string;
 }
 
 const defaultSettings: Settings = {
@@ -128,6 +133,7 @@ const defaultSettings: Settings = {
   // Same reasoning: the client-side OG fallback fetches an arbitrary
   // message-supplied URL straight from the user's own machine.
   clientPreviewFallback: false,
+  telegramBotToken: '',
 };
 
 export const getSettings = (): Settings => {

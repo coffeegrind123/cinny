@@ -1,5 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { as, Box, Text, config, Button, Menu, Spinner } from 'folds';
+import { FormEventHandler, useCallback, useEffect, useMemo, useState } from 'react';
+import { as, Box, Text, color, config, Button, Input, Menu, Spinner } from 'folds';
+import { useSetting } from '../../state/hooks/settings';
+import { settingsAtom } from '../../state/settings';
+import { fetchTelegramStickerPack, parseStickerSetName } from '../../utils/telegram-stickers';
 import {
   ImagePack,
   ImageUsage,
@@ -77,6 +80,77 @@ export const ImagePackContent = as<'div', ImagePackContentProps>(
         [hasImageWithShortcode]
       ),
       true
+    );
+
+    const [telegramBotToken] = useSetting(settingsAtom, 'telegramBotToken');
+    const [importOpen, setImportOpen] = useState(false);
+    const [importLink, setImportLink] = useState('');
+    const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(
+      null
+    );
+    const [importError, setImportError] = useState<string | null>(null);
+    const [importNote, setImportNote] = useState<string | null>(null);
+    const [importing, setImporting] = useState(false);
+
+    // Imported stickers are pushed through the same `files` queue as picked
+    // files, so they reuse the pack's existing upload, shortcode-dedupe and
+    // save flow rather than growing a parallel one.
+    const handleTelegramImport: FormEventHandler<HTMLFormElement> = useCallback(
+      async (evt) => {
+        evt.preventDefault();
+        if (importing) return;
+
+        const setName = parseStickerSetName(importLink);
+        if (!setName) {
+          setImportError('Not a sticker link. Expected a t.me/addstickers/... link.');
+          return;
+        }
+
+        setImporting(true);
+        setImportError(null);
+        setImportNote(null);
+        setImportProgress({ done: 0, total: 0 });
+
+        try {
+          const result = await fetchTelegramStickerPack(
+            telegramBotToken,
+            setName,
+            (done, total) => setImportProgress({ done, total })
+          );
+
+          const uniqueFiles = result.files.map((file) => {
+            const fileName = replaceSpaceWithDash(file.name);
+            if (hasImageWithShortcode(fileName)) {
+              return renameFile(file, suffixRename(fileName, hasImageWithShortcode));
+            }
+            return fileName !== file.name ? renameFile(file, fileName) : file;
+          });
+
+          setFiles((f) => [...f, ...uniqueFiles]);
+
+          const skipped = result.skippedAnimated + result.skippedVideo;
+          if (result.files.length === 0) {
+            setImportError(
+              skipped > 0
+                ? `"${result.title}" has only animated or video stickers, which image packs cannot show.`
+                : `"${result.title}" contained no stickers.`
+            );
+          } else {
+            setImportNote(
+              skipped > 0
+                ? `Added ${result.files.length} from "${result.title}". Skipped ${skipped} animated or video sticker${skipped === 1 ? '' : 's'}.`
+                : `Added ${result.files.length} sticker${result.files.length === 1 ? '' : 's'} from "${result.title}".`
+            );
+            setImportLink('');
+          }
+        } catch (err) {
+          setImportError(err instanceof Error ? err.message : 'Import failed.');
+        } finally {
+          setImporting(false);
+          setImportProgress(null);
+        }
+      },
+      [importing, importLink, telegramBotToken, hasImageWithShortcode]
     );
 
     const handleMetaSave = useCallback(
@@ -357,6 +431,72 @@ export const ImagePackContent = as<'div', ImagePackContentProps>(
                     </Button>
                   }
                 />
+                <SettingTile
+                  title="Import from Telegram"
+                  description={
+                    telegramBotToken
+                      ? 'Paste a t.me/addstickers link to add its static stickers to this pack.'
+                      : 'Add a Telegram bot token in Settings → General to import sticker packs. Telegram publishes sticker sets nowhere else.'
+                  }
+                  after={
+                    <Button
+                      variant="Secondary"
+                      fill="Soft"
+                      size="300"
+                      radii="300"
+                      type="button"
+                      outlined
+                      disabled={!telegramBotToken}
+                      onClick={() => setImportOpen((open) => !open)}
+                    >
+                      <Text size="B300">{importOpen ? 'Close' : 'Import'}</Text>
+                    </Button>
+                  }
+                />
+                {importOpen && telegramBotToken && (
+                  <Box as="form" onSubmit={handleTelegramImport} direction="Column" gap="200">
+                    <Box gap="200">
+                      <Box grow="Yes" direction="Column">
+                        <Input
+                          name="telegramStickerLink"
+                          value={importLink}
+                          onChange={(evt) => setImportLink(evt.currentTarget.value)}
+                          placeholder="https://t.me/addstickers/PackName"
+                          autoComplete="off"
+                          variant="Secondary"
+                          radii="300"
+                          disabled={importing}
+                        />
+                      </Box>
+                      <Button
+                        size="400"
+                        variant="Success"
+                        fill="Solid"
+                        outlined
+                        radii="300"
+                        type="submit"
+                        disabled={importing || importLink.trim().length === 0}
+                        before={importing ? <Spinner size="100" variant="Success" /> : undefined}
+                      >
+                        <Text size="B400">
+                          {importProgress && importProgress.total > 0
+                            ? `${importProgress.done}/${importProgress.total}`
+                            : 'Add'}
+                        </Text>
+                      </Button>
+                    </Box>
+                    {importError && (
+                      <Text size="T200" style={{ color: color.Critical.Main }}>
+                        {importError}
+                      </Text>
+                    )}
+                    {importNote && !importError && (
+                      <Text size="T200" style={{ color: color.Success.Main }}>
+                        {importNote}
+                      </Text>
+                    )}
+                  </Box>
+                )}
               </SequenceCard>
             )}
             {files.map((file) => (
