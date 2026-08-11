@@ -5,3 +5,6 @@ devAssets
 
 .DS_Store
 .idea
+
+# Claude Code session state — local scratch, not project files.
+.claude/

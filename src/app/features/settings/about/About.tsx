@@ -66,19 +66,6 @@ export function About({ requestClose }: AboutProps) {
                     >
                       <Text size="B300">Source Code</Text>
                     </Button>
-                    <Button
-                      as="a"
-                      href="https://cinny.in/donate"
-                      rel="noreferrer noopener"
-                      target="_blank"
-                      variant="Critical"
-                      fill="Soft"
-                      size="300"
-                      radii="300"
-                      before={<Icon src={Icons.Heart} size="100" filled />}
-                    >
-                      <Text size="B300">Donate to Cinny</Text>
-                    </Button>
                   </Box>
                 </Box>
               </Box>

@@ -6,7 +6,7 @@ import { version } from '../../../../package.json';
 export function AuthFooter() {
   return (
     <Box className={css.AuthFooter} justifyContent="Center" gap="400" wrap="Wrap">
-      <Text as="a" size="T300" href="https://cinny.in" target="_blank" rel="noreferrer">
+      <Text as="a" size="T300" href="https://prinny.app" target="_blank" rel="noreferrer">
         About
       </Text>
       <Text
