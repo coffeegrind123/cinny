@@ -343,6 +343,57 @@ export function MAudio({ content, renderAsFile, renderAudioContent, outlined }: 
   );
 }
 
+type MVoiceProps = {
+  content: IAudioContent;
+  renderAsFile: () => ReactNode;
+  renderVoiceContent: (props: RenderAudioContentProps) => ReactNode;
+  outlined?: boolean;
+};
+/**
+ * A voice message: the player only, with a download tucked at the end.
+ *
+ * Deliberately not wrapped in the file-attachment chrome MAudio uses — a
+ * voice note has no filename worth showing ("Voice message.ogg" is noise), and
+ * the header would double the height of what should read as a single bubble.
+ */
+export function MVoice({ content, renderAsFile, renderVoiceContent, outlined }: MVoiceProps) {
+  const audioInfo = content?.info;
+  const mxcUrl = content.file?.url ?? content.url;
+  const safeMimeType = getBlobSafeMimeType(audioInfo?.mimetype ?? '');
+
+  if (!safeMimeType.startsWith('audio') || typeof mxcUrl !== 'string') {
+    if (mxcUrl) return renderAsFile();
+    return <BrokenContent />;
+  }
+
+  return (
+    <Attachment outlined={outlined}>
+      <AttachmentBox>
+        <AttachmentContent>
+          <Box alignItems="Center" gap="100">
+            <Box grow="Yes" style={{ minWidth: 0 }}>
+              {renderVoiceContent({
+                info: audioInfo ?? {},
+                mimeType: safeMimeType,
+                url: mxcUrl,
+                encInfo: content.file,
+              })}
+            </Box>
+            <Box shrink="No">
+              <FileDownloadButton
+                filename={content.filename ?? 'Voice message.ogg'}
+                url={mxcUrl}
+                mimeType={safeMimeType}
+                encInfo={content.file}
+              />
+            </Box>
+          </Box>
+        </AttachmentContent>
+      </AttachmentBox>
+    </Attachment>
+  );
+}
+
 type RenderFileContentProps = {
   body: string;
   info: IFileInfo & IThumbnailContent;
@@ -388,16 +439,23 @@ export function MFile({ content, renderFileContent, outlined }: MFileProps) {
 
 type MLocationProps = {
   content: IContent;
+  /** Drawn above the link when the viewer has opted into maps. */
+  renderMap?: (position: { latitude: string; longitude: string }) => ReactNode;
 };
-export function MLocation({ content }: MLocationProps) {
+export function MLocation({ content, renderMap }: MLocationProps) {
   const geoUri = content.geo_uri;
   if (typeof geoUri !== 'string') return <BrokenContent />;
   const location = parseGeoUri(geoUri);
   if (!location) return <BrokenContent />;
 
+  // The description the sender gave, when there is one, beats showing them the
+  // raw `geo:` URI they never typed.
+  const label = typeof content.body === 'string' && content.body ? content.body : geoUri;
+
   return (
     <Box direction="Column" alignItems="Start" gap="100">
-      <Text size="T400">{geoUri}</Text>
+      {renderMap?.(location)}
+      <Text size="T400">{label}</Text>
       <Chip
         as="a"
         size="400"

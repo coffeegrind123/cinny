@@ -45,6 +45,7 @@ import { onEnterOrSpace } from '../utils/keyboard';
 import { copyToClipboard, tryDecodeURIComponent } from '../utils/dom';
 import { useTimeoutToggle } from '../hooks/useTimeoutToggle';
 import { MAX_HIGHLIGHT_LENGTH } from './react-prism/constants';
+import { renderMaths } from './katex';
 
 const ReactPrism = lazy(() => import('./react-prism/ReactPrism'));
 
@@ -347,6 +348,7 @@ export const getReactCustomHtmlParser = (
     handleSpoilerClick?: ReactEventHandler<HTMLElement>;
     handleMentionClick?: ReactEventHandler<HTMLElement>;
     useAuthentication?: boolean;
+    renderMaths?: boolean;
   }
 ): HTMLReactParserOptions => {
   const opts: HTMLReactParserOptions = {
@@ -488,6 +490,32 @@ export const getReactCustomHtmlParser = (
           );
 
           if (mention) return mention;
+        }
+
+        // MSC2191 maths. The LaTeX source lives in the attribute and the tag's
+        // children are the sender's plain-text fallback, so when rendering is
+        // off — or the formula does not compile — the fallback is what shows,
+        // exactly as a client without maths support would do.
+        if ((name === 'span' || name === 'div') && typeof attribs['data-mx-maths'] === 'string') {
+          if (params.renderMaths) {
+            const rendered = renderMaths(attribs['data-mx-maths'], name === 'div');
+            if (rendered) {
+              return (
+                <span
+                  className={css.Maths}
+                  // KaTeX output is generated here from the LaTeX source with
+                  // trust disabled, so it contains no sender-supplied markup.
+                  // eslint-disable-next-line react/no-danger
+                  dangerouslySetInnerHTML={{ __html: rendered }}
+                />
+              );
+            }
+          }
+          return (
+            <span {...props} title={attribs['data-mx-maths']}>
+              {domToReact(toDOMNodes(children), opts)}
+            </span>
+          );
         }
 
         if (name === 'span' && 'data-mx-spoiler' in props) {

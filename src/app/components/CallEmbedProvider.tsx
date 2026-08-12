@@ -35,6 +35,7 @@ import {
   useCallStart,
 } from '../hooks/useCallEmbed';
 import { callChatAtom, callEmbedAtom } from '../state/callEmbed';
+import { setCaptureSession } from '../utils/screen-share';
 import { CallEmbed } from '../plugins/call';
 import { useSelectedRoom } from '../hooks/router/useSelectedRoom';
 import { ScreenSize, useScreenSizeContext } from '../hooks/useScreenSize';
@@ -86,7 +87,7 @@ function IncomingCall({ dm, info, onIgnore, onAnswer, onReject }: IncomingCallPr
   const roomName = useRoomName(room);
   const roomAvatar = useRoomAvatar(room, dm);
   const avatarUrl = roomAvatar
-    ? mxcUrlToHttp(mx, roomAvatar, useAuthentication, 96, 96, 'crop') ?? undefined
+    ? (mxcUrlToHttp(mx, roomAvatar, useAuthentication, 96, 96, 'crop') ?? undefined)
     : undefined;
 
   const session = useCallSession(room);
@@ -98,8 +99,8 @@ function IncomingCall({ dm, info, onIgnore, onAnswer, onReject }: IncomingCallPr
           onIgnore();
         }
       },
-      [onIgnore]
-    )
+      [onIgnore],
+    ),
   );
 
   const playSound = useCallback(() => {
@@ -281,7 +282,7 @@ function IncomingCallListener({ callEmbed, joined }: IncomingCallListenerProps) 
 
       const hasCallPermission = permissions.stateEvent(
         StateEvent.GroupCallMemberPrefix,
-        mx.getSafeUserId()
+        mx.getSafeUserId(),
       );
       if (!hasCallPermission) return;
 
@@ -300,7 +301,7 @@ function IncomingCallListener({ callEmbed, joined }: IncomingCallListenerProps) 
 
       setCallInfo(info);
     },
-    [mx]
+    [mx],
   );
 
   useEffect(() => {
@@ -324,7 +325,7 @@ function IncomingCallListener({ callEmbed, joined }: IncomingCallListenerProps) 
       });
       setCallInfo(undefined);
     },
-    [mx]
+    [mx],
   );
 
   const handleAnswer = useCallback(
@@ -333,7 +334,7 @@ function IncomingCallListener({ callEmbed, joined }: IncomingCallListenerProps) 
       setCallInfo(undefined);
       navigateRoom(room.roomId);
     },
-    [startCall, navigateRoom]
+    [startCall, navigateRoom],
   );
 
   if (callInfo && callEmbed?.roomId === callInfo.room.roomId) {
@@ -359,7 +360,7 @@ function CallUtils({ embed }: { embed: CallEmbed }) {
     embed,
     useCallback(() => {
       setCallEmbed(undefined);
-    }, [setCallEmbed])
+    }, [setCallEmbed]),
   );
 
   // Tell the Android foreground service to advertise microphone usage
@@ -383,6 +384,19 @@ export function CallEmbedProvider({ children }: CallEmbedProviderProps) {
   const callEmbed = useAtomValue(callEmbedAtom);
   const callEmbedRef = useRef<HTMLDivElement>(null);
   const joined = useCallJoined(callEmbed);
+
+  // Hold the Linux capture gate open while a call is up. Element Call asks for
+  // the microphone and the screen from inside its own iframe, so the one-shot
+  // arming used elsewhere can never cover it — without this, screen sharing
+  // from a call is refused with nothing to indicate why. Closing it on leave is
+  // what keeps the widening bounded to the call.
+  useEffect(() => {
+    if (!callEmbed) return undefined;
+    setCaptureSession(true);
+    return () => {
+      setCaptureSession(false);
+    };
+  }, [callEmbed]);
 
   const selectedRoom = useSelectedRoom();
   const chat = useAtomValue(callChatAtom);

@@ -14,6 +14,7 @@ import {
 } from '../../../components/AccountDataEditor';
 import { copyToClipboard } from '../../../utils/dom';
 import { AccountData } from './AccountData';
+import { MediaCapabilities } from './MediaCapabilities';
 
 type DeveloperToolsProps = {
   requestClose: () => void;
@@ -114,6 +115,7 @@ export function DeveloperTools({ requestClose }: DeveloperToolsProps) {
                     </SequenceCard>
                   )}
                 </Box>
+                {developerTools && <MediaCapabilities />}
                 {developerTools && (
                   <AccountData
                     expand={expand}

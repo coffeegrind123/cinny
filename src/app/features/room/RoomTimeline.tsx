@@ -25,6 +25,7 @@ import {
   RoomEvent,
   RoomEventHandlerMap,
 } from 'matrix-js-sdk';
+import { M_POLL_START } from 'matrix-js-sdk/lib/@types/polls';
 import { HTMLReactParserOptions } from 'html-react-parser';
 import classNames from 'classnames';
 import { Editor } from 'slate';
@@ -118,6 +119,14 @@ import { useMentionClickHandler } from '../../hooks/useMentionClickHandler';
 import { useSpoilerClickHandler } from '../../hooks/useSpoilerClickHandler';
 import { useRoomNavigate } from '../../hooks/useRoomNavigate';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
+import { useKatex } from '../../hooks/useKatex';
+import { chatEffectAtom } from './ChatEffects';
+import { effectForBody, effectForMsgType } from '../../plugins/effects';
+import { PollContent } from '../../components/message/content/PollContent';
+import { MapView } from '../../components/map';
+import { useMapStyleUrl, useMapsEnabled } from '../../hooks/useMapStyleUrl';
+import { ThreadSummary } from './thread/ThreadSummary';
+import { threadViewAtom } from '../../state/threadView';
 import { useIgnoredUsers } from '../../hooks/useIgnoredUsers';
 import { useImagePackRooms } from '../../hooks/useImagePackRooms';
 import { useIsDirectRoom } from '../../hooks/useRoom';
@@ -456,6 +465,8 @@ const getRoomUnreadInfo = (room: Room, scrollTo = false) => {
 export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimelineProps) {
   const mx = useMatrixClient();
   const isBackdrop = useIsRoomBackdrop();
+  const setChatEffect = useSetAtom(chatEffectAtom);
+  const setThreadView = useSetAtom(threadViewAtom);
   const useAuthentication = useMediaAuthentication();
   const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
   const [messageLayout] = useSetting(settingsAtom, 'messageLayout');
@@ -466,6 +477,8 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
   const [hideNickAvatarEvents] = useSetting(settingsAtom, 'hideNickAvatarEvents');
   const [mediaAutoLoad] = useSetting(settingsAtom, 'mediaAutoLoad');
   const [urlPreview] = useSetting(settingsAtom, 'urlPreview');
+  const [mathsEnabled] = useSetting(settingsAtom, 'renderMaths');
+  const renderMaths = useKatex(mathsEnabled);
   const [encUrlPreview] = useSetting(settingsAtom, 'encUrlPreview');
   const showUrlPreview = room.hasEncryptionStateEvent() ? encUrlPreview : urlPreview;
   const [showHiddenEvents] = useSetting(settingsAtom, 'showHiddenEvents');
@@ -565,9 +578,43 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
         useAuthentication,
         handleSpoilerClick: spoilerClickHandler,
         handleMentionClick: mentionClickHandler,
+        renderMaths,
       }),
-    [mx, room, linkifyOpts, spoilerClickHandler, mentionClickHandler, useAuthentication]
+    [
+      mx,
+      room,
+      linkifyOpts,
+      spoilerClickHandler,
+      mentionClickHandler,
+      useAuthentication,
+      renderMaths,
+    ]
   );
+  // Maps stay off unless the viewer turned them on AND a tile style exists,
+  // so a location message from someone else can never make this client fetch
+  // tiles unprompted.
+  const mapStyleUrl = useMapStyleUrl();
+  const mapsEnabled = useMapsEnabled();
+  const renderLocationMap = useCallback(
+    (position: { latitude: string; longitude: string }) => {
+      if (!mapsEnabled || !mapStyleUrl) return null;
+      const latitude = Number(position.latitude);
+      const longitude = Number(position.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+      return (
+        <div style={{ width: '100%', maxWidth: toRem(400) }}>
+          <MapView
+            styleUrl={mapStyleUrl}
+            pins={[{ latitude, longitude }]}
+            height="180px"
+            interactive={false}
+          />
+        </div>
+      );
+    },
+    [mapsEnabled, mapStyleUrl]
+  );
+
   const parseMemberEvent = useMemberEventParser();
 
   const [timeline, setTimeline] = useState<Timeline>(() =>
@@ -644,6 +691,20 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
     room,
     useCallback(
       (mEvt: MatrixEvent) => {
+        // Effects fire on arrival only, and only for the room you are looking
+        // at — replaying every 🎉 in the backlog when you scroll up, or firing
+        // for a room in the background, would be a nuisance rather than a
+        // flourish. `data.liveEvent` is already enforced by useLiveEventArrive.
+        if (!isBackdrop && mEvt.getType() === EventType.RoomMessage && !mEvt.isRedacted()) {
+          const content = mEvt.getContent();
+          const effect =
+            effectForMsgType(content.msgtype) ??
+            (typeof content.body === 'string' ? effectForBody(content.body) : undefined);
+          if (effect) {
+            setChatEffect({ name: effect, key: Date.now() });
+          }
+        }
+
         // if user is at bottom of timeline
         // keep paginating timeline and conditionally mark as read
         // otherwise we update timeline without paginating
@@ -704,7 +765,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
           setUnreadInfo(getRoomUnreadInfo(room));
         }
       },
-      [mx, room, unreadInfo, hideActivity, isBackdrop]
+      [mx, room, unreadInfo, hideActivity, isBackdrop, setChatEffect]
     )
   );
 
@@ -1077,6 +1138,13 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
     },
     [mx, room]
   );
+  const handleOpenThread = useCallback(
+    (rootId: string) => {
+      setThreadView({ roomId: room.roomId, rootId });
+    },
+    [room.roomId, setThreadView]
+  );
+
   const handleEdit = useCallback(
     (editEvtId?: string) => {
       if (editEvtId) {
@@ -1135,6 +1203,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
             onUserClick={handleUserClick}
             onUsernameClick={handleUsernameClick}
             onReplyClick={handleReplyClick}
+            onThreadClick={handleOpenThread}
             onReactionToggle={handleReactionToggle}
             onEditId={handleEdit}
             reply={
@@ -1152,16 +1221,21 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
               )
             }
             reactions={
-              reactionRelations && (
-                <Reactions
-                  style={{ marginTop: config.space.S200 }}
-                  room={room}
-                  relations={reactionRelations}
-                  mEventId={mEventId}
-                  canSendReaction={canSendReaction}
-                  onReactionToggle={handleReactionToggle}
-                />
-              )
+              <>
+                {/* A thread root is the entry point to its replies; without
+                    this the thread is only reachable by scrolling past it. */}
+                <ThreadSummary room={room} mEvent={mEvent} onClick={handleOpenThread} />
+                {reactionRelations && (
+                  <Reactions
+                    style={{ marginTop: config.space.S200 }}
+                    room={room}
+                    relations={reactionRelations}
+                    mEventId={mEventId}
+                    canSendReaction={canSendReaction}
+                    onReactionToggle={handleReactionToggle}
+                  />
+                )}
+              </>
             }
             hideReadReceipts={hideActivity}
             showDeveloperTools={showDeveloperTools}
@@ -1184,6 +1258,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
                 urlPreview={showUrlPreview}
                 htmlReactParserOptions={htmlReactParserOptions}
                 linkifyOpts={linkifyOpts}
+                renderLocationMap={renderLocationMap}
                 outlineAttachment={messageLayout === MessageLayout.Bubble}
               />
             )}
@@ -1223,6 +1298,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
             onUserClick={handleUserClick}
             onUsernameClick={handleUsernameClick}
             onReplyClick={handleReplyClick}
+            onThreadClick={handleOpenThread}
             onReactionToggle={handleReactionToggle}
             onEditId={handleEdit}
             reply={
@@ -1296,6 +1372,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
                       urlPreview={showUrlPreview}
                       htmlReactParserOptions={htmlReactParserOptions}
                       linkifyOpts={linkifyOpts}
+                      renderLocationMap={renderLocationMap}
                       outlineAttachment={messageLayout === MessageLayout.Bubble}
                     />
                   );
@@ -1341,6 +1418,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
             onUserClick={handleUserClick}
             onUsernameClick={handleUsernameClick}
             onReplyClick={handleReplyClick}
+            onThreadClick={handleOpenThread}
             onReactionToggle={handleReactionToggle}
             reactions={
               reactionRelations && (
@@ -1380,6 +1458,76 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
           </Message>
         );
       },
+      // Polls arrive under two type names: the stable one and the MSC3381
+      // unstable one that every client still sends. Both must render, or a poll
+      // from Element shows up as an empty gap in the timeline.
+      ...Object.fromEntries(
+        [M_POLL_START.name, M_POLL_START.altName].filter(Boolean).map((pollType) => [
+          pollType as string,
+          (mEventId: string, mEvent: MatrixEvent, item: number, timelineSet: EventTimelineSet, collapse: boolean) => {
+            const reactionRelations = getEventReactions(timelineSet, mEventId);
+            const reactions = reactionRelations && reactionRelations.getSortedAnnotationsByKey();
+            const hasReactions = reactions && reactions.length > 0;
+            const highlighted = focusItem?.index === item && focusItem.highlight;
+            const senderId = mEvent.getSender() ?? '';
+
+            return (
+              <Message
+                key={mEvent.getId()}
+                data-message-item={item}
+                data-message-id={mEventId}
+                room={room}
+                mEvent={mEvent}
+                messageSpacing={messageSpacing}
+                messageLayout={messageLayout}
+                collapse={collapse}
+                highlight={highlighted}
+                canDelete={canRedact || (canDeleteOwn && senderId === mx.getUserId())}
+                canSendReaction={canSendReaction}
+                canPinEvent={canPinEvent}
+                imagePackRooms={imagePackRooms}
+                relations={hasReactions ? reactionRelations : undefined}
+                onUserClick={handleUserClick}
+                onUsernameClick={handleUsernameClick}
+                onReplyClick={handleReplyClick}
+            onThreadClick={handleOpenThread}
+                onReactionToggle={handleReactionToggle}
+                reactions={
+                  reactionRelations && (
+                    <Reactions
+                      style={{ marginTop: config.space.S200 }}
+                      room={room}
+                      relations={reactionRelations}
+                      mEventId={mEventId}
+                      canSendReaction={canSendReaction}
+                      onReactionToggle={handleReactionToggle}
+                    />
+                  )
+                }
+                hideReadReceipts={hideActivity}
+                showDeveloperTools={showDeveloperTools}
+                memberPowerTag={getMemberPowerTag(senderId)}
+                accessibleTagColors={accessiblePowerTagColors}
+                legacyUsernameColor={legacyUsernameColor || direct}
+                hour24Clock={hour24Clock}
+                dateFormatString={dateFormatString}
+              >
+                {mEvent.isRedacted() ? (
+                  <RedactedContent reason={mEvent.getUnsigned().redacted_because?.content.reason} />
+                ) : (
+                  <PollContent
+                    room={room}
+                    mEvent={mEvent}
+                    // Ending someone else's poll is a moderation action, so it
+                    // needs redact power — the same bar as removing it.
+                    canEnd={senderId === mx.getUserId() || canRedact}
+                  />
+                )}
+              </Message>
+            );
+          },
+        ])
+      ),
       [StateEvent.RoomMember]: (mEventId, mEvent, item) => {
         const membershipChanged = isMembershipChanged(mEvent);
         if (membershipChanged && hideMembershipEvents) return null;

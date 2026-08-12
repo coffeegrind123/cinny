@@ -59,6 +59,21 @@ export const Code = style([
   },
 ]);
 
+export const Maths = style([
+  DefaultReset,
+  {
+    // KaTeX lays out with its own font metrics; keep it from inheriting a line
+    // height that clips fractions and superscripts.
+    lineHeight: 'normal',
+    // A wide formula scrolls inside its own box rather than stretching the
+    // whole message row.
+    display: 'inline-block',
+    maxWidth: '100%',
+    overflowX: 'auto',
+    verticalAlign: 'middle',
+  },
+]);
+
 export const Spoiler = recipe({
   base: [
     DefaultReset,

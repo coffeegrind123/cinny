@@ -21,6 +21,7 @@ import { useSetting } from '../../state/hooks/settings';
 import { useRoomPermissions } from '../../hooks/useRoomPermissions';
 import { useRoomCreators } from '../../hooks/useRoomCreators';
 import { useRoom } from '../../hooks/useRoom';
+import { PinnedMessageBanner } from './PinnedMessageBanner';
 
 const FN_KEYS_REGEX = /^F\d+$/;
 const shouldFocusMessageField = (evt: KeyboardEvent): boolean => {
@@ -103,6 +104,7 @@ export function RoomView({ eventId }: { eventId?: string }) {
       </Box>
       <Box shrink="No" direction="Column">
         <div style={{ padding: `0 ${config.space.S400}` }}>
+          <PinnedMessageBanner room={room} />
           {tombstoneEvent ? (
             <RoomTombstone
               roomId={roomId}

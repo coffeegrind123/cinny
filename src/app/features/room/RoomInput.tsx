@@ -4,6 +4,7 @@ import React, {
   forwardRef,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -63,6 +64,7 @@ import {
   getImageInfo,
   getMxIdLocalPart,
   mxcUrlToHttp,
+  uploadContent,
 } from '../../utils/matrix';
 import { useTypingStatusUpdater } from '../../hooks/useTypingStatusUpdater';
 import { useFilePicker } from '../../hooks/useFilePicker';
@@ -100,7 +102,15 @@ import {
   getFileMsgContent,
   getImageMsgContent,
   getVideoMsgContent,
+  getVoiceMsgContent,
 } from './msgContent';
+import { VoiceRecordBar } from './voice/VoiceRecordBar';
+import { VoiceRecordStatus, useVoiceRecorder } from './voice/useVoiceRecorder';
+import { isVoiceRecordingSupported } from '../../plugins/voice-recorder';
+import { rainbowHtml } from '../../utils/rainbow';
+import { EFFECT_MSG_TYPES, EffectName, isEffectName } from '../../plugins/effects';
+import { PollCreatePrompt } from './poll/PollCreatePrompt';
+import { LocationPicker } from './location/LocationPicker';
 import { getMemberDisplayName, getMentionContent, trimReplyFromBody } from '../../utils/room';
 import { CommandAutocomplete } from './CommandAutocomplete';
 import { Command, SHRUG, TABLEFLIP, UNFLIP, useCommands } from '../../hooks/useCommands';
@@ -133,9 +143,20 @@ interface RoomInputProps {
   fileDropContainerRef: RefObject<HTMLElement | null>;
   roomId: string;
   room: Room;
+  /**
+   * When set, everything typed here is sent as a reply in that thread, and
+   * drafts are kept separately from the room's main composer — otherwise a
+   * half-typed thread reply would appear in the room composer behind it.
+   */
+  threadRootId?: string;
+  /**
+   * Latest event in the thread, used for the reply fallback the spec asks for.
+   * Falls back to the root when the thread has no replies yet.
+   */
+  threadLatestEventId?: string;
 }
 export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
-  ({ editor, fileDropContainerRef, roomId, room }, ref) => {
+  ({ editor, fileDropContainerRef, roomId, room, threadRootId, threadLatestEventId }, ref) => {
     const mx = useMatrixClient();
     const useAuthentication = useMediaAuthentication();
     const [enterForNewline] = useSetting(settingsAtom, 'enterForNewline');
@@ -149,8 +170,12 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
     const powerLevels = usePowerLevelsContext();
     const creators = useRoomCreators(room);
 
-    const [msgDraft, setMsgDraft] = useAtom(roomIdToMsgDraftAtomFamily(roomId));
-    const [replyDraft, setReplyDraft] = useAtom(roomIdToReplyDraftAtomFamily(roomId));
+    // Drafts, attachments and the reply preview are scoped per composer, so a
+    // thread panel and the room behind it never share state.
+    const draftScope = threadRootId ? `${roomId}|thread:${threadRootId}` : roomId;
+
+    const [msgDraft, setMsgDraft] = useAtom(roomIdToMsgDraftAtomFamily(draftScope));
+    const [replyDraft, setReplyDraft] = useAtom(roomIdToReplyDraftAtomFamily(draftScope));
     const replyUserID = replyDraft?.userId;
 
     const powerLevelTags = usePowerLevelTags(room, powerLevels);
@@ -171,7 +196,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
       legacyUsernameColor || direct ? colorMXID(replyUserID ?? '') : replyPowerColor;
 
     const [uploadBoard, setUploadBoard] = useState(true);
-    const [selectedFiles, setSelectedFiles] = useAtom(roomIdToUploadItemsAtomFamily(roomId));
+    const [selectedFiles, setSelectedFiles] = useAtom(roomIdToUploadItemsAtomFamily(draftScope));
     const uploadFamilyObserverAtom = createUploadFamilyObserverAtom(
       roomUploadAtomFamily,
       selectedFiles.map((f) => f.file)
@@ -185,6 +210,15 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
       useState<AutocompleteQuery<AutocompletePrefix>>();
 
     const sendTypingStatus = useTypingStatusUpdater(mx, roomId);
+
+    const voiceRecorder = useVoiceRecorder(roomId);
+    const [pollPrompt, setPollPrompt] = useState(false);
+    const [locationPrompt, setLocationPrompt] = useState(false);
+    const voiceActive = voiceRecorder.status !== VoiceRecordStatus.Idle;
+    // Checked once rather than per render: a build without WASM or without
+    // getUserMedia can never record, and offering a button that always fails is
+    // worse than not offering it.
+    const voiceSupported = useMemo(() => isVoiceRecordingSupported(), []);
 
     const handleFiles = useCallback(
       async (files: File[]) => {
@@ -224,11 +258,17 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
       [setSelectedFiles, room]
     );
 
-    // Register this room's file handler for global (anywhere-in-window) drops
+    // Register this room's file handler for global (anywhere-in-window) drops.
+    //
+    // Only the room composer claims it. A thread composer is mounted alongside
+    // the room one, so if both registered, the thread's cleanup on close would
+    // null out the handler the room composer had installed — leaving
+    // drag-and-drop dead in that room until you navigated away and back.
     useEffect(() => {
+      if (threadRootId) return undefined;
       setGlobalDropHandler(handleFiles);
       return () => setGlobalDropHandler(null);
-    }, [handleFiles]);
+    }, [handleFiles, threadRootId]);
 
     const pickFile = useFilePicker(handleFiles, true);
     const handlePaste = useFilePasteHandler(handleFiles);
@@ -237,6 +277,10 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
     // the file picker dispatches into the active room's handleFiles —
     // RoomInput is mounted per-room so the binding is implicitly scoped.
     useKeybind('upload-file', () => {
+      // Window-level shortcuts belong to the room composer. With a thread panel
+      // open there are two RoomInputs listening, and both would answer — one
+      // keypress, two file pickers.
+      if (threadRootId) return;
       pickFile('*/*');
     });
 
@@ -244,6 +288,9 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
     // can keep typing without re-clicking. ReactEditor.focus is the slate
     // primitive used elsewhere in this file.
     useKeybind('focus-textarea', () => {
+      // Same reason as upload-file: only the room composer answers, or the two
+      // composers fight over focus every time Escape is pressed.
+      if (threadRootId) return;
       // Don't steal focus from a real OS-level prompt or another input.
       const active = document.activeElement as HTMLElement | null;
       if (active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA') return;
@@ -339,8 +386,111 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
       });
       handleCancelUpload(uploads);
       const contents = fulfilledPromiseSettledResult(await Promise.allSettled(contentsPromises));
-      contents.forEach((content) => mx.sendMessage(roomId, content as any));
+      contents.forEach((content) => {
+        // Attachments sent from a thread composer must stay in the thread.
+        if (threadRootId) applyRelation(content as IContent);
+        mx.sendMessage(roomId, content as any);
+      });
     };
+
+    /**
+     * Stamps the outgoing content with whatever relation applies: an explicit
+     * reply if one is drafted, otherwise the thread this composer belongs to.
+     *
+     * Every send path goes through here. A thread composer that forgot to do
+     * this on one path (attachments, say) would drop that message into the main
+     * room instead, which looks like the message went to the wrong place —
+     * because it did.
+     */
+    const applyRelation = useCallback(
+      (content: IContent) => {
+        if (replyDraft) {
+          content['m.relates_to'] = {
+            'm.in_reply_to': {
+              event_id: replyDraft.eventId,
+            },
+          };
+          if (replyDraft.relation?.rel_type === RelationType.Thread) {
+            content['m.relates_to'].event_id = replyDraft.relation.event_id;
+            content['m.relates_to'].rel_type = RelationType.Thread;
+            content['m.relates_to'].is_falling_back = false;
+          }
+          return;
+        }
+
+        if (threadRootId) {
+          // A plain message in a thread still carries a reply fallback, so
+          // clients that do not understand threads show it as a reply to the
+          // most recent thread event rather than as a loose message.
+          content['m.relates_to'] = {
+            rel_type: RelationType.Thread,
+            event_id: threadRootId,
+            is_falling_back: true,
+            'm.in_reply_to': {
+              event_id: threadLatestEventId ?? threadRootId,
+            },
+          };
+        }
+      },
+      [replyDraft, threadRootId, threadLatestEventId]
+    );
+
+    // Voice messages bypass the upload board on purpose. The board is a staging
+    // area you add to and then send; a voice note is recorded, reviewed and
+    // sent as one action, and showing it as a pending file card in between
+    // would invite the user to send it twice.
+    const handleSendVoice = useCallback(async () => {
+      const { recording } = voiceRecorder;
+      if (!recording) return;
+
+      voiceRecorder.setSending(true);
+      try {
+        const file = new File([recording.blob], 'Voice message.ogg', { type: 'audio/ogg' });
+        const encrypted = room.hasEncryptionStateEvent() ? await encryptFile(file) : undefined;
+        const uploadFile = encrypted?.file ?? file;
+
+        const mxc = await new Promise<string>((resolve, reject) => {
+          uploadContent(mx, uploadFile, {
+            // The filename says "Voice message" in every client that reads it,
+            // so there is nothing to hide behind hideFilename here.
+            onSuccess: resolve,
+            onError: reject,
+          });
+        });
+
+        const content = getVoiceMsgContent(
+          {
+            file: uploadFile,
+            originalFile: file,
+            encInfo: encrypted?.encInfo,
+            metadata: { markedAsSpoiler: false },
+          },
+          mxc,
+          recording.durationSeconds * 1000,
+          recording.waveform
+        );
+
+        const mentionData = getMentions(mx, roomId, editor);
+        if (replyDraft && replyDraft.userId !== mx.getUserId()) {
+          mentionData.users.add(replyDraft.userId);
+        }
+        content['m.mentions'] = getMentionContent(
+          Array.from(mentionData.users),
+          mentionData.room
+        );
+
+        applyRelation(content);
+
+        await mx.sendMessage(roomId, content as any);
+        voiceRecorder.discard();
+        setReplyDraft(undefined);
+      } catch (e) {
+        console.error('Failed to send voice message', e);
+        // Back to the preview with the audio intact — a failed upload must not
+        // silently eat a recording the user cannot make again.
+        voiceRecorder.setSending(false);
+      }
+    }, [mx, room, roomId, editor, replyDraft, setReplyDraft, voiceRecorder, applyRelation]);
 
     const submit = useCallback(() => {
       uploadBoardHandlers.current?.handleSend();
@@ -355,6 +505,9 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
         })
       );
       let msgType = MsgType.Text;
+      let effectMsgType: string | undefined;
+      const effectCommand =
+        commandName && isEffectName(commandName) ? (commandName as EffectName) : undefined;
 
       if (commandName) {
         plainText = trimCommand(commandName, plainText);
@@ -373,6 +526,28 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
       } else if (commandName === Command.UnFlip) {
         plainText = `${UNFLIP} ${plainText}`;
         customHtml = `${UNFLIP} ${customHtml}`;
+      } else if (commandName === Command.Rainbow || commandName === Command.RainbowMe) {
+        if (commandName === Command.RainbowMe) msgType = MsgType.Emote;
+        // Colour the plain text, not the generated HTML: wrapping already-built
+        // markup would put a <font> tag around every tag character too.
+        customHtml = rainbowHtml(plainText);
+      } else if (commandName === Command.Plain) {
+        // Markdown left as typed — the point of /plain is that `*this*` stays
+        // `*this*`, so the HTML body is dropped entirely below.
+        customHtml = plainText;
+      } else if (commandName === Command.Html) {
+        // The user asked for raw HTML. It is still sanitised on render, by the
+        // same parser that sanitises everyone else's messages.
+        customHtml = plainText;
+      } else if (effectCommand) {
+        // Effect messages are ordinary text with a custom msgtype. Clients that
+        // do not know the msgtype fall back to showing the body, which is why
+        // an empty one gets a default rather than posting a blank line.
+        if (plainText === '') {
+          plainText = `sends ${effectCommand}`;
+          customHtml = plainText;
+        }
+        effectMsgType = EFFECT_MSG_TYPES[effectCommand];
       } else if (commandName) {
         const commandContent = commands[commandName as Command];
         if (commandContent) {
@@ -391,7 +566,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
       const mentionData = getMentions(mx, roomId, editor);
 
       const content: IContent = {
-        msgtype: msgType,
+        msgtype: effectMsgType ?? msgType,
         body,
       };
 
@@ -402,28 +577,32 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
       const mMentions = getMentionContent(Array.from(mentionData.users), mentionData.room);
       content['m.mentions'] = mMentions;
 
-      if (replyDraft || !customHtmlEqualsPlainText(formattedBody, body)) {
+      // `/html` is the one case where body and formatted body are identical on
+      // purpose — the typed text IS the markup — so the usual "they match, skip
+      // the HTML" shortcut would throw away the entire point of the command.
+      const forceHtml = commandName === Command.Html;
+
+      if (forceHtml || replyDraft || !customHtmlEqualsPlainText(formattedBody, body)) {
         content.format = 'org.matrix.custom.html';
         content.formatted_body = formattedBody;
       }
-      if (replyDraft) {
-        content['m.relates_to'] = {
-          'm.in_reply_to': {
-            event_id: replyDraft.eventId,
-          },
-        };
-        if (replyDraft.relation?.rel_type === RelationType.Thread) {
-          content['m.relates_to'].event_id = replyDraft.relation.event_id;
-          content['m.relates_to'].rel_type = RelationType.Thread;
-          content['m.relates_to'].is_falling_back = false;
-        }
-      }
+      applyRelation(content);
       mx.sendMessage(roomId, content as any);
       resetEditor(editor);
       resetEditorHistory(editor);
       setReplyDraft(undefined);
       sendTypingStatus(false);
-    }, [mx, roomId, editor, replyDraft, sendTypingStatus, setReplyDraft, isMarkdown, commands]);
+    }, [
+      mx,
+      roomId,
+      editor,
+      replyDraft,
+      sendTypingStatus,
+      setReplyDraft,
+      isMarkdown,
+      commands,
+      applyRelation,
+    ]);
 
     const handleKeyDown: KeyboardEventHandler = useCallback(
       (evt) => {
@@ -494,6 +673,16 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
 
     return (
       <div ref={ref}>
+        {pollPrompt && (
+          <PollCreatePrompt room={room} requestClose={() => setPollPrompt(false)} />
+        )}
+        {locationPrompt && (
+          <LocationPicker
+            room={room}
+            threadRootId={threadRootId}
+            requestClose={() => setLocationPrompt(false)}
+          />
+        )}
         {selectedFiles.length > 0 && (
           <UploadBoard
             header={
@@ -591,7 +780,33 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
           onPaste={handlePaste}
           onDrop={handleDrop}
           top={
-            replyDraft && (
+            <>
+            {voiceRecorder.error && (
+              <Box
+                alignItems="Center"
+                gap="200"
+                style={{ padding: `${config.space.S200} ${config.space.S300} 0` }}
+              >
+                <Box grow="Yes">
+                  <Text size="T200" style={{ color: color.Critical.Main }}>
+                    {voiceRecorder.error}
+                  </Text>
+                </Box>
+                <IconButton
+                  onClick={voiceRecorder.clearError}
+                  variant="SurfaceVariant"
+                  size="300"
+                  radii="300"
+                  aria-label="Dismiss"
+                >
+                  <Icon src={Icons.Cross} size="50" />
+                </IconButton>
+              </Box>
+            )}
+            {voiceActive && (
+              <VoiceRecordBar controls={voiceRecorder} onSend={handleSendVoice} />
+            )}
+            {replyDraft && (
               <div>
                 <Box
                   alignItems="Center"
@@ -638,20 +853,78 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
                   </Box>
                 </Box>
               </div>
-            )
+            )}
+            </>
           }
           before={
-            <IconButton
-              onClick={() => pickFile('*/*')}
-              variant="SurfaceVariant"
-              size="300"
-              radii="300"
-            >
-              <Icon src={Icons.PlusCircle} />
-            </IconButton>
+            <>
+              <IconButton
+                onClick={() => pickFile('*/*')}
+                variant="SurfaceVariant"
+                size="300"
+                radii="300"
+                aria-label="Attach file"
+              >
+                <Icon src={Icons.PlusCircle} />
+              </IconButton>
+              <IconButton
+                onClick={() => setPollPrompt(true)}
+                variant="SurfaceVariant"
+                size="300"
+                radii="300"
+                aria-label="Create poll"
+                aria-pressed={pollPrompt}
+              >
+                <Icon src={Icons.Bulb} />
+              </IconButton>
+              <IconButton
+                onClick={() => setLocationPrompt(true)}
+                variant="SurfaceVariant"
+                size="300"
+                radii="300"
+                aria-label="Share location"
+                aria-pressed={locationPrompt}
+              >
+                <Icon src={Icons.Pin} />
+              </IconButton>
+            </>
           }
           after={
             <>
+              {voiceSupported && (
+                // Tap to start, tap again to stop — deliberately not
+                // hold-to-record. A hold gesture on mobile fights the swipe
+                // handlers behind the composer and loses the recording the
+                // moment a finger slips off the button.
+                <IconButton
+                  variant={voiceActive ? 'Primary' : 'SurfaceVariant'}
+                  size="300"
+                  radii="300"
+                  aria-label={
+                    voiceRecorder.status === VoiceRecordStatus.Recording
+                      ? 'Stop recording'
+                      : 'Record voice message'
+                  }
+                  aria-pressed={voiceActive}
+                  disabled={
+                    voiceRecorder.status === VoiceRecordStatus.Starting ||
+                    voiceRecorder.status === VoiceRecordStatus.Sending
+                  }
+                  onClick={() => {
+                    if (voiceRecorder.status === VoiceRecordStatus.Recording) {
+                      voiceRecorder.stop();
+                    } else if (voiceRecorder.status === VoiceRecordStatus.Idle) {
+                      voiceRecorder.start();
+                    }
+                  }}
+                >
+                  <Icon
+                    src={
+                      voiceRecorder.status === VoiceRecordStatus.Recording ? Icons.MicMute : Icons.Mic
+                    }
+                  />
+                </IconButton>
+              )}
               <IconButton
                 variant="SurfaceVariant"
                 size="300"

@@ -12,6 +12,7 @@ import {
   Box,
   Button,
   Chip,
+  color,
   config,
   Header,
   Icon,
@@ -31,6 +32,9 @@ import { isKeyHotkey } from '../../../utils/is-hotkey';
 import { FocusTrap } from 'focus-trap-react';
 import { Page, PageContent, PageContentCenter, PageHeader } from '../../../components/page';
 import { SequenceCard } from '../../../components/sequence-card';
+import { PrivacySettings } from './PrivacySettings';
+import { AudioSettings } from './AudioSettings';
+import { useAutostart } from '../../../hooks/useAutostart';
 import { useSetting } from '../../../state/hooks/settings';
 import { DateFormat, MessageLayout, MessageSpacing, settingsAtom } from '../../../state/settings';
 import { SettingTile } from '../../../components/setting-tile';
@@ -718,11 +722,14 @@ function Editor() {
   const [useSoundcloak, setUseSoundcloak] = useSetting(settingsAtom, 'useSoundcloak');
   const [useBlueskyEmbeds, setUseBlueskyEmbeds] = useSetting(settingsAtom, 'useBlueskyEmbeds');
   const [usePiped, setUsePiped] = useSetting(settingsAtom, 'usePiped');
+  const [renderMaths, setRenderMaths] = useSetting(settingsAtom, 'renderMaths');
+  const [showMaps, setShowMaps] = useSetting(settingsAtom, 'showMaps');
   const [clientPreviewFallback, setClientPreviewFallback] = useSetting(
     settingsAtom,
     'clientPreviewFallback',
   );
   const [minimizeToTray, setMinimizeToTray] = useSetting(settingsAtom, 'minimizeToTray');
+  const autostart = useAutostart();
 
   return (
     <Box direction="Column" gap="100">
@@ -786,6 +793,20 @@ function Editor() {
       </SequenceCard>
       <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
         <SettingTile
+          title="Show Maps for Locations"
+          description="Draw location messages as a map. Every map fetches tiles from whoever serves the map style, disclosing your IP address and what you are looking at."
+          after={<Switch variant="Primary" value={showMaps} onChange={setShowMaps} />}
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Render LaTeX Maths"
+          description="Draw formulas sent as LaTeX instead of showing the sender's plain-text fallback."
+          after={<Switch variant="Primary" value={renderMaths} onChange={setRenderMaths} />}
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
           title="Use vxtwitter for Twitter/X"
           description="Fetch Twitter/X media client-side via vxtwitter API for full video and image embeds. Sends the link and your IP address to that third-party service."
           after={<Switch variant="Primary" value={useVxTwitter} onChange={setUseVxTwitter} />}
@@ -825,6 +846,27 @@ function Editor() {
               }
             />
           </SequenceCard>
+          {autostart.enabled !== undefined && (
+            <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+              <SettingTile
+                title="Start at Login"
+                description="Launch minimized to the tray when you sign in to this computer."
+                after={
+                  <Switch
+                    variant="Primary"
+                    value={autostart.enabled}
+                    disabled={autostart.busy}
+                    onChange={autostart.toggle}
+                  />
+                }
+              />
+              {autostart.error && (
+                <Text size="T200" style={{ color: color.Critical.Main }}>
+                  {autostart.error}
+                </Text>
+              )}
+            </SequenceCard>
+          )}
           <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
             <SettingTile
               title="Client-side link previews (fallback)"
@@ -1110,6 +1152,8 @@ export function General({ requestClose }: GeneralProps) {
                 <DateAndTime />
                 <Editor />
                 <Messages />
+                <AudioSettings />
+                <PrivacySettings />
               </Box>
             </PageContentCenter>
           </PageContent>

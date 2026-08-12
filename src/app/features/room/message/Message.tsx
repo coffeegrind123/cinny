@@ -58,6 +58,8 @@ import {
   mxcUrlToHttp,
 } from '../../../utils/matrix';
 import { markAsUnread } from '../../../utils/notifications';
+import { ForwardPrompt } from './ForwardPrompt';
+import { EditHistoryPrompt } from './EditHistoryPrompt';
 import {
   clearHoveredMessageEventId,
   setHoveredMessageEventId,
@@ -355,6 +357,94 @@ export const MessageCopyLinkItem = as<
         Copy Link
       </Text>
     </MenuItem>
+  );
+});
+
+export const MessageEditHistoryItem = as<
+  'button',
+  {
+    room: Room;
+    mEvent: MatrixEvent;
+    onClose?: () => void;
+  }
+>(({ room, mEvent, onClose, ...props }, ref) => {
+  const [open, setOpen] = useState(false);
+
+  // Same signal the "(edited)" marker uses, so the entry appears on exactly the
+  // messages that show as edited — never on a message that looks untouched.
+  const evtId = mEvent.getId();
+  const evtTimeline = evtId ? room.getTimelineForEvent(evtId) : undefined;
+  const editCount =
+    evtId && evtTimeline
+      ? (getEventEdits(evtTimeline.getTimelineSet(), evtId, mEvent.getType())?.getRelations()
+          ?.length ?? 0)
+      : 0;
+
+  if (editCount === 0) return null;
+
+  return (
+    <>
+      {open && (
+        <EditHistoryPrompt
+          room={room}
+          mEvent={mEvent}
+          requestClose={() => {
+            setOpen(false);
+            onClose?.();
+          }}
+        />
+      )}
+      <MenuItem
+        size="300"
+        after={<Icon size="100" src={Icons.Clock} />}
+        radii="300"
+        onClick={() => setOpen(true)}
+        aria-pressed={open}
+        {...props}
+        ref={ref}
+      >
+        <Text className={css.MessageMenuItemText} as="span" size="T300" truncate>
+          Edit History
+        </Text>
+      </MenuItem>
+    </>
+  );
+});
+
+export const MessageForwardItem = as<
+  'button',
+  {
+    mEvent: MatrixEvent;
+    onClose?: () => void;
+  }
+>(({ mEvent, onClose, ...props }, ref) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      {open && (
+        <ForwardPrompt
+          mEvent={mEvent}
+          requestClose={() => {
+            setOpen(false);
+            onClose?.();
+          }}
+        />
+      )}
+      <MenuItem
+        size="300"
+        after={<Icon size="100" src={Icons.ArrowRight} />}
+        radii="300"
+        onClick={() => setOpen(true)}
+        aria-pressed={open}
+        {...props}
+        ref={ref}
+      >
+        <Text className={css.MessageMenuItemText} as="span" size="T300" truncate>
+          Forward
+        </Text>
+      </MenuItem>
+    </>
   );
 });
 
@@ -681,6 +771,7 @@ export type MessageProps = {
     ev: Parameters<MouseEventHandler<HTMLButtonElement>>[0],
     startThread?: boolean
   ) => void;
+  onThreadClick: (rootId: string) => void;
   onEditId?: (eventId?: string) => void;
   onReactionToggle: (targetEventId: string, key: string, shortcode?: string) => void;
   reply?: ReactNode;
@@ -713,6 +804,7 @@ export const Message = as<'div', MessageProps>(
       onUserClick,
       onUsernameClick,
       onReplyClick,
+      onThreadClick,
       onReactionToggle,
       onEditId,
       reply,
@@ -1009,9 +1101,12 @@ export const Message = as<'div', MessageProps>(
                 >
                   <Icon src={Icons.ReplyArrow} size="100" />
                 </IconButton>
-                {!isThreadedMessage && (
+                {(
                   <IconButton
-                    onClick={(ev) => onReplyClick(ev, true)}
+                    onClick={() => {
+                      const threadRoot = mEvent.threadRootId ?? mEvent.getId();
+                      if (threadRoot) onThreadClick(threadRoot);
+                    }}
                     data-event-id={mEvent.getId()}
                     variant="SurfaceVariant"
                     size="300"
@@ -1099,27 +1194,32 @@ export const Message = as<'div', MessageProps>(
                               Reply
                             </Text>
                           </MenuItem>
-                          {!isThreadedMessage && (
-                            <MenuItem
-                              size="300"
-                              after={<Icon src={Icons.ThreadPlus} size="100" />}
-                              radii="300"
-                              data-event-id={mEvent.getId()}
-                              onClick={(evt: any) => {
-                                onReplyClick(evt, true);
-                                closeMenu();
-                              }}
+                          <MenuItem
+                            size="300"
+                            after={<Icon src={Icons.ThreadPlus} size="100" />}
+                            radii="300"
+                            data-event-id={mEvent.getId()}
+                            onClick={() => {
+                              // Both cases open the panel: on a root it starts
+                              // (or resumes) its thread, on a reply it opens the
+                              // thread that reply belongs to. Seeding the room
+                              // composer with a thread relation, as this used
+                              // to, left the reply to be typed in a composer
+                              // that showed no thread at all.
+                              const threadRoot = mEvent.threadRootId ?? mEvent.getId();
+                              if (threadRoot) onThreadClick(threadRoot);
+                              closeMenu();
+                            }}
+                          >
+                            <Text
+                              className={css.MessageMenuItemText}
+                              as="span"
+                              size="T300"
+                              truncate
                             >
-                              <Text
-                                className={css.MessageMenuItemText}
-                                as="span"
-                                size="T300"
-                                truncate
-                              >
-                                Reply in Thread
-                              </Text>
-                            </MenuItem>
-                          )}
+                              {isThreadedMessage ? 'View Thread' : 'Reply in Thread'}
+                            </Text>
+                          </MenuItem>
                           {canEditEvent(mx, mEvent) && onEditId && (
                             <MenuItem
                               size="300"
@@ -1155,6 +1255,12 @@ export const Message = as<'div', MessageProps>(
                               onClose={closeMenu}
                             />
                           )}
+                          <MessageForwardItem mEvent={mEvent} onClose={closeMenu} />
+                          <MessageEditHistoryItem
+                            room={room}
+                            mEvent={mEvent}
+                            onClose={closeMenu}
+                          />
                           <MessageCopyLinkItem room={room} mEvent={mEvent} onClose={closeMenu} />
                           <MenuItem
                             size="300"
@@ -1342,6 +1448,12 @@ export const Event = as<'div', EventProps>(
                               onClose={closeMenu}
                             />
                           )}
+                          <MessageForwardItem mEvent={mEvent} onClose={closeMenu} />
+                          <MessageEditHistoryItem
+                            room={room}
+                            mEvent={mEvent}
+                            onClose={closeMenu}
+                          />
                           <MessageCopyLinkItem room={room} mEvent={mEvent} onClose={closeMenu} />
                         </Box>
                         {((!mEvent.isRedacted() && canDelete && !stateEvent) ||

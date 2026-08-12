@@ -126,7 +126,11 @@ export const getVideoMsgContent = async (
   return content;
 };
 
-export const getAudioMsgContent = (item: TUploadItem, mxc: string): IContent => {
+export const getAudioMsgContent = (
+  item: TUploadItem,
+  mxc: string,
+  durationMs?: number
+): IContent => {
   const { file, encInfo } = item;
   const content: IContent = {
     msgtype: MsgType.Audio,
@@ -135,6 +139,10 @@ export const getAudioMsgContent = (item: TUploadItem, mxc: string): IContent => 
     info: {
       mimetype: file.type,
       size: file.size,
+      // Every other client shows a duration for audio attachments. We were
+      // sending none at all, so ours rendered as an unknown-length blob
+      // everywhere, including in Element.
+      ...(durationMs !== undefined ? { duration: Math.round(durationMs) } : undefined),
     },
   };
   if (encInfo) {
@@ -145,6 +153,75 @@ export const getAudioMsgContent = (item: TUploadItem, mxc: string): IContent => 
   } else {
     content.url = mxc;
   }
+  return content;
+};
+
+/**
+ * A voice message is an `m.audio` with extra keys that tell a client to draw a
+ * waveform bubble instead of a file row.
+ *
+ * The shape is MSC1767 (extensible events) plus MSC3245's rendering hint, and
+ * it is what Element, Fluffy and Nheko all look for — the empty
+ * `org.matrix.msc3245.voice` object IS the signal; the audio itself is an
+ * ordinary attachment. Omit these and the message still plays, but arrives
+ * looking like a file called "Voice message.ogg", which is exactly the state we
+ * are fixing.
+ *
+ * Waveform values go out as integers 0..1024 (MSC3246).
+ */
+export const getVoiceMsgContent = (
+  item: TUploadItem,
+  mxc: string,
+  durationMs: number,
+  waveform: number[]
+): IContent => {
+  const { file, encInfo } = item;
+  const name = 'Voice message.ogg';
+  const mimetype = file.type || 'audio/ogg';
+  const duration = Math.round(durationMs);
+  const encodedWaveform = waveform.map((v) => Math.round(Math.min(1, Math.max(0, v)) * 1024));
+
+  const content: IContent = {
+    msgtype: MsgType.Audio,
+    body: 'Voice message',
+    filename: name,
+    info: {
+      mimetype,
+      size: file.size,
+      duration,
+    },
+    'org.matrix.msc1767.text': 'Voice message',
+    'org.matrix.msc1767.audio': {
+      duration,
+      waveform: encodedWaveform,
+    },
+    'org.matrix.msc3245.voice': {},
+  };
+
+  if (encInfo) {
+    content.file = {
+      ...encInfo,
+      url: mxc,
+    };
+    content['org.matrix.msc1767.file'] = {
+      file: {
+        ...encInfo,
+        url: mxc,
+      },
+      name,
+      mimetype,
+      size: file.size,
+    };
+  } else {
+    content.url = mxc;
+    content['org.matrix.msc1767.file'] = {
+      url: mxc,
+      name,
+      mimetype,
+      size: file.size,
+    };
+  }
+
   return content;
 };
 

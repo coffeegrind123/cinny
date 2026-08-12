@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { Box, Line } from 'folds';
+import { Box, Line, toRem } from 'folds';
 import { useParams } from 'react-router-dom';
 import { isKeyHotkey } from '../../utils/is-hotkey';
 import { useAtom, useAtomValue } from 'jotai';
@@ -17,6 +17,11 @@ import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { useRoomMembers } from '../../hooks/useRoomMembers';
 import { CallView } from '../call/CallView';
 import { RoomViewHeader } from './RoomViewHeader';
+import { RoomKnocksBar } from './RoomKnocksBar';
+import { LiveLocationBanner } from './location/LiveLocationBanner';
+import { ThreadView } from './thread/ThreadView';
+import { threadViewAtom } from '../../state/threadView';
+import { ChatEffects } from './ChatEffects';
 import { callChatAtom } from '../../state/callEmbed';
 import { CallChatView } from './CallChatView';
 import { MobileSwipeBack } from './MobileSwipeBack';
@@ -43,6 +48,15 @@ export function Room() {
     setSearchOpen(false);
     return () => setSearchOpen(false);
   }, [room.roomId, setSearchOpen]);
+
+  const [threadView, setThreadView] = useAtom(threadViewAtom);
+  const closeThread = useCallback(() => setThreadView(undefined), [setThreadView]);
+  // A thread belonging to a room you have navigated away from must not stay on
+  // screen over the new one.
+  const openThreadRootId = threadView?.roomId === room.roomId ? threadView.rootId : undefined;
+  useEffect(() => {
+    if (threadView && threadView.roomId !== room.roomId) setThreadView(undefined);
+  }, [room.roomId, threadView, setThreadView]);
   const powerLevels = usePowerLevels(room);
   const members = useRoomMembers(mx, room.roomId);
   const chat = useAtomValue(callChatAtom);
@@ -68,6 +82,7 @@ export function Room() {
 
   return (
     <PowerLevelsContextProvider value={powerLevels}>
+      <ChatEffects />
       <MobileSwipeBack>
         <Box grow="Yes">
         {callView && (screenSize === ScreenSize.Desktop || !chat) && (
@@ -81,9 +96,24 @@ export function Room() {
         {!callView && (
           <Box grow="Yes" direction="Column" style={{ position: 'relative' }}>
             <RoomViewHeader />
+            <RoomKnocksBar room={room} />
+            <LiveLocationBanner room={room} />
             <Box grow="Yes">
               <RoomView eventId={eventId} />
             </Box>
+            {/* On anything narrower than desktop the thread takes over the
+                room, matching how search behaves — a 360px panel beside a
+                phone-width timeline would leave neither usable. */}
+            {openThreadRootId && screenSize !== ScreenSize.Desktop && (
+              <Box style={{ position: 'absolute', inset: 0, zIndex: 11 }}>
+                <ThreadView
+                  key={openThreadRootId}
+                  room={room}
+                  rootId={openThreadRootId}
+                  onClose={closeThread}
+                />
+              </Box>
+            )}
             {searchOpen && screenSize !== ScreenSize.Desktop && (
               <Box style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
                 {/*
@@ -115,7 +145,23 @@ export function Room() {
             <CallChatView />
           </>
         )}
-        {!callView && screenSize === ScreenSize.Desktop && isDrawer && (
+        {/* A thread takes the side panel when one is open, in preference to
+            the member list — both cannot share the space, and the thread is
+            what the user just asked for. */}
+        {!callView && screenSize === ScreenSize.Desktop && openThreadRootId && (
+          <>
+            <Line variant="Background" direction="Vertical" size="300" />
+            <Box shrink="No" style={{ width: toRem(360) }}>
+              <ThreadView
+                key={openThreadRootId}
+                room={room}
+                rootId={openThreadRootId}
+                onClose={closeThread}
+              />
+            </Box>
+          </>
+        )}
+        {!callView && screenSize === ScreenSize.Desktop && !openThreadRootId && isDrawer && (
           <>
             <Line variant="Background" direction="Vertical" size="300" />
             <MembersDrawer key={room.roomId} room={room} members={members} />

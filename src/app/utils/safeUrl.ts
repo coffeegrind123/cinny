@@ -26,8 +26,15 @@ const WEB_SCHEMES = new Set(['http:', 'https:']);
  * `magnet` — on a link authored by any federated user. Neither is needed by this
  * product, so neither is allowed. `mailto` stays: it is ubiquitous in chat and
  * composing a message is not a privileged action.
+ *
+ * `matrix` is allowed for a different reason than the others: it never reaches
+ * the OS opener at all. MatrixLinkHandler intercepts clicks on `matrix:` links
+ * and resolves them to a room or user inside the app, and the desktop shell's
+ * new-window handler refuses every scheme except http(s) anyway. Without it here
+ * the sanitizer stripped the href, so links other clients send routinely — the
+ * MSC2312 form of a room or user reference — arrived as plain unclickable text.
  */
-export const MESSAGE_LINK_SCHEMES = ['https', 'http', 'mailto'] as const;
+export const MESSAGE_LINK_SCHEMES = ['https', 'http', 'mailto', 'matrix'] as const;
 
 /**
  * True when `value` parses as an absolute URL with an http(s) scheme.

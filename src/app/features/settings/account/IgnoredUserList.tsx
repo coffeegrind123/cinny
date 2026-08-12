@@ -19,8 +19,8 @@ function IgnoreUserInput({ userList }: { userList: string[] }) {
       async (uId: string) => {
         await mx.setIgnoredUsers([...userList, uId]);
       },
-      [mx, userList]
-    )
+      [mx, userList],
+    ),
   );
   const ignoring = ignoreState.status === AsyncStatus.Loading;
 
@@ -100,8 +100,8 @@ function IgnoredUserChip({ userId, userList }: { userId: string; userList: strin
   const [unignoreState, unignore] = useAsyncCallback(
     useCallback(
       () => mx.setIgnoredUsers(userList.filter((uId) => uId !== userId)),
-      [mx, userId, userList]
-    )
+      [mx, userId, userList],
+    ),
   );
 
   const handleUnignore = () => unignore();

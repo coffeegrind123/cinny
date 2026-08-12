@@ -21,6 +21,7 @@ import { settingsAtom } from '../../state/settings';
 import { allInvitesAtom } from '../../state/room-list/inviteList';
 import { usePreviousValue } from '../../hooks/usePreviousValue';
 import { useSystemTray } from '../../hooks/useSystemTray';
+import { useContentProtection } from '../../hooks/useContentProtection';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { getInboxInvitesPath, getInboxNotificationsPath } from '../pathUtils';
 import { useRoomNavigate } from '../../hooks/useRoomNavigate';
@@ -38,6 +39,8 @@ import { useInboxNotificationsSelected } from '../../hooks/router/useInbox';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
 import { getCurrentWindow, UserAttentionType } from '@tauri-apps/api/window';
 import { GlobalKeybinds } from '../../components/global-keybinds/GlobalKeybinds';
+import { MatrixLinkHandler } from '../../components/MatrixLinkHandler';
+import { isVoiceMessageContent } from '../../utils/voice-message';
 
 function SystemEmojiFeature() {
   const [twitterEmoji] = useSetting(settingsAtom, 'twitterEmoji');
@@ -65,6 +68,7 @@ function PageZoomFeature() {
 
 function SystemTray() {
   useSystemTray();
+  useContentProtection();
   return null;
 }
 
@@ -300,7 +304,14 @@ function MessageNotifications() {
       } else if (msgtype === 'm.video') {
         notificationBody = rawBody ? `🎬 ${rawBody}` : 'Sent a video';
       } else if (msgtype === 'm.audio') {
-        notificationBody = rawBody ? `🎵 ${rawBody}` : 'Sent an audio clip';
+        // A voice message's body is the literal string "Voice message", so the
+        // generic audio path would announce "🎵 Voice message" — say what it
+        // actually is instead.
+        notificationBody = isVoiceMessageContent(content ?? {})
+          ? '🎤 Sent a voice message'
+          : rawBody
+            ? `🎵 ${rawBody}`
+            : 'Sent an audio clip';
       } else if (msgtype === 'm.file') {
         notificationBody = rawBody ? `📎 ${rawBody}` : 'Sent a file';
       } else {
@@ -443,6 +454,7 @@ export function ClientNonUIFeatures({ children }: ClientNonUIFeaturesProps) {
       <InviteNotifications />
       <MessageNotifications />
       <GlobalKeybinds />
+      <MatrixLinkHandler />
       {children}
     </>
   );

@@ -57,7 +57,7 @@ function ProfileAvatar({ profile, userId }: ProfileProps) {
 
   const defaultDisplayName = profile.displayName ?? getMxIdLocalPart(userId) ?? userId;
   const avatarUrl = profile.avatarUrl
-    ? mxcUrlToHttp(mx, profile.avatarUrl, useAuthentication, 96, 96, 'crop') ?? undefined
+    ? (mxcUrlToHttp(mx, profile.avatarUrl, useAuthentication, 96, 96, 'crop') ?? undefined)
     : undefined;
 
   const [imageFile, setImageFile] = useState<File>();
@@ -79,7 +79,7 @@ function ProfileAvatar({ profile, userId }: ProfileProps) {
       mx.setAvatarUrl(mxc);
       handleRemoveUpload();
     },
-    [mx, handleRemoveUpload]
+    [mx, handleRemoveUpload],
   );
 
   const handleRemoveAvatar = () => {
@@ -214,7 +214,7 @@ function ProfileDisplayName({ profile, userId }: ProfileProps) {
   const [displayName, setDisplayName] = useState<string>(defaultDisplayName);
 
   const [changeState, changeDisplayName] = useAsyncCallback(
-    useCallback((name: string) => mx.setDisplayName(name), [mx])
+    useCallback((name: string) => mx.setDisplayName(name), [mx]),
   );
   const changingDisplayName = changeState.status === AsyncStatus.Loading;
 

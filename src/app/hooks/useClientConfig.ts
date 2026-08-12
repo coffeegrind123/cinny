@@ -37,6 +37,14 @@ export type ClientConfig = {
   //                     private key configured on the gateway
   pushGateway?: string;
   pushVapidPublicKey?: string;
+
+  // MapLibre style URL used to draw location messages and pick a location to
+  // send. Consulted only when the homeserver publishes no `m.tile_server` in
+  // its well-known, which most do not.
+  //
+  // Whoever serves this URL sees an IP and a viewport for every map drawn, so
+  // maps stay off until the user turns them on even when this is set.
+  mapStyleUrl?: string;
 };
 
 const ClientConfigContext = createContext<ClientConfig | null>(null);

@@ -70,6 +70,10 @@ import {
   useRoomsNotificationPreferencesContext,
 } from '../../hooks/useRoomsNotificationPreferences';
 import { JumpToTime } from './jump-to-time';
+import { PollHistoryPrompt } from './poll/PollHistoryPrompt';
+import { RoomFilesPrompt } from './files/RoomFilesPrompt';
+import { RoomWidgetsPrompt } from './widgets/RoomWidgetsPrompt';
+import { ExportPrompt } from './export/ExportPrompt';
 import { useRoomNavigate } from '../../hooks/useRoomNavigate';
 import { useRoomCreators } from '../../hooks/useRoomCreators';
 import { useRoomPermissions } from '../../hooks/useRoomPermissions';
@@ -203,6 +207,110 @@ const RoomMenu = forwardRef<HTMLDivElement, RoomMenuProps>(({ room, requestClose
             Room Settings
           </Text>
         </MenuItem>
+        <UseStateProvider initial={false}>
+          {(promptWidgets, setPromptWidgets) => (
+            <>
+              <MenuItem
+                onClick={() => setPromptWidgets(true)}
+                size="300"
+                after={<Icon size="100" src={Icons.Category} />}
+                radii="300"
+                aria-pressed={promptWidgets}
+              >
+                <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+                  Widgets
+                </Text>
+              </MenuItem>
+              {promptWidgets && (
+                <RoomWidgetsPrompt
+                  room={room}
+                  requestClose={() => {
+                    setPromptWidgets(false);
+                    requestClose();
+                  }}
+                />
+              )}
+            </>
+          )}
+        </UseStateProvider>
+        <UseStateProvider initial={false}>
+          {(promptFiles, setPromptFiles) => (
+            <>
+              <MenuItem
+                onClick={() => setPromptFiles(true)}
+                size="300"
+                after={<Icon size="100" src={Icons.File} />}
+                radii="300"
+                aria-pressed={promptFiles}
+              >
+                <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+                  Files
+                </Text>
+              </MenuItem>
+              {promptFiles && (
+                <RoomFilesPrompt
+                  room={room}
+                  requestClose={() => {
+                    setPromptFiles(false);
+                    requestClose();
+                  }}
+                />
+              )}
+            </>
+          )}
+        </UseStateProvider>
+        <UseStateProvider initial={false}>
+          {(promptExport, setPromptExport) => (
+            <>
+              <MenuItem
+                onClick={() => setPromptExport(true)}
+                size="300"
+                after={<Icon size="100" src={Icons.Download} />}
+                radii="300"
+                aria-pressed={promptExport}
+              >
+                <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+                  Export Chat
+                </Text>
+              </MenuItem>
+              {promptExport && (
+                <ExportPrompt
+                  room={room}
+                  requestClose={() => {
+                    setPromptExport(false);
+                    requestClose();
+                  }}
+                />
+              )}
+            </>
+          )}
+        </UseStateProvider>
+        <UseStateProvider initial={false}>
+          {(promptPolls, setPromptPolls) => (
+            <>
+              <MenuItem
+                onClick={() => setPromptPolls(true)}
+                size="300"
+                after={<Icon size="100" src={Icons.Bulb} />}
+                radii="300"
+                aria-pressed={promptPolls}
+              >
+                <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+                  Polls
+                </Text>
+              </MenuItem>
+              {promptPolls && (
+                <PollHistoryPrompt
+                  room={room}
+                  requestClose={() => {
+                    setPromptPolls(false);
+                    requestClose();
+                  }}
+                />
+              )}
+            </>
+          )}
+        </UseStateProvider>
         <UseStateProvider initial={false}>
           {(promptJump, setPromptJump) => (
             <>

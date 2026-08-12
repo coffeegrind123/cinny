@@ -23,6 +23,7 @@ import {
   removeRoomIdFromMDirect,
 } from '../utils/matrix';
 import { useRoomNavigate } from './useRoomNavigate';
+import { useOpenUserRoomProfile } from '../state/hooks/userRoomProfile';
 import { Membership, StateEvent } from '../../types/matrix/room';
 import { getStateEvent } from '../utils/room';
 import { splitWithSpace } from '../utils/common';
@@ -159,6 +160,26 @@ export enum Command {
   UnFlip = 'unflip',
   Delete = 'delete',
   Acl = 'acl',
+  Nick = 'nick',
+  MyAvatar = 'myavatar',
+  Topic = 'topic',
+  RoomName = 'roomname',
+  RoomAvatar = 'roomavatar',
+  Query = 'query',
+  Whois = 'whois',
+  UpgradeRoom = 'upgraderoom',
+  DiscardSession = 'discardsession',
+  // Handled by the composer rather than here — they change how the typed text
+  // is turned into event content, so there is nothing for `exe` to do.
+  Rainbow = 'rainbow',
+  RainbowMe = 'rainbowme',
+  Plain = 'plain',
+  Html = 'html',
+  Confetti = 'confetti',
+  Fireworks = 'fireworks',
+  Snowfall = 'snowfall',
+  Rainfall = 'rainfall',
+  Hearts = 'hearts',
 }
 
 export type CommandContent = {
@@ -171,6 +192,7 @@ export type CommandRecord = Record<Command, CommandContent>;
 
 export const useCommands = (mx: MatrixClient, room: Room): CommandRecord => {
   const { navigateRoom } = useRoomNavigate();
+  const openUserProfile = useOpenUserRoomProfile();
 
   const commands: CommandRecord = useMemo(
     () => ({
@@ -531,8 +553,149 @@ export const useCommands = (mx: MatrixClient, room: Room): CommandRecord => {
           await mx.sendStateEvent(room.roomId, StateEvent.RoomServerAcl as any, aclContent);
         },
       },
+      [Command.Nick]: {
+        name: Command.Nick,
+        description: 'Change your display name everywhere. Example: /nick Alice',
+        exe: async (payload) => {
+          const nick = payload.trim();
+          if (nick === '') return;
+          await mx.setDisplayName(nick);
+        },
+      },
+      [Command.MyAvatar]: {
+        name: Command.MyAvatar,
+        description: 'Change your profile picture everywhere. Example: /myavatar mxc://xyzabc',
+        exe: async (payload) => {
+          const url = payload.trim();
+          if (!url.match(/^mxc:\/\/\S+$/)) return;
+          await mx.setAvatarUrl(url);
+        },
+      },
+      [Command.Topic]: {
+        name: Command.Topic,
+        description: 'Set the topic of this room. Example: /topic Weekly sync',
+        exe: async (payload) => {
+          await mx.setRoomTopic(room.roomId, payload.trim());
+        },
+      },
+      [Command.RoomName]: {
+        name: Command.RoomName,
+        description: 'Rename this room. Example: /roomname Project Chat',
+        exe: async (payload) => {
+          const name = payload.trim();
+          if (name === '') return;
+          await mx.setRoomName(room.roomId, name);
+        },
+      },
+      [Command.RoomAvatar]: {
+        name: Command.RoomAvatar,
+        description: "Change this room's picture. Example: /roomavatar mxc://xyzabc",
+        exe: async (payload) => {
+          const url = payload.trim();
+          if (!url.match(/^mxc:\/\/\S+$/)) return;
+          await mx.sendStateEvent(room.roomId, StateEvent.RoomAvatar as any, { url });
+        },
+      },
+      [Command.Query]: {
+        name: Command.Query,
+        description: 'Open a direct message with a user. Example: /query userId',
+        exe: async (payload) => {
+          const userId = payload.trim();
+          if (!isUserId(userId) || userId === mx.getSafeUserId()) return;
+          const dmRoomId = getDMRoomFor(mx, userId)?.roomId;
+          if (dmRoomId) {
+            navigateRoom(dmRoomId);
+            return;
+          }
+          const result = await mx.createRoom({
+            is_direct: true,
+            invite: [userId],
+            visibility: Visibility.Private,
+            preset: Preset.TrustedPrivateChat,
+            initial_state: [createRoomEncryptionState()],
+          });
+          addRoomIdToMDirect(mx, result.room_id, userId);
+          navigateRoom(result.room_id);
+        },
+      },
+      [Command.Whois]: {
+        name: Command.Whois,
+        description: 'Show a user profile. Example: /whois userId',
+        exe: async (payload) => {
+          const userId = payload.trim();
+          if (!isUserId(userId)) return;
+          // The profile popout anchors to a rect; there is no click to take one
+          // from here, so anchor it to the middle of the window.
+          const cords = new DOMRect(window.innerWidth / 2, window.innerHeight / 2, 0, 0);
+          openUserProfile(room.roomId, undefined, userId, cords, 'Top');
+        },
+      },
+      [Command.UpgradeRoom]: {
+        name: Command.UpgradeRoom,
+        description: 'Upgrade this room to a new version. Example: /upgraderoom 11',
+        exe: async (payload) => {
+          const version = payload.trim();
+          // No default version: an upgrade replaces the room with a new one and
+          // leaves a tombstone behind, so it should never happen because
+          // somebody typed the command and pressed enter to see what it did.
+          if (version === '') return;
+          await mx.upgradeRoom(room.roomId, version);
+        },
+      },
+      [Command.DiscardSession]: {
+        name: Command.DiscardSession,
+        description: 'Force a new encryption session in this room (debugging).',
+        exe: async () => {
+          await mx.getCrypto()?.forceDiscardSession(room.roomId);
+        },
+      },
+      [Command.Rainbow]: {
+        name: Command.Rainbow,
+        description: 'Send message in rainbow colours',
+        exe: async () => undefined,
+      },
+      [Command.RainbowMe]: {
+        name: Command.RainbowMe,
+        description: 'Send action message in rainbow colours',
+        exe: async () => undefined,
+      },
+      [Command.Plain]: {
+        name: Command.Plain,
+        description: 'Send message without markdown formatting',
+        exe: async () => undefined,
+      },
+      [Command.Html]: {
+        name: Command.Html,
+        description: 'Send message as raw HTML',
+        exe: async () => undefined,
+      },
+      [Command.Confetti]: {
+        name: Command.Confetti,
+        description: 'Send message with confetti',
+        exe: async () => undefined,
+      },
+      [Command.Fireworks]: {
+        name: Command.Fireworks,
+        description: 'Send message with fireworks',
+        exe: async () => undefined,
+      },
+      [Command.Snowfall]: {
+        name: Command.Snowfall,
+        description: 'Send message with snowfall',
+        exe: async () => undefined,
+      },
+      [Command.Rainfall]: {
+        name: Command.Rainfall,
+        description: 'Send message with rainfall',
+        exe: async () => undefined,
+      },
+      [Command.Hearts]: {
+        name: Command.Hearts,
+        description: 'Send message with hearts',
+        exe: async () => undefined,
+      },
     }),
-    [mx, room, navigateRoom]
+    [mx, room, navigateRoom, openUserProfile]
   );
 
   return commands;

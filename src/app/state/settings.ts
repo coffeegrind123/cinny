@@ -68,6 +68,26 @@ export interface Settings {
   notificationContentMode: NotificationContentMode;
   usePiped: boolean;
   clientPreviewFallback: boolean;
+  // Renders LaTeX sent as MSC2191 `data-mx-maths`. Off by default: it is a
+  // niche need, and leaving it off means messages show the sender's plain-text
+  // fallback instead of running a formula engine over their input.
+  renderMaths: boolean;
+  // Draws location messages as a map instead of a link. Off by default: every
+  // map drawn fetches tiles from whoever serves the style, disclosing an IP and
+  // a viewport, and doing that unprompted for a message someone else sent is
+  // the same trade the other embed toggles below guard against.
+  showMaps: boolean;
+  // Microphone selection and processing, shared by voice messages and calls.
+  // An empty device id means "whatever the system considers default", which is
+  // what most people want and what survives plugging a headset in and out.
+  // Asks the OS to exclude the window from screenshots and screen recordings.
+  // Honoured on Windows and macOS; on most Linux desktops it does nothing, so
+  // the settings tile says so rather than implying a guarantee.
+  contentProtection: boolean;
+  audioInputId: string;
+  echoCancellation: boolean;
+  noiseSuppression: boolean;
+  autoGainControl: boolean;
   // Telegram Bot API token, used only to import sticker packs from
   // t.me/addstickers links. Telegram serves sticker sets nowhere else — the
   // link itself carries no sticker data — and the Bot API returns 401 without
@@ -136,6 +156,13 @@ const defaultSettings: Settings = {
   // Same reasoning: the client-side OG fallback fetches an arbitrary
   // message-supplied URL straight from the user's own machine.
   clientPreviewFallback: false,
+  renderMaths: false,
+  showMaps: false,
+  contentProtection: false,
+  audioInputId: '',
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
   telegramBotToken: '',
 };
 
