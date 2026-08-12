@@ -1,16 +1,27 @@
-import { ComponentProps, MutableRefObject, ReactNode } from 'react';
+import { ComponentProps, CSSProperties, MutableRefObject, ReactNode } from 'react';
 import { Box, Header, Line, Scroll, Text, as } from 'folds';
 import classNames from 'classnames';
 import { ContainerColor } from '../../styles/ContainerColor.css';
 import * as css from './style.css';
 import { ScreenSize, useScreenSizeContext } from '../../hooks/useScreenSize';
+import { ResizeHandle } from '../resize-handle';
+import { useResizablePane } from '../../hooks/useResizablePane';
 
 type PageRootProps = {
   nav: ReactNode;
   children: ReactNode;
+  /**
+   * Makes the divider between `nav` and `children` draggable.
+   *
+   * Opt-in rather than automatic because `PageRoot` also lays out the settings
+   * dialogs, whose nav is a short fixed list inside a modal — there is nothing
+   * there worth resizing, and a persisted width shared with the room list would
+   * make dragging one silently move the other.
+   */
+  resizableNav?: boolean;
 };
 
-export function PageRoot({ nav, children }: PageRootProps) {
+export function PageRoot({ nav, children, resizableNav }: PageRootProps) {
   const screenSize = useScreenSizeContext();
 
   // `position: relative` provides the containing block for the
@@ -24,9 +35,14 @@ export function PageRoot({ nav, children }: PageRootProps) {
       style={{ position: 'relative' }}
     >
       {nav}
-      {screenSize !== ScreenSize.Mobile && (
-        <Line variant="Background" size="300" direction="Vertical" />
-      )}
+      {/* Mobile has no divider at all: the nav is the whole screen there, so
+          there are never two columns to split. */}
+      {screenSize !== ScreenSize.Mobile &&
+        (resizableNav ? (
+          <ResizeHandle paneId="navPane" side="Before" label="room list" />
+        ) : (
+          <Line variant="Background" size="300" direction="Vertical" />
+        ))}
       {children}
     </Box>
   );
@@ -34,10 +50,23 @@ export function PageRoot({ nav, children }: PageRootProps) {
 
 type ClientDrawerLayoutProps = {
   children: ReactNode;
+  /** Takes its width from the `navPane` handle instead of the size recipe. */
+  resizable?: boolean;
 };
-export function PageNav({ size, children }: ClientDrawerLayoutProps & css.PageNavVariants) {
+export function PageNav({
+  size,
+  resizable,
+  children,
+}: ClientDrawerLayoutProps & css.PageNavVariants) {
   const screenSize = useScreenSizeContext();
   const isMobile = screenSize === ScreenSize.Mobile;
+  const pane = useResizablePane('navPane');
+
+  // Mobile wins over everything: the index route renders no right pane, so the
+  // nav spans the whole viewport and a stored desktop width is irrelevant.
+  let style: CSSProperties | undefined;
+  if (isMobile) style = { width: '100%' };
+  else if (resizable) style = pane.style;
 
   return (
     <Box
@@ -45,10 +74,8 @@ export function PageNav({ size, children }: ClientDrawerLayoutProps & css.PageNa
       className={css.PageNav({ size })}
       shrink={isMobile ? 'Yes' : 'No'}
       // The recipe sets a fixed width (256/222rem) intended for desktop
-      // sidebars. On mobile the index route doesn't render a right pane,
-      // so the nav should span the whole viewport — inline override beats
-      // the recipe's specificity.
-      style={isMobile ? { width: '100%' } : undefined}
+      // sidebars. Both overrides here beat the recipe's specificity.
+      style={style}
     >
       <Box grow="Yes" direction="Column">
         {children}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { Box, Line, toRem } from 'folds';
+import { Box } from 'folds';
 import { useParams } from 'react-router-dom';
 import { isKeyHotkey } from '../../utils/is-hotkey';
 import { useAtom, useAtomValue } from 'jotai';
@@ -28,6 +28,8 @@ import { MobileSwipeBack } from './MobileSwipeBack';
 import { useCallEmbed } from '../../hooks/useCallEmbed';
 import { useCallMembers, useCallSession } from '../../hooks/useCall';
 import { useIsRoomBackdrop } from '../../hooks/useRoomBackdrop';
+import { ResizeHandle } from '../../components/resize-handle';
+import { useResizablePane } from '../../hooks/useResizablePane';
 
 export function Room() {
   const { eventId } = useParams();
@@ -79,6 +81,10 @@ export function Room() {
   );
 
   const callView = callEmbed?.roomId === room.roomId || room.isCallRoom() || callMembers.length > 0;
+
+  // The member drawer reads its own pane; the thread panel has no component of
+  // its own to hang a width on, so it is applied here.
+  const threadPane = useResizablePane('threadPane');
 
   return (
     <PowerLevelsContextProvider value={powerLevels}>
@@ -140,7 +146,7 @@ export function Room() {
         {callView && chat && (
           <>
             {screenSize === ScreenSize.Desktop && (
-              <Line variant="Background" direction="Vertical" size="300" />
+              <ResizeHandle paneId="callChatPane" side="After" label="call chat" />
             )}
             <CallChatView />
           </>
@@ -150,8 +156,8 @@ export function Room() {
             what the user just asked for. */}
         {!callView && screenSize === ScreenSize.Desktop && openThreadRootId && (
           <>
-            <Line variant="Background" direction="Vertical" size="300" />
-            <Box shrink="No" style={{ width: toRem(360) }}>
+            <ResizeHandle paneId="threadPane" side="After" label="thread panel" />
+            <Box shrink="No" style={threadPane.style}>
               <ThreadView
                 key={openThreadRootId}
                 room={room}
@@ -163,7 +169,7 @@ export function Room() {
         )}
         {!callView && screenSize === ScreenSize.Desktop && !openThreadRootId && isDrawer && (
           <>
-            <Line variant="Background" direction="Vertical" size="300" />
+            <ResizeHandle paneId="membersPane" side="After" label="member list" />
             <MembersDrawer key={room.roomId} room={room} members={members} />
           </>
         )}

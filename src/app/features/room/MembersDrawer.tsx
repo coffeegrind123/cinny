@@ -65,6 +65,7 @@ import { useRoomCreators } from '../../hooks/useRoomCreators';
 import { useUserPresence } from '../../hooks/useUserPresence';
 import { AvatarPresence, PresenceBadge } from '../../components/presence';
 import { useRoomNavigate } from '../../hooks/useRoomNavigate';
+import { useResizablePane } from '../../hooks/useResizablePane';
 import { ScreenSize, useScreenSizeContext } from '../../hooks/useScreenSize';
 import { RoomMessageResults } from '../message-search/RoomMessageResults';
 
@@ -186,6 +187,7 @@ export function MembersDrawer({ room, members, overlay, onClose }: MembersDrawer
     else setPeopleDrawer(false);
   }, [onClose, setPeopleDrawer]);
   const screenSize = useScreenSizeContext();
+  const pane = useResizablePane('membersPane');
   const { navigateRoom } = useRoomNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -302,6 +304,9 @@ export function MembersDrawer({ room, members, overlay, onClose }: MembersDrawer
       )}
       shrink="No"
       grow={overlay ? 'Yes' : undefined}
+      // The overlay is the whole screen and has nothing to be resized against,
+      // so it keeps its own full-width class.
+      style={overlay ? undefined : pane.style}
       direction="Column"
     >
       <Header className={css.MembersDrawerHeader} variant="Background" size="600">

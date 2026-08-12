@@ -57,6 +57,14 @@ export interface Settings {
 
   developerTools: boolean;
   keybinds: Record<string, string>;
+  // Widths of the draggable layout columns, keyed by pane id and measured in
+  // the same design pixels every other width in this app uses (`toRem`'s
+  // input, i.e. 1/16rem units) so a stored width means the same thing at any
+  // page zoom. A record rather than one field per pane: panes come and go, and
+  // an unknown key is simply ignored while a missing one falls back to that
+  // pane's default. Clamping lives in `useResizablePane`, not here, so a hand
+  // -edited or stale value can never wedge a column off-screen.
+  paneSizes: Record<string, number>;
   readReceiptStyle: 'cinny' | 'element';
   useVxTwitter: boolean;
   useSoundcloak: boolean;
@@ -139,6 +147,7 @@ const defaultSettings: Settings = {
 
   developerTools: false,
   keybinds: {},
+  paneSizes: {},
   readReceiptStyle: 'cinny',
   // These third-party front-end integrations make the client fetch, unprompted,
   // from a host chosen by whoever sent the message — which discloses the

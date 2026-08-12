@@ -115,7 +115,7 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
           if (!session) {
             const afterLoginPath = getAppPathFromHref(
               getOriginBaseUrl(hashRouter),
-              window.location.href
+              window.location.href,
             );
             if (afterLoginPath) setAfterLoginRedirectPath(afterLoginPath);
             return redirect(getLoginPath());
@@ -162,6 +162,7 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
           path={HOME_PATH}
           element={
             <PageRoot
+              resizableNav
               nav={
                 <MobileFriendlyPageNav path={HOME_PATH}>
                   <MobileSwipeOpen>
@@ -199,6 +200,7 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
           path={DIRECT_PATH}
           element={
             <PageRoot
+              resizableNav
               nav={
                 <MobileFriendlyPageNav path={DIRECT_PATH}>
                   <MobileSwipeOpen>
@@ -235,6 +237,7 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
           element={
             <RouteSpaceProvider>
               <PageRoot
+                resizableNav
                 nav={
                   <MobileFriendlyPageNav path={SPACE_PATH}>
                     <MobileSwipeOpen>
@@ -276,6 +279,7 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
           path={EXPLORE_PATH}
           element={
             <PageRoot
+              resizableNav
               nav={
                 <MobileFriendlyPageNav path={EXPLORE_PATH}>
                   <Explore />
@@ -301,6 +305,7 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
           path={INBOX_PATH}
           element={
             <PageRoot
+              resizableNav
               nav={
                 <MobileFriendlyPageNav path={INBOX_PATH}>
                   <Inbox />
@@ -342,7 +347,7 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
         </Route>
       </Route>
       <Route path="/*" element={<p>Page not found</p>} />
-    </Route>
+    </Route>,
   );
 
   if (hashRouter?.enabled) {

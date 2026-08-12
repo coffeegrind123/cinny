@@ -1,25 +1,27 @@
 import { useSetAtom } from 'jotai';
 import { useParams } from 'react-router-dom';
-import { Box, Text, TooltipProvider, Tooltip, Icon, Icons, IconButton, toRem } from 'folds';
+import { Box, Text, TooltipProvider, Tooltip, Icon, Icons, IconButton } from 'folds';
 import { Page, PageHeader } from '../../components/page';
 import { callChatAtom } from '../../state/callEmbed';
 import { RoomView } from './RoomView';
 import { ScreenSize, useScreenSizeContext } from '../../hooks/useScreenSize';
+import { useResizablePane } from '../../hooks/useResizablePane';
 
 export function CallChatView() {
   const { eventId } = useParams();
   const setChat = useSetAtom(callChatAtom);
   const screenSize = useScreenSizeContext();
+  const pane = useResizablePane('callChatPane');
 
   const handleClose = () => setChat(false);
 
   return (
     <Page
-      style={{
-        width: screenSize === ScreenSize.Desktop ? toRem(456) : '100%',
-        flexShrink: 0,
-        flexGrow: 0,
-      }}
+      style={
+        screenSize === ScreenSize.Desktop
+          ? { ...pane.style, flexShrink: 0, flexGrow: 0 }
+          : { width: '100%', flexShrink: 0, flexGrow: 0 }
+      }
     >
       <PageHeader>
         <Box grow="Yes" alignItems="Center" gap="200">

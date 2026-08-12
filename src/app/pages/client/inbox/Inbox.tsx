@@ -47,7 +47,7 @@ export function Inbox() {
   const notificationsSelected = useInboxNotificationsSelected();
 
   return (
-    <PageNav>
+    <PageNav resizable>
       <PageNavHeader>
         <Box grow="Yes" gap="300">
           <Box grow="Yes">
