@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Badge, Box, Icon, Icons, Spinner, Text, color, toRem } from 'folds';
 import { UrlPreviewImg } from './UrlPreview';
-import { fetchAsBlobUrl, isAllowedMediaUrl } from '../../utils/tauri-media-proxy';
+import {
+  fetchAsBlobUrl,
+  fetchNoReferrerBlobUrl,
+  isAllowedMediaUrl,
+} from '../../utils/tauri-media-proxy';
 import { isTauri } from '../../utils/desktop-notifications';
 import { isWebUrl, webUrlOrUndefined } from '../../utils/safeUrl';
 import { GifVideoSource, mimeTypeFromUrl } from '../../utils/animatedMedia';
@@ -10,32 +14,62 @@ import { onEnterOrSpace } from '../../utils/keyboard';
 /**
  * Resolve a remote media URL to something the WebView will actually load.
  *
- * Twitter's `video.twimg.com` 403s a cross-origin request even with
- * `referrerpolicy=no-referrer`, so inside the Tauri shell we pull the bytes
- * through Rust's HTTP client and hand back a `blob:` URL. Everywhere else — and
- * for every host outside the native allowlist — the direct URL is used as-is.
+ * `video.twimg.com` answers 403 to any request carrying a cross-origin
+ * `Referer`, so an allowlisted media URL has to be fetched with the referrer
+ * stripped and handed to the element as a `blob:`. There are two ways to do
+ * that and both are needed:
  *
- * Skipping the proxy for non-allowlisted hosts is not just an optimisation: the
- * IPC command rejects them, so an unconditional attempt burned a round trip and
- * logged a warning for every Tenor/Giphy GIF before falling back to the URL it
- * could have used immediately.
+ *  - **`stripReferrer` (any browser).** For `<video>` there is no other option.
+ *    `referrerpolicy` is not a content attribute on media elements — writing it
+ *    on a `<video>` does nothing at all — so the element always sends the
+ *    document referrer and always gets a 403. `fetch()` does honour the policy,
+ *    and twimg serves CORS, so the bytes come through there. See
+ *    `fetchNoReferrerBlobUrl` for the measured before/after.
+ *  - **The native proxy (Tauri only).** Rust's HTTP client is outside CORS
+ *    entirely and sets a real browser UA, so it is preferred inside the shell
+ *    and the in-page fetch becomes its fallback.
+ *
+ * `<img>` needs neither: `referrerpolicy` *is* honoured there, which is exactly
+ * why plain GIF links kept playing while Twitter's MP4 surrogates did not.
+ * Callers that render an image therefore leave `stripReferrer` off and keep the
+ * cheap direct-URL path.
+ *
+ * Skipping both proxies for non-allowlisted hosts is not just an optimisation:
+ * the IPC command rejects them, so an unconditional attempt burned a round trip
+ * and logged a warning for every Tenor/Giphy GIF before falling back to the URL
+ * it could have used immediately.
  *
  * Returns `null` while a proxy fetch is still outstanding, so callers can show
  * a placeholder instead of an element with an empty `src`.
  */
-const useResolvedMediaSrc = (src: string): string | null => {
-  const proxied = isTauri() && isAllowedMediaUrl(src);
+const useResolvedMediaSrc = (src: string, stripReferrer = false): string | null => {
+  const allowed = isAllowedMediaUrl(src);
+  const proxied = allowed && (isTauri() || stripReferrer);
   const [resolvedSrc, setResolvedSrc] = useState<string | null>(proxied ? null : src);
 
   useEffect(() => {
-    if (!isTauri() || !isAllowedMediaUrl(src)) {
+    const useNative = isTauri() && isAllowedMediaUrl(src);
+    const useNoReferrer = stripReferrer && isAllowedMediaUrl(src);
+    if (!useNative && !useNoReferrer) {
       setResolvedSrc(src);
       return undefined;
     }
     setResolvedSrc(null);
     let cancelled = false;
     let createdBlob: string | null = null;
-    fetchAsBlobUrl(src, mimeTypeFromUrl(src)).then((blobUrl) => {
+
+    const resolve = async (): Promise<string | null> => {
+      const mimeType = mimeTypeFromUrl(src);
+      const native = useNative ? await fetchAsBlobUrl(src, mimeType) : null;
+      if (native) return native;
+      // Falling back to the direct URL is useless for the hosts that need this
+      // — a 403 is exactly what the direct URL returns — so try the in-page
+      // no-referrer fetch before giving up on a blob.
+      if (useNoReferrer) return fetchNoReferrerBlobUrl(src, mimeType);
+      return null;
+    };
+
+    resolve().then((blobUrl) => {
       if (cancelled) {
         if (blobUrl) URL.revokeObjectURL(blobUrl);
         return;
@@ -44,8 +78,8 @@ const useResolvedMediaSrc = (src: string): string | null => {
         createdBlob = blobUrl;
         setResolvedSrc(blobUrl);
       } else {
-        // Proxy failed — fall back to the direct URL so the engine can show its
-        // own error state instead of an indefinite spinner.
+        // Every proxy failed — fall back to the direct URL so the engine can
+        // show its own error state instead of an indefinite spinner.
         setResolvedSrc(src);
       }
     });
@@ -53,7 +87,7 @@ const useResolvedMediaSrc = (src: string): string | null => {
       cancelled = true;
       if (createdBlob) URL.revokeObjectURL(createdBlob);
     };
-  }, [src]);
+  }, [src, stripReferrer]);
 
   return resolvedSrc;
 };
@@ -118,7 +152,9 @@ export function ProxiedVideo({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [paused, setPaused] = useState(false);
-  const resolvedSrc = useResolvedMediaSrc(src);
+  // `stripReferrer` — a media element cannot express a referrer policy, so an
+  // allowlisted video has to arrive as a blob or not at all.
+  const resolvedSrc = useResolvedMediaSrc(src, true);
 
   // Anything that changes the media has to re-arm the autoplay attempt.
   const mediaKey = `${resolvedSrc ?? ''}|${(sources ?? []).map((s) => s.src).join(',')}`;
@@ -223,10 +259,12 @@ export function ProxiedVideo({
       muted={isGif}
       playsInline
       preload={isGif ? 'auto' : 'metadata'}
-      // React types have no referrerPolicy on <video> (the HTML spec has no such
-      // content attribute on media elements) but we emit it on purpose — see the
-      // Twitter/X media note in CLAUDE.md. A spread renders it identically while
-      // skipping excess-property checking.
+      // Belt-and-braces only, and deliberately not load-bearing: the HTML spec
+      // defines no `referrerpolicy` content attribute on media elements, so
+      // this is inert in every engine that follows it. Suppressing the referrer
+      // for the hosts that require it is `useResolvedMediaSrc`'s job — it hands
+      // this element a blob. A spread emits the attribute without tripping
+      // React's excess-property checking.
       {...{ referrerPolicy: 'no-referrer' }}
       style={{ aspectRatio: aspect }}
       onPlay={() => setPaused(false)}

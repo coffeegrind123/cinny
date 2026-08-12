@@ -51,6 +51,7 @@ import { useMediaAuthentication } from '../../../hooks/useMediaAuthentication';
 import { stopPropagation } from '../../../utils/keyboard';
 import { useAlive } from '../../../hooks/useAlive';
 import { rateLimitedActions } from '../../../utils/matrix';
+import { ModalFlexScroll } from '../../../styles/Modal.css';
 
 const SEARCH_OPTS: UseAsyncSearchOptions = {
   limit: 1000,
@@ -213,7 +214,7 @@ export function ForwardPrompt({ mEvent, requestClose }: ForwardPromptProps) {
               </Header>
 
               <Box grow="Yes">
-                <Scroll ref={scrollRef} size="300" hideTrack>
+                <Scroll className={ModalFlexScroll} ref={scrollRef} size="300" hideTrack>
                   <Box
                     style={{ padding: config.space.S300, paddingRight: 0 }}
                     direction="Column"

@@ -276,7 +276,17 @@ export function ContactInformation() {
             )}
           </Box>
 
-          <Box style={{ marginTop: config.space.S300 }}>
+          {/* `direction="Column"` on the spacer, not just inside AddEmail.
+              folds' Box defaults to `display: flex` with no direction, i.e. a
+              ROW — so this wrapper made the whole add-email form a row flex
+              item, which sizes to its content. Every `grow="Yes"` inside it was
+              then growing within a box that had already collapsed to the width
+              of the placeholder plus the button, which is why the field stayed
+              visibly narrower than the identity-server one despite the two
+              having identical internals. A column container stretches its child
+              to full width; the identity-server form gets there by not being
+              wrapped in a row at all. */}
+          <Box direction="Column" style={{ marginTop: config.space.S300 }}>
             <AddEmail onAdded={loadThreePIds} />
           </Box>
         </SettingTile>

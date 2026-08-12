@@ -347,16 +347,19 @@ type MVoiceProps = {
   content: IAudioContent;
   renderAsFile: () => ReactNode;
   renderVoiceContent: (props: RenderAudioContentProps) => ReactNode;
-  outlined?: boolean;
 };
 /**
- * A voice message: the player only, with a download tucked at the end.
+ * A voice message: the platform audio element, and nothing else.
  *
- * Deliberately not wrapped in the file-attachment chrome MAudio uses — a
- * voice note has no filename worth showing ("Voice message.ogg" is noise), and
- * the header would double the height of what should read as a single bubble.
+ * No attachment card, no header, no separate download button. Every one of
+ * those was chrome wrapped around a control that already provides the same
+ * affordance — the native player carries its own surface, and its overflow menu
+ * carries "Download" — so the card only added a grey slab and a second button
+ * that did what the first one already did. The filename is worth even less: it
+ * is the synthetic "Voice message.ogg" every client stamps on a voice note, not
+ * anything the sender chose.
  */
-export function MVoice({ content, renderAsFile, renderVoiceContent, outlined }: MVoiceProps) {
+export function MVoice({ content, renderAsFile, renderVoiceContent }: MVoiceProps) {
   const audioInfo = content?.info;
   const mxcUrl = content.file?.url ?? content.url;
   const safeMimeType = getBlobSafeMimeType(audioInfo?.mimetype ?? '');
@@ -367,30 +370,17 @@ export function MVoice({ content, renderAsFile, renderVoiceContent, outlined }: 
   }
 
   return (
-    <Attachment outlined={outlined}>
-      <AttachmentBox>
-        <AttachmentContent>
-          <Box alignItems="Center" gap="100">
-            <Box grow="Yes" style={{ minWidth: 0 }}>
-              {renderVoiceContent({
-                info: audioInfo ?? {},
-                mimeType: safeMimeType,
-                url: mxcUrl,
-                encInfo: content.file,
-              })}
-            </Box>
-            <Box shrink="No">
-              <FileDownloadButton
-                filename={content.filename ?? 'Voice message.ogg'}
-                url={mxcUrl}
-                mimeType={safeMimeType}
-                encInfo={content.file}
-              />
-            </Box>
-          </Box>
-        </AttachmentContent>
-      </AttachmentBox>
-    </Attachment>
+    // The card is gone but its sizing is not: `Attachment` pinned every
+    // attachment to 400px, and dropping the wrapper without replacing that
+    // would let the player stretch to the full timeline width on a wide window.
+    <Box direction="Column" style={{ width: toRem(400), maxWidth: '100%', minWidth: 0 }}>
+      {renderVoiceContent({
+        info: audioInfo ?? {},
+        mimeType: safeMimeType,
+        url: mxcUrl,
+        encInfo: content.file,
+      })}
+    </Box>
   );
 }
 

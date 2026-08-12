@@ -327,10 +327,11 @@ function HlsVideo({
       loop
       playsInline
       preload="metadata"
-      // React types have no referrerPolicy on <video> (the HTML spec has no such
-      // content attribute on media elements) but we emit it on purpose — see the
-      // Twitter/X media note in CLAUDE.md. A spread renders it identically while
-      // skipping excess-property checking.
+      // Inert in a spec-following engine — media elements have no
+      // `referrerpolicy` content attribute — and kept only because it costs
+      // nothing. hls.js fetches the segments itself, so the referrer on those
+      // requests is decided by the loader, not by this element. A spread emits
+      // it without tripping React's excess-property checking.
       {...{ referrerPolicy: 'no-referrer' }}
       style={{ aspectRatio: aspect, width: '100%' }}
       className={className}

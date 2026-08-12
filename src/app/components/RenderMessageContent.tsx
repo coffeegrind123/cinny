@@ -247,18 +247,19 @@ export function RenderMessageContent({
 
     if (isVoiceMessageContent(audioContent)) {
       const { duration, waveform } = getVoiceAudioBlock(audioContent);
+      // No caption. `renderCaption` prints `body` whenever it differs from
+      // `filename`, and on a voice message those two are both protocol
+      // boilerplate — "Voice message" and "Voice message.ogg" (see
+      // `getVoiceMsgContent`) — not anything the sender typed. Rendering it put
+      // a literal "Voice message" label above every voice note.
       return (
-        <>
-          <MVoice
-            content={audioContent as IAudioContent}
-            renderAsFile={renderFile}
-            renderVoiceContent={(props) => (
-              <VoiceContent {...props} duration={duration} waveform={waveform} />
-            )}
-            outlined={outlineAttachment}
-          />
-          {renderCaption()}
-        </>
+        <MVoice
+          content={audioContent as IAudioContent}
+          renderAsFile={renderFile}
+          renderVoiceContent={(props) => (
+            <VoiceContent {...props} duration={duration} waveform={waveform} />
+          )}
+        />
       );
     }
 

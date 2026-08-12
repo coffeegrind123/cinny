@@ -30,6 +30,7 @@ import { WidgetView } from './WidgetView';
 import { usePowerLevelsContext } from '../../../hooks/usePowerLevels';
 import { useRoomPermissions } from '../../../hooks/useRoomPermissions';
 import { useRoomCreators } from '../../../hooks/useRoomCreators';
+import { ModalFlexScroll } from '../../../styles/Modal.css';
 
 const WIDGET_STATE_TYPE = 'im.vector.modular.widgets';
 
@@ -131,7 +132,7 @@ export function RoomWidgetsPrompt({ room, requestClose }: RoomWidgetsPromptProps
                 <WidgetView room={room} widget={open} onClose={() => setOpen(undefined)} />
               ) : (
                 <Box grow="Yes">
-                  <Scroll size="300" hideTrack>
+                  <Scroll className={ModalFlexScroll} size="300" hideTrack>
                     <Box style={{ padding: config.space.S400 }} direction="Column" gap="400">
                       {widgets.length === 0 && (
                         <Text size="T200" priority="300">

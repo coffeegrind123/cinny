@@ -22,6 +22,7 @@ import { SequenceCard } from '../../../components/sequence-card';
 import { useSetting } from '../../../state/hooks/settings';
 import { settingsAtom } from '../../../state/settings';
 import { timeDayMonthYear, timeHourMinute } from '../../../utils/time';
+import { ModalFlexScroll } from '../../../styles/Modal.css';
 
 type PollHistoryPromptProps = {
   room: Room;
@@ -105,7 +106,7 @@ export function PollHistoryPrompt({ room, requestClose }: PollHistoryPromptProps
               </Header>
 
               <Box grow="Yes">
-                <Scroll size="300" hideTrack>
+                <Scroll className={ModalFlexScroll} size="300" hideTrack>
                   <Box style={{ padding: config.space.S400 }} direction="Column" gap="400">
                     {polls.length === 0 && (
                       <Text size="T200" priority="300">

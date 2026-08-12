@@ -24,6 +24,7 @@ import { SequenceCard } from '../../../components/sequence-card';
 import { useSetting } from '../../../state/hooks/settings';
 import { settingsAtom } from '../../../state/settings';
 import { timeDayMonthYear, timeHourMinute } from '../../../utils/time';
+import { ModalFlexScroll } from '../../../styles/Modal.css';
 
 type Revision = {
   ts: number;
@@ -141,7 +142,7 @@ export function EditHistoryPrompt({ room, mEvent, requestClose }: EditHistoryPro
               </Header>
 
               <Box grow="Yes">
-                <Scroll size="300" hideTrack>
+                <Scroll className={ModalFlexScroll} size="300" hideTrack>
                   <Box style={{ padding: config.space.S400 }} direction="Column" gap="300">
                     {state.status === AsyncStatus.Loading && (
                       <Box justifyContent="Center" style={{ padding: config.space.S400 }}>

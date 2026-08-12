@@ -29,6 +29,7 @@ import { ExportFormat, exportChat } from './exportChat';
 import { mobileOrTablet } from '../../../utils/user-agent';
 import FileSaver from '../../../utils/save-file';
 import { safeDownloadFilename } from '../../../utils/mimeTypes';
+import { ModalFlexScroll } from '../../../styles/Modal.css';
 
 const FORMATS: { value: ExportFormat; label: string; hint: string }[] = [
   { value: 'html', label: 'HTML', hint: 'Opens in any browser' },
@@ -119,7 +120,7 @@ export function ExportPrompt({ room, requestClose }: ExportPromptProps) {
               </Header>
 
               <Box grow="Yes">
-                <Scroll size="300" hideTrack>
+                <Scroll className={ModalFlexScroll} size="300" hideTrack>
                   <Box style={{ padding: config.space.S400 }} direction="Column" gap="400">
                     <Box direction="Column" gap="100">
                       <Text size="L400">Format</Text>

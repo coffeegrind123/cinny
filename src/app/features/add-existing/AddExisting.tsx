@@ -54,6 +54,7 @@ import { StateEvent } from '../../../types/matrix/room';
 import { getViaServers } from '../../plugins/via-servers';
 import { rateLimitedActions } from '../../utils/matrix';
 import { useAlive } from '../../hooks/useAlive';
+import { ModalFlexScroll } from '../../styles/Modal.css';
 
 const SEARCH_OPTS: UseAsyncSearchOptions = {
   limit: 500,
@@ -207,7 +208,7 @@ export function AddExistingModal({ parentId, space, requestClose }: AddExistingM
                 </Box>
               </Header>
               <Box grow="Yes">
-                <Scroll ref={scrollRef} size="300" hideTrack>
+                <Scroll className={ModalFlexScroll} ref={scrollRef} size="300" hideTrack>
                   <Box
                     style={{ padding: config.space.S300, paddingRight: 0 }}
                     direction="Column"

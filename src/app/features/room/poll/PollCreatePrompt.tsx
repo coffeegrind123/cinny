@@ -27,6 +27,7 @@ import { AsyncStatus, useAsyncCallback } from '../../../hooks/useAsyncCallback';
 import { stopPropagation } from '../../../utils/keyboard';
 import { useAlive } from '../../../hooks/useAlive';
 import { SettingTile } from '../../../components/setting-tile';
+import { ModalFlexScroll } from '../../../styles/Modal.css';
 
 const MIN_ANSWERS = 2;
 const MAX_ANSWERS = 20;
@@ -107,7 +108,7 @@ export function PollCreatePrompt({ room, requestClose }: PollCreatePromptProps) 
 
               <Box grow="Yes" as="form" onSubmit={handleSubmit} direction="Column">
                 <Box grow="Yes">
-                  <Scroll size="300" hideTrack>
+                  <Scroll className={ModalFlexScroll} size="300" hideTrack>
                     <Box style={{ padding: config.space.S400 }} direction="Column" gap="400">
                       <Box direction="Column" gap="100">
                         <Text size="L400">Question</Text>

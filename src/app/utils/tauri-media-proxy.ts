@@ -105,3 +105,74 @@ export async function fetchAsBlobUrl(url: string, mimeType?: string): Promise<st
     return null;
   }
 }
+
+/**
+ * Fetch an allowlisted media URL from the page with the `Referer` stripped, and
+ * return a `blob:` URL for the bytes. Works in any browser — no Tauri needed.
+ *
+ * **This is not a nicety, it is the only way a media element can suppress a
+ * referrer.** `referrerpolicy` is a content attribute on `<img>`, `<iframe>`,
+ * `<link>`, `<script>` and `<a>` — the HTML spec defines nothing of the sort on
+ * `<video>`, `<audio>` or `<source>`. Writing it on a `<video>` parses as an
+ * unknown attribute and changes nothing; `'referrerPolicy' in
+ * HTMLVideoElement.prototype` is `false`. The element therefore inherits the
+ * document policy (`strict-origin-when-cross-origin`) and sends
+ * `Referer: <our origin>`, and `video.twimg.com` answers **403** to any request
+ * carrying a cross-origin Referer.
+ *
+ * That is the whole reason Twitter GIFs and videos were dead in the browser
+ * build while ordinary GIF links played: a GIF link renders as an `<img>`,
+ * where the attribute *is* honoured. Measured in Chromium at
+ * `https://prinny.app`, same URL, same session:
+ *
+ * | request                                            | result                      |
+ * |----------------------------------------------------|-----------------------------|
+ * | `<video referrerpolicy="no-referrer" src=…mp4>`     | 403, `MediaError code 4`    |
+ * | `fetch(…, { referrerPolicy: 'no-referrer' })`       | 200, `video/mp4`, plays     |
+ *
+ * `fetch()` honours `referrerPolicy`, and twimg does serve CORS (it reflects
+ * `Origin` on the GET and answers the preflight), so pulling the bytes here and
+ * handing the element a blob is the working path. No custom headers are sent,
+ * so this stays a simple request and never triggers a preflight.
+ */
+export async function fetchNoReferrerBlobUrl(
+  url: string,
+  mimeType?: string
+): Promise<string | null> {
+  if (!isAllowedMediaUrl(url)) {
+    console.warn('[media-proxy] refusing to fetch non-allowlisted URL:', url);
+    return null;
+  }
+  try {
+    const res = await fetch(url, {
+      referrerPolicy: 'no-referrer',
+      mode: 'cors',
+      credentials: 'omit',
+    });
+    if (!res.ok) {
+      console.warn('[media-proxy] no-referrer fetch failed', res.status, url);
+      return null;
+    }
+    // Cheap pre-check so an oversized body is refused before it is buffered.
+    // Absent or unparseable Content-Length just falls through to the real check
+    // on the materialised blob below.
+    const declared = Number(res.headers.get('content-length'));
+    if (Number.isFinite(declared) && declared > MAX_MEDIA_BYTES) {
+      console.warn('[media-proxy] response too large (declared)', declared, url);
+      return null;
+    }
+    const blob = await res.blob();
+    if (blob.size > MAX_MEDIA_BYTES) {
+      console.warn('[media-proxy] response too large', blob.size, url);
+      return null;
+    }
+    // A blob with an empty `type` has no content type at all, and the stricter
+    // engines refuse to decode one — same trap as the native path above. The
+    // response's own Content-Type is preferred; `mimeType` is the fallback.
+    const typed = blob.type ? blob : new Blob([blob], { type: mimeType ?? '' });
+    return URL.createObjectURL(typed);
+  } catch (err) {
+    console.warn('[media-proxy] no-referrer fetch threw for', url, err);
+    return null;
+  }
+}

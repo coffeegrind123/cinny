@@ -26,6 +26,7 @@ import { getMemberDisplayName } from '../../../utils/room';
 import { getMxIdLocalPart } from '../../../utils/matrix';
 import { bytesToSize } from '../../../utils/common';
 import { isVoiceMessageContent } from '../../../utils/voice-message';
+import { ModalFlexScroll } from '../../../styles/Modal.css';
 
 const FILE_MSGTYPES = new Set<string>([MsgType.Image, MsgType.Video, MsgType.Audio, MsgType.File]);
 
@@ -96,7 +97,7 @@ export function RoomFilesPrompt({ room, requestClose }: RoomFilesPromptProps) {
               </Header>
 
               <Box grow="Yes">
-                <Scroll size="300" hideTrack>
+                <Scroll className={ModalFlexScroll} size="300" hideTrack>
                   <Box style={{ padding: config.space.S400 }} direction="Column" gap="200">
                     {files.length === 0 && (
                       <Text size="T200" priority="300">
