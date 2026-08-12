@@ -123,6 +123,9 @@ import { useKatex } from '../../hooks/useKatex';
 import { chatEffectAtom } from './ChatEffects';
 import { effectForBody, effectForMsgType } from '../../plugins/effects';
 import { PollContent } from '../../components/message/content/PollContent';
+import { BotKeyboard } from '../../components/message/content/BotKeyboard';
+import { BotContentKey, sanitizeReplyMarkup } from '../../../types/matrix/bot';
+import { botDisplayContent } from '../../utils/bot';
 import { MapView } from '../../components/map';
 import { useMapStyleUrl, useMapsEnabled } from '../../hooks/useMapStyleUrl';
 import { ThreadSummary } from './thread/ThreadSummary';
@@ -478,6 +481,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
   const [mediaAutoLoad] = useSetting(settingsAtom, 'mediaAutoLoad');
   const [urlPreview] = useSetting(settingsAtom, 'urlPreview');
   const [mathsEnabled] = useSetting(settingsAtom, 'renderMaths');
+  const [renderBotKeyboards] = useSetting(settingsAtom, 'renderBotKeyboards');
   const renderMaths = useKatex(mathsEnabled);
   const [encUrlPreview] = useSetting(settingsAtom, 'encUrlPreview');
   const showUrlPreview = room.hasEncryptionStateEvent() ? encUrlPreview : urlPreview;
@@ -1085,6 +1089,18 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
     [mx, room, editor]
   );
 
+  // A bot's `switch_inline_query_current_chat` button: put its query in the
+  // composer and let the user decide whether to send it. Never sends by
+  // itself — a button press must not put words in someone's mouth.
+  const handleSwitchInline = useCallback(
+    (query: string) => {
+      editor.insertText(query);
+      safeFocusEditor(editor);
+      moveCursor(editor);
+    },
+    [editor]
+  );
+
   const handleReplyClick: MouseEventHandler<HTMLButtonElement> = useCallback(
     (evt, startThread = false) => {
       const replyId = evt.currentTarget.getAttribute('data-event-id');
@@ -1170,8 +1186,14 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
         const highlighted = focusItem?.index === item && focusItem.highlight;
 
         const editedEvent = getEditedEvent(mEventId, mEvent, timelineSet);
+        const rawContent = editedEvent?.getContent()['m.new_content'] ?? mEvent.getContent();
+        // Buttons come from the latest edit, so a bot can swap or retire them.
+        const botMarkup = renderBotKeyboards
+          ? sanitizeReplyMarkup(rawContent[BotContentKey.ReplyMarkup])
+          : null;
+        const showBotKeyboard = botMarkup !== null && !mEvent.isRedacted();
         const getContent = (() =>
-          editedEvent?.getContent()['m.new_content'] ?? mEvent.getContent()) as GetContentCallback;
+          botDisplayContent(rawContent, showBotKeyboard)) as GetContentCallback;
 
         const senderId = mEvent.getSender() ?? '';
         const senderDisplayName =
@@ -1222,6 +1244,18 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
             }
             reactions={
               <>
+                {/* Buttons the sender attached to this message. Read through
+                    `getContent`, so an edit that swaps the keyboard takes
+                    effect — and `getLatestEdit` already discards edits from
+                    anyone but the original sender. */}
+                {showBotKeyboard && botMarkup && (
+                  <BotKeyboard
+                    room={room}
+                    mEvent={mEvent}
+                    markup={botMarkup}
+                    onSwitchInline={handleSwitchInline}
+                  />
+                )}
                 {/* A thread root is the entry point to its replies; without
                     this the thread is only reachable by scrolling past it. */}
                 <ThreadSummary room={room} mEvent={mEvent} onClick={handleOpenThread} />

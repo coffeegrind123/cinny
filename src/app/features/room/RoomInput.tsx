@@ -128,6 +128,9 @@ import { useAccessiblePowerTagColors, useGetMemberPowerTag } from '../../hooks/u
 import { useRoomCreators } from '../../hooks/useRoomCreators';
 import { useTheme } from '../../hooks/useTheme';
 import { useRoomCreatorsTag } from '../../hooks/useRoomCreatorsTag';
+import { useBotReplyKeyboard } from '../../hooks/useBotReplyKeyboard';
+import { BotReplyKeyboard } from './BotReplyKeyboard';
+import { BotMenuButton } from './BotMenuButton';
 import { usePowerLevelTags } from '../../hooks/usePowerLevelTags';
 import { useComposingCheck } from '../../hooks/useComposingCheck';
 
@@ -178,6 +181,35 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
     const [msgDraft, setMsgDraft] = useAtom(roomIdToMsgDraftAtomFamily(draftScope));
     const [replyDraft, setReplyDraft] = useAtom(roomIdToReplyDraftAtomFamily(draftScope));
     const replyUserID = replyDraft?.userId;
+
+    const botKeyboard = useBotReplyKeyboard(room);
+
+    // `force_reply`: arm the composer as a reply to the bot's question.
+    //
+    // Armed once per prompt, and never over a reply the user set themselves —
+    // a bot asking a question does not get to redirect a reply someone was
+    // already composing.
+    const armedForceReplyId = useRef<string | null>(null);
+    useEffect(() => {
+      const state = botKeyboard.state;
+      if (state.kind !== 'force_reply') {
+        armedForceReplyId.current = null;
+        return;
+      }
+      if (armedForceReplyId.current === state.eventId) return;
+      armedForceReplyId.current = state.eventId;
+      if (replyDraft) return;
+
+      const target = room.findEventById(state.eventId);
+      if (!target) return;
+      const content = target.getContent();
+      setReplyDraft({
+        userId: state.botUserId,
+        eventId: state.eventId,
+        body: typeof content.body === 'string' ? content.body : '',
+      });
+      safeFocusEditor(editor);
+    }, [botKeyboard.state, replyDraft, room, setReplyDraft, editor]);
 
     const powerLevelTags = usePowerLevelTags(room, powerLevels);
     const creatorsTag = useRoomCreatorsTag();
@@ -514,7 +546,17 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
       const effectCommand =
         commandName && isEffectName(commandName) ? (commandName as EffectName) : undefined;
 
-      if (commandName) {
+      // A command this client does not implement belongs to a bot in the room,
+      // and a bot command is just text the bot parses — exactly as on Telegram.
+      // So it keeps its leading `/` and gets sent as an ordinary message.
+      //
+      // Without this distinction every unknown command was silently eaten: the
+      // branch at the end of this chain resets the editor and returns whether
+      // or not it found a handler, so the message was never sent and nothing
+      // said why.
+      const isBuiltInCommand = commandName !== undefined && commandName in commands;
+
+      if (commandName && isBuiltInCommand) {
         plainText = trimCommand(commandName, plainText);
         customHtml = trimCommand(commandName, customHtml);
       }
@@ -569,7 +611,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
           customHtml = plainText;
         }
         effectMsgType = EFFECT_MSG_TYPES[effectCommand];
-      } else if (commandName) {
+      } else if (commandName && isBuiltInCommand) {
         const commandContent = commands[commandName as Command];
         if (commandContent) {
           commandContent.exe(plainText);
@@ -625,6 +667,21 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
       applyRelation,
       mapStyleUrl,
     ]);
+
+    // A quick-reply key sends its label as an ordinary message — no callback,
+    // no markup — so a bot handles it with the same code that handles someone
+    // typing the word, and every other client in the room sees a normal
+    // message. That is what Telegram does, and it is why reply keyboards need
+    // no support on the receiving side at all.
+    const handleQuickReply = useCallback(
+      (label: string) => {
+        const content: IContent = { msgtype: MsgType.Text, body: label };
+        applyRelation(content);
+        mx.sendMessage(roomId, content as any);
+        sendTypingStatus(false);
+      },
+      [mx, roomId, applyRelation, sendTypingStatus]
+    );
 
     const handleKeyDown: KeyboardEventHandler = useCallback(
       (evt) => {
@@ -796,13 +853,22 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
         <CustomEditor
           editableName="RoomInput"
           editor={editor}
-          placeholder="Send a message..."
+          // A bot's `input_field_placeholder` says what it is waiting for,
+          // which is more useful than the generic prompt while it is waiting.
+          placeholder={
+            (botKeyboard.state.kind === 'force_reply' ||
+              botKeyboard.state.kind === 'keyboard') &&
+            botKeyboard.state.markup.input_field_placeholder
+              ? botKeyboard.state.markup.input_field_placeholder
+              : 'Send a message...'
+          }
           onKeyDown={handleKeyDown}
           onKeyUp={handleKeyUp}
           onPaste={handlePaste}
           onDrop={handleDrop}
           top={
             <>
+            <BotReplyKeyboard room={room} keyboard={botKeyboard} onPressKey={handleQuickReply} />
             {voiceRecorder.error && (
               <Box
                 alignItems="Center"
@@ -889,6 +955,9 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
               >
                 <Icon src={Icons.PlusCircle} />
               </IconButton>
+              {/* Only appears when a bot in this room published commands or
+                  asked for a menu button. */}
+              <BotMenuButton room={room} editor={editor} />
               {/* Polls and location sharing are reached with `/poll` and
                   `/location` rather than by a button each. Both are occasional
                   actions that open a full prompt, and a permanent icon for

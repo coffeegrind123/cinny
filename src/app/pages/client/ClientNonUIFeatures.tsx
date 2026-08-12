@@ -40,6 +40,7 @@ import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
 import { getCurrentWindow, UserAttentionType } from '@tauri-apps/api/window';
 import { GlobalKeybinds } from '../../components/global-keybinds/GlobalKeybinds';
 import { MatrixLinkHandler } from '../../components/MatrixLinkHandler';
+import { BotStartLinkHandler } from '../../components/BotStartLinkHandler';
 import { isVoiceMessageContent } from '../../utils/voice-message';
 
 function SystemEmojiFeature() {
@@ -455,6 +456,7 @@ export function ClientNonUIFeatures({ children }: ClientNonUIFeaturesProps) {
       <MessageNotifications />
       <GlobalKeybinds />
       <MatrixLinkHandler />
+      <BotStartLinkHandler />
       {children}
     </>
   );

@@ -101,6 +101,18 @@ export interface Settings {
   // link itself carries no sticker data — and the Bot API returns 401 without
   // a token. Empty string means the import UI stays hidden.
   telegramBotToken: string;
+  // Draws `app.prinny.bot.reply_markup` keyboards from bot messages as real
+  // buttons. On by default — that is the feature — but it is a per-account off
+  // switch because the buttons come from whoever sent the message, and someone
+  // who does not want arbitrary room members rendering interactive controls in
+  // their timeline should be able to say so. Off falls back to the message's
+  // plain-text listing, which every bot sends anyway.
+  renderBotKeyboards: boolean;
+  // Confirm before opening a URL from a bot button, showing the real host.
+  // On by default and there is no good reason to turn it off: the label on a
+  // button says whatever its sender wants, and the host is the only part of it
+  // the sender cannot lie about.
+  confirmBotUrls: boolean;
 }
 
 const defaultSettings: Settings = {
@@ -173,6 +185,8 @@ const defaultSettings: Settings = {
   noiseSuppression: true,
   autoGainControl: true,
   telegramBotToken: '',
+  renderBotKeyboards: true,
+  confirmBotUrls: true,
 };
 
 export const getSettings = (): Settings => {

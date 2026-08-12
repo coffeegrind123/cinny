@@ -40,6 +40,12 @@ export enum StateEvent {
 
   PoniesRoomEmotes = 'im.ponies.room_emotes',
   PowerLevelTags = 'in.cinny.room.power_level_tags',
+
+  /**
+   * A bot's advertised commands, descriptions and menu button, with the bot's
+   * MXID as the state key. See `src/types/matrix/bot/` and the protocol spec.
+   */
+  BotInfo = 'app.prinny.bot.info',
 }
 
 export enum MessageEvent {
@@ -48,6 +54,16 @@ export enum MessageEvent {
   Sticker = 'm.sticker',
   RoomRedaction = 'm.room.redaction',
   Reaction = 'm.reaction',
+
+  /**
+   * A bot advertising itself without power to set state. Same content as the
+   * `BotInfo` state event; the state event wins where both exist.
+   */
+  BotInfo = 'app.prinny.bot.info',
+  /** A button press, sent by us. */
+  BotCallback = 'app.prinny.bot.callback',
+  /** The bot's answer to a press. */
+  BotCallbackAnswer = 'app.prinny.bot.callback_answer',
 }
 
 export enum RoomType {

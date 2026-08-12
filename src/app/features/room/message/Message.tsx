@@ -47,6 +47,7 @@ import {
   Username,
   UsernameBold,
 } from '../../../components/message';
+import { BotBadge } from '../../../components/BotBadge';
 import {
   canEditEvent,
   getEventEdits,
@@ -886,6 +887,7 @@ export const Message = as<'div', MessageProps>(
                 <UsernameBold>{senderDisplayName}</UsernameBold>
               </Text>
             </Username>
+            <BotBadge room={room} userId={senderId} />
             <Time
               ts={mEvent.getTs()}
               compact={messageLayout === MessageLayout.Compact}

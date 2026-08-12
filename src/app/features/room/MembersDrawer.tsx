@@ -43,6 +43,7 @@ import {
 import { useDebounce } from '../../hooks/useDebounce';
 import { TypingIndicator } from '../../components/typing-indicator';
 import { getMemberDisplayName, getMemberSearchStr } from '../../utils/room';
+import { BotBadge } from '../../components/BotBadge';
 import { getMxIdLocalPart } from '../../utils/matrix';
 import { useSetSetting, useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
@@ -129,10 +130,11 @@ function MemberItem({
         )
       }
     >
-      <Box grow="Yes">
+      <Box grow="Yes" alignItems="Center" gap="200">
         <Text size="T400" truncate>
           {name}
         </Text>
+        <BotBadge room={room} userId={member.userId} />
       </Box>
     </MenuItem>
   );

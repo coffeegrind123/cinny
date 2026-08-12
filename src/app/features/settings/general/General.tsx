@@ -724,6 +724,11 @@ function Editor() {
   const [usePiped, setUsePiped] = useSetting(settingsAtom, 'usePiped');
   const [renderMaths, setRenderMaths] = useSetting(settingsAtom, 'renderMaths');
   const [showMaps, setShowMaps] = useSetting(settingsAtom, 'showMaps');
+  const [renderBotKeyboards, setRenderBotKeyboards] = useSetting(
+    settingsAtom,
+    'renderBotKeyboards',
+  );
+  const [confirmBotUrls, setConfirmBotUrls] = useSetting(settingsAtom, 'confirmBotUrls');
   const [clientPreviewFallback, setClientPreviewFallback] = useSetting(
     settingsAtom,
     'clientPreviewFallback',
@@ -796,6 +801,26 @@ function Editor() {
           title="Show Maps for Locations"
           description="Draw location messages as a map. Every map fetches tiles from whoever serves the map style, disclosing your IP address and what you are looking at."
           after={<Switch variant="Primary" value={showMaps} onChange={setShowMaps} />}
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Show Bot Buttons"
+          description="Draw the buttons bots attach to their messages. Turn this off and the message's plain-text list of options is shown instead, which bots send anyway."
+          after={
+            <Switch
+              variant="Primary"
+              value={renderBotKeyboards}
+              onChange={setRenderBotKeyboards}
+            />
+          }
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Confirm Bot Links"
+          description="Ask before opening a link from a bot's button, showing the site it really goes to. The button's label is written by whoever sent it; the address is not."
+          after={<Switch variant="Primary" value={confirmBotUrls} onChange={setConfirmBotUrls} />}
         />
       </SequenceCard>
       <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
