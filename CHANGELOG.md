@@ -2,6 +2,15 @@
 
 User-facing changes per commit. Most recent at the top.
 
+## 13.08.2026
+
+- `40b72fa` Added **buttons under bot messages**. A bot can now put real buttons on what it sends — press one and it acts, with a spinner on the button until it answers back and a note if it never does. Buttons can also open a link, copy something to your clipboard, or fill the composer for you. A link button always asks first and shows the site it genuinely goes to, because the wording on a button is written by whoever sent it and the address is not. Destructive buttons look destructive. If you would rather not have buttons at all, Settings → General → Show Bot Buttons turns them off and you get the plain numbered list instead — which is also what people on other Matrix clients see, so a conversation with a bot works the same for everyone in the room.
+- `40b72fa` Added **a bot's commands to the `/` menu**. Bots can publish what they understand, so typing `/` lists their commands and descriptions alongside the client's own, with the bot's name beside each one. A new button by the attach icon opens the same list, and it only appears in rooms where a bot has actually published something. Where two bots offer the same command, picking one addresses it properly so they do not both answer.
+- `40b72fa` Added **quick-reply buttons above the composer**. A bot can offer a set of ready answers; pressing one sends it as an ordinary message. They stay put across a reload and follow you to your other devices, and a bot can clear them or ask you for one specific thing with the composer already pointed at its question.
+- `40b72fa` Added **a BOT tag** next to the name of any account that has published bot commands in a room, in both the conversation and the member list.
+- `40b72fa` Fixed **commands meant for a bot being silently swallowed**. Typing any `/command` this client did not itself recognise cleared the composer and sent nothing at all, with no error — so bot commands simply never arrived. They are now sent as written.
+- `0ec210e` Added **links that open a chat with a bot**, the equivalent of a `t.me` link. Following one opens a direct message and sends its opening command, after asking you first and showing exactly which account and exactly what will be sent.
+
 ## 12.08.2026
 
 - `1b99127` Fixed **GIFs and videos in Twitter/X posts not playing at all**. They loaded as an empty box or a dead frame while ordinary GIF links played fine. Twitter's video servers refuse any request that says which page it came from, and the setting meant to strip that does nothing on a video — it only exists for pictures, which is exactly why pictures were unaffected. The file is now fetched separately, without that header, and handed to the player. This also means a Twitter clip that previously failed inside the desktop app now has a second way to load rather than showing an error.
