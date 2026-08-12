@@ -83,11 +83,22 @@ export async function fetchRemoteMediaBytes(url: string): Promise<ArrayBuffer> {
   return buffer;
 }
 
-export async function fetchAsBlobUrl(url: string): Promise<string | null> {
+/**
+ * Proxy `url` through Rust and return a `blob:` URL for it.
+ *
+ * `mimeType` is not cosmetic. `fetch_remote_bytes` returns raw bytes with no
+ * content type, and a `Blob` built without one produces a `blob:` URL that the
+ * engine sees as having no MIME type at all. `<img>` tolerates that by
+ * sniffing; media elements largely do not — WebKitGTK (the Linux desktop
+ * WebView) and Android's WebView both refuse to decode a typed-less blob, which
+ * is one of the ways a proxied Twitter GIF renders as a blank box with no
+ * error. Callers should pass `mimeTypeFromUrl(url)`.
+ */
+export async function fetchAsBlobUrl(url: string, mimeType?: string): Promise<string | null> {
   if (!isTauri()) return null;
   try {
     const bytes = await fetchRemoteMediaBytes(url);
-    const blob = new Blob([bytes]);
+    const blob = mimeType ? new Blob([bytes], { type: mimeType }) : new Blob([bytes]);
     return URL.createObjectURL(blob);
   } catch (err) {
     console.warn('[media-proxy] fetch failed for', url, err);

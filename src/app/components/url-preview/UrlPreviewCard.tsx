@@ -36,10 +36,18 @@ import { stopPropagation, onEnterOrSpace } from '../../utils/keyboard';
 import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
 import { isYoutubeUrl, getYoutubeVideoId } from '../../utils/youtube';
-import { fetchAsBlobUrl } from '../../utils/tauri-media-proxy';
 import { fetchOgPreview } from '../../utils/tauri-og-preview';
-import { isTauri } from '../../utils/desktop-notifications';
 import { isWebUrl, webUrlOrUndefined } from '../../utils/safeUrl';
+import { GifImage, ProxiedImg, ProxiedVideo } from './GifMedia';
+import {
+  isAlwaysAnimatedImageUrl,
+  isAlwaysAnimatedMimeType,
+  isAnimatedImageUrl,
+  isGifStyleVideo,
+  isImageUrl,
+  isTwitterGifUrl,
+  parseTenorGif,
+} from '../../utils/animatedMedia';
 
 const linkStyles = { color: color.Secondary.Main, textDecoration: 'none' };
 
@@ -174,101 +182,6 @@ function isBandcampEmbedUrl(value: unknown): value is string {
   } catch {
     return false;
   }
-}
-
-// Twitter's video.twimg.com 403s on cross-origin requests even with
-// referrerpolicy=no-referrer. On Tauri we proxy through Rust's HTTP plugin
-// (no CORS/Referer constraints) and play from a blob: URL. Web falls back
-// to the direct URL.
-function ProxiedVideo({
-  src,
-  poster,
-  isGif,
-  width,
-  height,
-  className,
-}: {
-  src: string;
-  poster?: string;
-  isGif: boolean;
-  width?: number;
-  height?: number;
-  className?: string;
-}) {
-  const [resolvedSrc, setResolvedSrc] = useState<string | null>(isTauri() ? null : src);
-
-  useEffect(() => {
-    if (!isTauri()) {
-      setResolvedSrc(src);
-      return undefined;
-    }
-    let cancelled = false;
-    let createdBlob: string | null = null;
-    fetchAsBlobUrl(src).then((blobUrl) => {
-      if (cancelled) {
-        if (blobUrl) URL.revokeObjectURL(blobUrl);
-        return;
-      }
-      if (blobUrl) {
-        createdBlob = blobUrl;
-        setResolvedSrc(blobUrl);
-      } else {
-        // Proxy failed — fall back to direct URL (will likely 403, but lets
-        // browser show its own error state instead of an indefinite spinner).
-        setResolvedSrc(src);
-      }
-    });
-    return () => {
-      cancelled = true;
-      if (createdBlob) URL.revokeObjectURL(createdBlob);
-    };
-  }, [src]);
-
-  const aspect = width && height ? `${width} / ${height}` : '16 / 9';
-
-  // `src` arrives from third-party API JSON (vxtwitter / public.api.bsky.app),
-  // and the proxy falls back to using it directly when the native fetch fails.
-  // An unexpected scheme there is not merely a broken load: in the Tauri shell
-  // the new-window handler hands any non-blob URL to the OS URL opener.
-  if (!isWebUrl(src)) return null;
-
-  if (!resolvedSrc) {
-    return (
-      <Box
-        alignItems="Center"
-        justifyContent="Center"
-        style={{
-          width: '100%',
-          aspectRatio: aspect,
-          maxHeight: toRem(320),
-          backgroundColor: color.SurfaceVariant.Container,
-        }}
-      >
-        <Spinner variant="Secondary" size="400" />
-      </Box>
-    );
-  }
-
-  return (
-    <video
-      className={className}
-      src={resolvedSrc}
-      poster={webUrlOrUndefined(poster)}
-      controls={!isGif}
-      autoPlay={isGif}
-      loop
-      muted={isGif}
-      playsInline
-      preload="metadata"
-      // React types have no referrerPolicy on <video> (the HTML spec has no such
-      // content attribute on media elements) but we emit it on purpose — see the
-      // Twitter/X media note in CLAUDE.md. A spread renders it identically while
-      // skipping excess-property checking.
-      {...{ referrerPolicy: 'no-referrer' }}
-      style={{ aspectRatio: aspect }}
-      onClick={(e) => e.stopPropagation()}
-    />
-  );
 }
 
 // HLS-aware <video>. Bluesky videos are HLS m3u8 streams (`playlist`
@@ -426,77 +339,6 @@ function HlsVideo({
   );
 }
 
-function ProxiedImg({
-  src,
-  alt,
-  title,
-  onView,
-}: {
-  src: string;
-  alt: string;
-  title?: string;
-  onView: () => void;
-}) {
-  const [resolvedSrc, setResolvedSrc] = useState<string | null>(isTauri() ? null : src);
-
-  useEffect(() => {
-    if (!isTauri()) {
-      setResolvedSrc(src);
-      return undefined;
-    }
-    let cancelled = false;
-    let createdBlob: string | null = null;
-    fetchAsBlobUrl(src).then((blobUrl) => {
-      if (cancelled) {
-        if (blobUrl) URL.revokeObjectURL(blobUrl);
-        return;
-      }
-      if (blobUrl) {
-        createdBlob = blobUrl;
-        setResolvedSrc(blobUrl);
-      } else {
-        setResolvedSrc(src);
-      }
-    });
-    return () => {
-      cancelled = true;
-      if (createdBlob) URL.revokeObjectURL(createdBlob);
-    };
-  }, [src]);
-
-  // Same reasoning as ProxiedVideo: `src` is remote-supplied JSON and the
-  // non-Tauri / proxy-failure paths put it straight into an <img src>.
-  if (!isWebUrl(src)) return null;
-
-  if (!resolvedSrc) {
-    return (
-      <Box
-        alignItems="Center"
-        justifyContent="Center"
-        style={{
-          width: '100%',
-          minHeight: '200px',
-          backgroundColor: color.SurfaceVariant.Container,
-        }}
-      >
-        <Spinner variant="Secondary" size="400" />
-      </Box>
-    );
-  }
-
-  return (
-    <UrlPreviewImg
-      src={resolvedSrc}
-      alt={alt}
-      title={title}
-      referrerPolicy="no-referrer"
-      tabIndex={0}
-      onKeyDown={(evt: any) => onEnterOrSpace(onView)(evt)}
-      onClick={onView}
-    />
-  );
-}
-
 export const UrlPreviewCard = as<
   'div',
   { url: string; ts: number; renderViewer?: (props: RenderViewerProps) => ReactNode }
@@ -642,8 +484,24 @@ export const UrlPreviewCard = as<
       url: string;
       thumbnail_url?: string;
       altText?: string;
+      duration_millis?: number;
       size?: { width: number; height: number };
     }>;
+    // Twitter stores an uploaded GIF as a silent MP4, so a GIF and a video are
+    // the same media kind on the wire and only the presentation differs — a GIF
+    // must autoplay, loop and show no controls.
+    //
+    // `type` alone cannot make that call. vxtwitter's documented API shape
+    // reports a GIF as `"video"` (its own api.md example labels a Jurassic Park
+    // GIF that way) while newer builds emit `"gif"`, so keying off `type ===
+    // 'gif'` silently misclassified every GIF served by an instance on the
+    // documented shape — which is why Twitter GIFs rendered as a still frame
+    // behind a play button. The URL is the reliable discriminator: Twitter
+    // serves GIF surrogates from `/tweet_video/` and real videos from
+    // `/ext_tw_video/` or `/amplify_video/`. `duration_millis === 0` is kept as
+    // a third signal because vxtwitter documents it as the GIF marker.
+    const isGifMedia = (m: (typeof allMedia)[number]): boolean =>
+      m.type === 'gif' || isTwitterGifUrl(m.url) || m.duration_millis === 0;
     return (
       <UrlPreview {...props} ref={ref}>
         <Box grow="Yes" direction="Column" style={{ position: 'relative', minWidth: 0 }}>
@@ -693,7 +551,7 @@ export const UrlPreviewCard = as<
                     key={i}
                     src={m.url}
                     poster={m.thumbnail_url}
-                    isGif={m.type === 'gif'}
+                    isGif={isGifMedia(m)}
                     width={m.size?.width}
                     height={m.size?.height}
                     className={urlPreviewCss.UrlPreviewVideo}
@@ -850,13 +708,48 @@ export const UrlPreviewCard = as<
           )}
           {externalView && (
             <Box direction="Column" gap="100" style={{ padding: config.space.S200 }}>
-              {externalView.thumb && (
-                <ProxiedImg
-                  src={externalView.thumb}
-                  alt={externalView.title || ''}
-                  onView={() => setViewerSrc(externalView.thumb)}
-                />
-              )}
+              {/* A GIF posted on Bluesky is not a media embed at all — it is an
+                  *external link* embed whose `uri` is the Tenor GIF. Rendering
+                  only `thumb` therefore showed a still frame for every Bluesky
+                  GIF. Prefer Tenor's own video renditions (48 KB webm / 58 KB
+                  mp4 against 3.3 MB for the GIF the uri points at), and fall
+                  back to the GIF itself for any other animated external link,
+                  which an <img> animates with no autoplay policy attached. */}
+              {(() => {
+                const tenorGif = parseTenorGif(externalView.uri);
+                if (tenorGif) {
+                  return (
+                    <ProxiedVideo
+                      src={tenorGif.sources[tenorGif.sources.length - 1].src}
+                      sources={tenorGif.sources}
+                      poster={externalView.thumb}
+                      isGif
+                      width={tenorGif.width}
+                      height={tenorGif.height}
+                      className={urlPreviewCss.UrlPreviewVideo}
+                    />
+                  );
+                }
+                if (isAnimatedImageUrl(externalView.uri)) {
+                  return (
+                    <GifImage
+                      src={externalView.uri}
+                      alt={externalView.title || ''}
+                      title={externalView.title}
+                      onView={() => setViewerSrc(externalView.uri)}
+                    />
+                  );
+                }
+                return (
+                  externalView.thumb && (
+                    <ProxiedImg
+                      src={externalView.thumb}
+                      alt={externalView.title || ''}
+                      onView={() => setViewerSrc(externalView.thumb)}
+                    />
+                  )
+                );
+              })()}
               {externalView.title &&
                 // `uri` is whatever the Bluesky API returned for an embed the
                 // post author controls. Only link it when it is http(s) — in
@@ -1065,10 +958,14 @@ export const UrlPreviewCard = as<
     !ogFallback &&
     !ogFallbackTried;
 
-  // A link that IS the media plays without any preview data. A bare .mp4/.mp3
-  // serves no HTML, so the homeserver has nothing to scrape and returns an
-  // empty preview — which used to bail out here and render nothing at all.
-  const isDirectMediaLink = isWebUrl(url) && (isVideoUrl(url) || isAudioUrl(url));
+  // A link that IS the media renders without any preview data. A bare
+  // .mp4/.mp3/.gif serves no HTML, so the homeserver has nothing to scrape and
+  // returns an empty preview — which used to bail out here and render nothing
+  // at all. Images belong in this set for the same reason videos do: when a
+  // homeserver has url previews disabled, or its preview fetch fails, a linked
+  // GIF produced no card whatsoever rather than the animation the link names.
+  const isDirectMediaLink =
+    isWebUrl(url) && (isVideoUrl(url) || isAudioUrl(url) || isImageUrl(url));
 
   if (
     !effectivePreview &&
@@ -1093,25 +990,65 @@ export const UrlPreviewCard = as<
     // mxcUrlToHttp, which yields undefined for a non-mxc value and renders no
     // image at all.
     const isDirectImage = isWebUrl(rawOgImage);
-    const thumbUrl = isDirectImage
-      ? rawOgImage
-      : mxcUrlToHttp(mx, rawOgImage, useAuthentication, 256, 256, 'scale', false);
 
-    const imgUrl = isDirectImage
-      ? rawOgImage
-      : mxcUrlToHttp(mx, rawOgImage, useAuthentication, 512, 512, 'scale', false);
+    // Is the preview image an animation? Three independent signals, because
+    // each covers a case the others miss:
+    //  - `og:image:type`, which Synapse sets to the *actual* content type of
+    //    the image it downloaded and re-uploaded (`image/gif` for a Tenor
+    //    link, and for a bare .gif URL where the link itself is the image);
+    //  - the og:image URL's own extension, for the client-side OG fallback,
+    //    which returns the page's declared URL and carries no type;
+    //  - the previewed URL's extension, for a homeserver that returns nothing
+    //    useful at all.
+    //
+    // The first two use the narrow gif/apng test on purpose. A page's og:image
+    // being WebP or AVIF says nothing — both are ordinary static formats now —
+    // so assuming animation there would make every third link preview skip the
+    // thumbnailer and pull a full-size hero image. The third is the broad test
+    // because there the link IS the image file: the user asked for that exact
+    // file, and there is nothing to thumbnail on their behalf.
+    const definitelyAnimated =
+      isAlwaysAnimatedMimeType(prev['og:image:type']) || isAlwaysAnimatedImageUrl(rawOgImage);
+    const ogImageAnimated = definitelyAnimated || isAnimatedImageUrl(url);
+
+    // THE thumbnail trap: every server-side thumbnail of an animated image is
+    // one still frame. Synapse will only animate a thumbnail when asked with
+    // `?animated=true` (MSC2705), which `mxcUrlToHttp` has no parameter for,
+    // and homeservers that predate the MSC ignore it regardless. So an animated
+    // og:image must skip the thumbnailer entirely and use the download URL —
+    // the original bytes the server already holds. This is the single reason a
+    // linked GIF rendered as a frozen picture; it is also exactly what the
+    // timeline does for an uploaded GIF, where animation has always worked.
+    const animatedImgUrl = ogImageAnimated
+      ? (isDirectImage ? rawOgImage : mxcUrlToHttp(mx, rawOgImage, useAuthentication))
+      : null;
+
+    const thumbUrl =
+      animatedImgUrl ??
+      (isDirectImage
+        ? rawOgImage
+        : mxcUrlToHttp(mx, rawOgImage, useAuthentication, 256, 256, 'scale', false));
+
+    const imgUrl =
+      animatedImgUrl ??
+      (isDirectImage
+        ? rawOgImage
+        : mxcUrlToHttp(mx, rawOgImage, useAuthentication, 512, 512, 'scale', false));
 
     // og:image is a poster, never the media. When the link itself is the file,
     // it is the only correct source — previously the <video> was pointed at
     // og:image, so a direct .mp4 got an empty src and silently rendered nothing.
     const directVideoUrl = isVideoUrl(url) && isWebUrl(url) ? url : '';
     const directAudioUrl = isAudioUrl(url) && isWebUrl(url) ? url : '';
+    // A direct image link with no usable og:image at all (preview disabled,
+    // preview failed, or a homeserver that declines to re-upload). The URL is
+    // the media, so it is its own preview.
+    const directImageUrl = isImageUrl(url) && isWebUrl(url) ? url : '';
 
     const title = prev['og:title'] as string | undefined;
     const description = prev['og:description'] as string | undefined;
     const siteName = prev['og:site_name'] as string | undefined;
     const isVideo = isVideoUrl(url) || (prev['og:type'] as string)?.startsWith('video');
-    const isAudio = isAudioUrl(url) || (prev['og:type'] as string)?.startsWith('music');
 
     // Sites that ship a tiny favicon-style og:image (48×48, 64×64 logo) want
     // a text-only embed, not a card with an awkwardly-stretched icon. If both
@@ -1132,7 +1069,12 @@ export const UrlPreviewCard = as<
     //  - inlineOgVideoUrl: anything else, which must at least be http(s)
     //    before it reaches <video src> and the <a href> fallback inside it.
     // video.twimg.com stays excluded because it 403s on cross-origin requests.
-    const ogVideoUrl = (prev['og:video'] || prev['og:video:url']) as string | undefined;
+    // `og:video:secure_url` is included because some sites declare only that
+    // one. Tenor declares all three, but they are read in document order and a
+    // page that omits the bare `og:video` previously produced no player at all.
+    const ogVideoUrl = (prev['og:video'] ||
+      prev['og:video:url'] ||
+      prev['og:video:secure_url']) as string | undefined;
     const bandcampEmbedUrl = isBandcampEmbedUrl(ogVideoUrl) ? ogVideoUrl : undefined;
     const inlineOgVideoUrl =
       !bandcampEmbedUrl && isWebUrl(ogVideoUrl) && !/video\.twimg\.com/.test(ogVideoUrl)
@@ -1141,6 +1083,17 @@ export const UrlPreviewCard = as<
     // An og:video we rejected must not suppress the still image as well —
     // otherwise a bad value silently blanks the whole card.
     const hasOgVideo = !!(bandcampEmbedUrl || inlineOgVideoUrl);
+    // GIF-sharing sites have no GIF to give: Tenor's and Giphy's `og:video` is
+    // an MP4 of the animation and their `og:image` is the GIF. Rendered as a
+    // plain <video> it came out as a still poster behind a play button, which
+    // is not what "linking a GIF" means anywhere else on the internet. Measured
+    // Tenor OG output for reference:
+    //   og:type              video.other
+    //   og:image             https://media1.tenor.com/m/<id>AAAAC/<name>.gif
+    //   og:image:type        image/gif
+    //   og:video             https://media.tenor.com/<id>AAAPo/<name>.mp4
+    const ogVideoIsGif =
+      !!inlineOgVideoUrl && isGifStyleVideo(url, inlineOgVideoUrl, prev['og:image:type']);
     const ogVideoWidth = Number(prev['og:video:width']) || undefined;
     const ogVideoHeight = Number(prev['og:video:height']) || undefined;
     const ogVideoAspect = ogVideoWidth && ogVideoHeight
@@ -1213,7 +1166,21 @@ export const UrlPreviewCard = as<
             allowFullScreen
           />
         )}
-        {!isYt && inlineOgVideoUrl && (
+        {/* Tenor/Giphy and friends: the og:video IS the animation, so it plays
+            itself, loops and carries no chrome. ProxiedVideo also falls back to
+            controls if the shell refuses to autoplay, which is the difference
+            between a GIF that is paused and a GIF that cannot be started. */}
+        {!isYt && inlineOgVideoUrl && ogVideoIsGif && (
+          <ProxiedVideo
+            src={inlineOgVideoUrl}
+            poster={imgUrl || undefined}
+            isGif
+            width={ogVideoWidth}
+            height={ogVideoHeight}
+            className={urlPreviewCss.UrlPreviewVideo}
+          />
+        )}
+        {!isYt && inlineOgVideoUrl && !ogVideoIsGif && (
           <video
             className={urlPreviewCss.UrlPreviewVideo}
             src={inlineOgVideoUrl}
@@ -1229,50 +1196,98 @@ export const UrlPreviewCard = as<
           </video>
         )}
 
-        {/* Direct video URL */}
-        {!isYt && !hasOgVideo && isVideo && (directVideoUrl || imgUrl) && (
+        {/* Direct video URL.
+            Gated on `directVideoUrl` rather than falling back to `imgUrl`: the
+            comment above is right that og:image is a poster and never the
+            media, and feeding it to a <video src> produced a permanently
+            broken player for every `og:type: video.*` page that declares no
+            playable video — including Tenor, whose og:image is now the GIF
+            itself. Without a real video URL this falls through to the image
+            branch, which shows the poster and the link. */}
+        {!isYt && !hasOgVideo && isVideo && directVideoUrl && (
           <video
             className={urlPreviewCss.UrlPreviewVideo}
-            src={directVideoUrl || imgUrl || undefined}
-            poster={directVideoUrl && imgUrl ? imgUrl : undefined}
+            src={directVideoUrl}
+            poster={imgUrl || undefined}
             controls
             preload="metadata"
             style={ogVideoAspect ? { aspectRatio: ogVideoAspect } : undefined}
             onClick={(e) => e.stopPropagation()}
           >
-            <a href={directVideoUrl || imgUrl || undefined} target="_blank" rel="noreferrer">
+            <a href={directVideoUrl} target="_blank" rel="noreferrer">
               {title || 'Video'}
             </a>
           </video>
         )}
 
-        {/* Audio embed */}
-        {isAudio && (directAudioUrl || imgUrl) && (
+        {/* Audio embed — same reasoning: an <audio> pointed at og:image is a
+            dead player, so `og:type: music.*` pages with no direct audio file
+            (Spotify, Last.fm) fall through to the image branch instead. */}
+        {directAudioUrl && (
           <audio
             className={urlPreviewCss.UrlPreviewVideo}
-            src={directAudioUrl || imgUrl || undefined}
+            src={directAudioUrl}
             controls
             preload="metadata"
             onClick={(e) => e.stopPropagation()}
           >
-            <a href={directAudioUrl || imgUrl || undefined} target="_blank" rel="noreferrer">
+            <a href={directAudioUrl} target="_blank" rel="noreferrer">
               {title || 'Audio'}
             </a>
           </audio>
         )}
 
         {/* Preview image (only if no video/audio player showing and the
-            image isn't a tiny favicon-style icon). */}
-        {!isYt && !hasOgVideo && !isVideo && !isAudio && thumbUrl && !imageIsTinyFavicon && (
-          <UrlPreviewImg
-            src={thumbUrl}
-            alt={title || ''}
-            title={title}
-            tabIndex={0}
-            onKeyDown={(evt) => onEnterOrSpace(() => setViewerSrc(imgUrl ?? undefined))(evt)}
-            onClick={() => setViewerSrc(imgUrl ?? undefined)}
-          />
-        )}
+            image isn't a tiny favicon-style icon).
+
+            `stillImageUrl` falls back to the link itself so a bare image URL
+            still renders when the homeserver produced no og:image — previews
+            can be disabled server-side, and Synapse declines any target it
+            cannot fetch. The GIF badge is attached whenever the source is an
+            animated format, which is also the tell that the card is showing
+            the animation rather than a thumbnail of it.
+
+            The tiny-favicon suppression is deliberately not applied to a direct
+            image link: the dimensions there describe the linked image itself,
+            and a genuinely 64×64 GIF is still the thing the user linked. */}
+        {!isYt &&
+          !hasOgVideo &&
+          !(isVideo && directVideoUrl) &&
+          !directAudioUrl &&
+          (() => {
+            const stillImageUrl = thumbUrl || directImageUrl;
+            if (!stillImageUrl) return null;
+            if (imageIsTinyFavicon && !directImageUrl) return null;
+            const viewerTarget = imgUrl || directImageUrl || undefined;
+            // Badge only what is unambiguously an animation. A `.webp` link
+            // still skips the thumbnailer (see `ogImageAnimated`) and animates
+            // if it is animated, but labelling every WebP "GIF" would be wrong
+            // far more often than it would be right.
+            const animated =
+              definitelyAnimated ||
+              isAlwaysAnimatedImageUrl(stillImageUrl) ||
+              isAlwaysAnimatedImageUrl(url);
+            if (animated) {
+              return (
+                <GifImage
+                  src={stillImageUrl}
+                  alt={title || ''}
+                  title={title}
+                  onView={() => setViewerSrc(viewerTarget)}
+                />
+              );
+            }
+            return (
+              <UrlPreviewImg
+                src={stillImageUrl}
+                alt={title || ''}
+                title={title}
+                tabIndex={0}
+                onKeyDown={(evt) => onEnterOrSpace(() => setViewerSrc(viewerTarget))(evt)}
+                onClick={() => setViewerSrc(viewerTarget)}
+              />
+            );
+          })()}
 
         <UrlPreviewContent>
           <Text
