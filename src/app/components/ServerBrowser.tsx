@@ -295,7 +295,7 @@ export function ServerBrowser({
           style={{ padding: config.space.S400, paddingBottom: config.space.S200 }}
         >
           <Box gap="200" wrap="Wrap">
-            <Box grow="Yes" style={{ minWidth: '14rem' }}>
+            <Box grow="Yes" direction="Column" style={{ minWidth: '14rem' }}>
               <Input
                 size="400"
                 variant="Background"

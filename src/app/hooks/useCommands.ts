@@ -169,8 +169,11 @@ export enum Command {
   Whois = 'whois',
   UpgradeRoom = 'upgraderoom',
   DiscardSession = 'discardsession',
-  // Handled by the composer rather than here — they change how the typed text
-  // is turned into event content, so there is nothing for `exe` to do.
+  // Handled by the composer rather than here — they either change how the
+  // typed text is turned into event content, or open a prompt, so there is
+  // nothing for `exe` to do.
+  Poll = 'poll',
+  Location = 'location',
   Rainbow = 'rainbow',
   RainbowMe = 'rainbowme',
   Plain = 'plain',
@@ -648,6 +651,16 @@ export const useCommands = (mx: MatrixClient, room: Room): CommandRecord => {
         exe: async () => {
           await mx.getCrypto()?.forceDiscardSession(room.roomId);
         },
+      },
+      [Command.Poll]: {
+        name: Command.Poll,
+        description: 'Create a poll',
+        exe: async () => undefined,
+      },
+      [Command.Location]: {
+        name: Command.Location,
+        description: 'Share your location',
+        exe: async () => undefined,
       },
       [Command.Rainbow]: {
         name: Command.Rainbow,

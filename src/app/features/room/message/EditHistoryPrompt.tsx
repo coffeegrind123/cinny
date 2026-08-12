@@ -121,7 +121,7 @@ export function EditHistoryPrompt({ room, mEvent, requestClose }: EditHistoryPro
             escapeDeactivates: stopPropagation,
           }}
         >
-          <Modal size="300">
+          <Modal size="300" flexHeight>
             <Box grow="Yes" direction="Column">
               <Header
                 size="500"

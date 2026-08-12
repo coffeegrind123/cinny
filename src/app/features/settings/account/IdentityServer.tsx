@@ -62,11 +62,14 @@ export function IdentityServer() {
           description="Optional. Lets you invite people by email and be found by yours. The server sees every address you look up, so leave this blank unless you need it."
         >
           <Box as="form" onSubmit={handleSubmit} gap="200" style={{ marginTop: '8px' }}>
-            <Box grow="Yes">
+            {/* Column so the Input stretches to fill the row rather than
+                sizing to its placeholder, and Secondary so it matches every
+                other settings field — see the note in ContactInfo. */}
+            <Box grow="Yes" direction="Column">
               <Input
                 value={value}
                 onChange={(evt) => setValue(evt.currentTarget.value)}
-                variant="Background"
+                variant="Secondary"
                 size="400"
                 radii="300"
                 placeholder="https://vector.im"

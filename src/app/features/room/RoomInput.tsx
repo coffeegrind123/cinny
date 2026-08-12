@@ -111,6 +111,7 @@ import { rainbowHtml } from '../../utils/rainbow';
 import { EFFECT_MSG_TYPES, EffectName, isEffectName } from '../../plugins/effects';
 import { PollCreatePrompt } from './poll/PollCreatePrompt';
 import { LocationPicker } from './location/LocationPicker';
+import { useMapStyleUrl } from '../../hooks/useMapStyleUrl';
 import { getMemberDisplayName, getMentionContent, trimReplyFromBody } from '../../utils/room';
 import { CommandAutocomplete } from './CommandAutocomplete';
 import { Command, SHRUG, TABLEFLIP, UNFLIP, useCommands } from '../../hooks/useCommands';
@@ -214,6 +215,10 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
     const voiceRecorder = useVoiceRecorder(roomId);
     const [pollPrompt, setPollPrompt] = useState(false);
     const [locationPrompt, setLocationPrompt] = useState(false);
+    // Location sharing needs somewhere to draw a map. Without a tile server
+    // the picker is a grey rectangle you cannot aim, so `/location` is not
+    // offered at all rather than opening something that cannot work.
+    const mapStyleUrl = useMapStyleUrl();
     const voiceActive = voiceRecorder.status !== VoiceRecordStatus.Idle;
     // Checked once rather than per render: a build without WASM or without
     // getUserMedia can never record, and offering a button that always fails is
@@ -539,6 +544,22 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
         // The user asked for raw HTML. It is still sanitised on render, by the
         // same parser that sanitises everyone else's messages.
         customHtml = plainText;
+      } else if (commandName === Command.Poll) {
+        // Opens the prompt instead of sending anything. The typed remainder is
+        // discarded rather than pre-filling the question, because `/poll` with
+        // trailing text reads as "post this poll" and silently doing half of
+        // that would be worse than doing none of it.
+        setPollPrompt(true);
+        resetEditor(editor);
+        resetEditorHistory(editor);
+        sendTypingStatus(false);
+        return;
+      } else if (commandName === Command.Location && mapStyleUrl) {
+        setLocationPrompt(true);
+        resetEditor(editor);
+        resetEditorHistory(editor);
+        sendTypingStatus(false);
+        return;
       } else if (effectCommand) {
         // Effect messages are ordinary text with a custom msgtype. Clients that
         // do not know the msgtype fall back to showing the body, which is why
@@ -602,6 +623,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
       isMarkdown,
       commands,
       applyRelation,
+      mapStyleUrl,
     ]);
 
     const handleKeyDown: KeyboardEventHandler = useCallback(
@@ -867,26 +889,12 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
               >
                 <Icon src={Icons.PlusCircle} />
               </IconButton>
-              <IconButton
-                onClick={() => setPollPrompt(true)}
-                variant="SurfaceVariant"
-                size="300"
-                radii="300"
-                aria-label="Create poll"
-                aria-pressed={pollPrompt}
-              >
-                <Icon src={Icons.Bulb} />
-              </IconButton>
-              <IconButton
-                onClick={() => setLocationPrompt(true)}
-                variant="SurfaceVariant"
-                size="300"
-                radii="300"
-                aria-label="Share location"
-                aria-pressed={locationPrompt}
-              >
-                <Icon src={Icons.Pin} />
-              </IconButton>
+              {/* Polls and location sharing are reached with `/poll` and
+                  `/location` rather than by a button each. Both are occasional
+                  actions that open a full prompt, and a permanent icon for
+                  each crowded the composer's left edge — on a phone the attach
+                  button ended up sharing the row with two things most messages
+                  never use. */}
             </>
           }
           after={

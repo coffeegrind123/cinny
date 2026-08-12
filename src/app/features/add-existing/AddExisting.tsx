@@ -188,7 +188,7 @@ export function AddExistingModal({ parentId, space, requestClose }: AddExistingM
             escapeDeactivates: stopPropagation,
           }}
         >
-          <Modal size="300">
+          <Modal size="300" flexHeight>
             <Box grow="Yes" direction="Column">
               <Header
                 size="500"

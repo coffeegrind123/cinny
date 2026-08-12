@@ -89,7 +89,7 @@ export function PollCreatePrompt({ room, requestClose }: PollCreatePromptProps) 
             escapeDeactivates: stopPropagation,
           }}
         >
-          <Modal size="300">
+          <Modal size="300" flexHeight>
             <Box grow="Yes" direction="Column">
               <Header
                 size="500"
@@ -133,7 +133,10 @@ export function PollCreatePrompt({ room, requestClose }: PollCreatePromptProps) 
                             gap="200"
                             alignItems="Center"
                           >
-                            <Box grow="Yes">
+                            {/* Column, so the field stretches to the row
+                                rather than sizing to its placeholder — folds'
+                                Input has no width of its own. */}
+                            <Box grow="Yes" direction="Column">
                               <Input
                                 value={answer}
                                 onChange={(evt) => setAnswer(index, evt.currentTarget.value)}

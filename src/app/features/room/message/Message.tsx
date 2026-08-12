@@ -168,7 +168,7 @@ export const MessageAllReactionItem = as<
               escapeDeactivates: stopPropagation,
             }}
           >
-            <Modal variant="Surface" size="300">
+            <Modal variant="Surface" size="300" flexHeight>
               <ReactionViewer
                 room={room}
                 relations={relations}
@@ -222,7 +222,7 @@ export const MessageReadReceiptItem = as<
               escapeDeactivates: stopPropagation,
             }}
           >
-            <Modal variant="Surface" size="300">
+            <Modal variant="Surface" size="300" flexHeight>
               <EventReaders room={room} eventId={eventId} requestClose={handleClose} />
             </Modal>
           </FocusTrap>
@@ -984,7 +984,7 @@ export const Message = as<'div', MessageProps>(
                 escapeDeactivates: stopPropagation,
               }}
             >
-              <Modal variant="Surface" size="300">
+              <Modal variant="Surface" size="300" flexHeight>
                 <EventReaders
                   room={room}
                   eventId={mEvent.getId() ?? ''}

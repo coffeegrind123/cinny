@@ -89,12 +89,23 @@ function AddEmail({ onAdded }: AddEmailProps) {
       <Box direction="Column" gap="100">
         <Text size="L400">Add Email Address</Text>
         <Box gap="200">
-          <Box grow="Yes">
+          {/* `direction="Column"` is load-bearing, not decoration. folds' Input
+              is a flex *item* here with no width of its own, so in a row it
+              shrinks to its content and leaves the rest of the row empty — the
+              add-email field was visibly narrower than the display-name field
+              for exactly this reason. A column container stretches it to the
+              full width instead, which is what Profile already does.
+
+              `variant="Secondary"` for the same consistency reason: Background
+              resolves to the *page* background colour, so the field read as a
+              black hole inside a SurfaceVariant card while every other settings
+              input used Secondary. */}
+          <Box grow="Yes" direction="Column">
             <Input
               value={email}
               onChange={(evt) => setEmail(evt.currentTarget.value)}
               type="email"
-              variant="Background"
+              variant="Secondary"
               size="400"
               radii="300"
               placeholder="you@example.com"

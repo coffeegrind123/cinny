@@ -68,6 +68,7 @@ export const RoomViewFollowing = as<'div', RoomViewFollowingProps>(
                 <Modal
                   variant="Surface"
                   size="300"
+                  flexHeight
                   style={{ display: 'flex', flexDirection: 'column', maxHeight: '80vh' }}
                 >
                   <EventReaders room={room} eventId={eventId} requestClose={() => setOpen(false)} />

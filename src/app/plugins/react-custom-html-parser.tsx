@@ -55,6 +55,11 @@ export const LINKIFY_OPTS: LinkifyOpts = {
   attributes: {
     target: '_blank',
     rel: 'noreferrer noopener',
+    // Gecko implements neither `-webkit-user-drag` nor any standard
+    // equivalent, so the CSS in MessageTextBody that stops a link from
+    // hijacking a text selection needs this attribute alongside it. See the
+    // comment on that rule for what the hijack looks like.
+    draggable: 'false',
   },
   validate: {
     // Plain-text links are an independent path from the HTML sanitizer — this

@@ -1,4 +1,11 @@
-import { createVar, keyframes, style, styleVariants } from '@vanilla-extract/css';
+import {
+  createVar,
+  globalStyle,
+  keyframes,
+  style,
+  styleVariants,
+  type GlobalStyleRule,
+} from '@vanilla-extract/css';
 import { recipe, RecipeVariants } from '@vanilla-extract/recipes';
 import { DefaultReset, color, config, toRem } from 'folds';
 
@@ -214,10 +221,42 @@ export const UsernameBold = style({
   fontWeight: 550,
 });
 
+/**
+ * Stops a link inside a message from being a drag source.
+ *
+ * An anchor is natively draggable, and that beats text selection: a
+ * pointer-down that lands on a link starts a *link drag* rather than a
+ * selection, so dragging leftwards out of a link selected nothing and the
+ * browser anchored the selection at the previous caret position instead —
+ * which is why copying a message that ends in a link appeared to "start from
+ * the left".
+ *
+ * Same class of bug as the timestamp/mxid one handled by MessageChromeNoSelect,
+ * but caused by the drag source rather than by a mutating DOM, so it needs its
+ * own fix. This covers every engine the app ships on (WebView2, WebKitGTK,
+ * Android WebView, Chrome, Safari); the `draggable="false"` attribute set by
+ * the linkifier and the HTML sanitizer covers Gecko, which implements neither.
+ *
+ * Losing the link-drag gesture is not a real cost: the link stays clickable,
+ * copyable from the context menu, and selectable as text — which is what
+ * someone dragging across a message wanted in the first place.
+ *
+ * Written through `globalStyle` with a cast because `-webkit-user-drag` is not
+ * a standard property and so has no entry in csstype, which is where
+ * vanilla-extract's property types come from.
+ */
+const LinkNoDrag = style({});
+globalStyle(`${LinkNoDrag} a`, {
+  WebkitUserDrag: 'none',
+} as GlobalStyleRule);
+
 export const MessageTextBody = recipe({
-  base: {
-    wordBreak: 'break-word',
-  },
+  base: [
+    LinkNoDrag,
+    {
+      wordBreak: 'break-word',
+    },
+  ],
   variants: {
     preWrap: {
       true: {

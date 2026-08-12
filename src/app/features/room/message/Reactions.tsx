@@ -112,7 +112,7 @@ export const Reactions = as<'div', ReactionsProps>(
                   escapeDeactivates: stopPropagation,
                 }}
               >
-                <Modal variant="Surface" size="300">
+                <Modal variant="Surface" size="300" flexHeight>
                   <ReactionViewer
                     room={room}
                     initialKey={typeof viewer === 'string' ? viewer : undefined}

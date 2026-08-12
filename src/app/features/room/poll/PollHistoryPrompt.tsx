@@ -88,7 +88,7 @@ export function PollHistoryPrompt({ room, requestClose }: PollHistoryPromptProps
             escapeDeactivates: stopPropagation,
           }}
         >
-          <Modal size="300">
+          <Modal size="300" flexHeight>
             <Box grow="Yes" direction="Column">
               <Header
                 size="500"

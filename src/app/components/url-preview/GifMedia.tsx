@@ -161,8 +161,19 @@ export function ProxiedVideo({
     if (video.readyState >= 2) attempt();
     else video.addEventListener('loadeddata', attempt, { once: true });
 
+    // Last-resort backstop. A chrome-less GIF that never loads and never
+    // errors — a stalled CDN, a codec the engine declines silently, a proxy
+    // that returned bytes the decoder rejects — presents as an empty box with
+    // no way to interact with it and nothing in the console. If it has not
+    // started within a few seconds, surface the controls so there is at least
+    // something to press and something to right-click.
+    const stallTimer = window.setTimeout(() => {
+      if (!cancelled && video.readyState < 2) setAutoplayBlocked(true);
+    }, 5000);
+
     return () => {
       cancelled = true;
+      window.clearTimeout(stallTimer);
       video.removeEventListener('loadeddata', attempt);
     };
   }, [isGif, resolvedSrc, mediaKey]);

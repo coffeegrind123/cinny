@@ -72,7 +72,10 @@ const permittedTagToAttributes = {
   pre: ['data-md', 'class'],
   ol: ['start', 'type', 'data-md'],
   ul: ['data-md'],
-  a: ['name', 'target', 'href', 'rel', 'data-md'],
+  // `draggable` is here because the allowlist is applied to a tag's attributes
+  // *after* its transformer runs, so `transformATag` setting it is not enough
+  // on its own — it would be stripped straight back off.
+  a: ['name', 'target', 'href', 'rel', 'data-md', 'draggable'],
   img: ['width', 'height', 'alt', 'title', 'src', 'data-mx-emoticon'],
   code: ['class', 'data-md', 'data-label'],
   strong: ['data-md'],
@@ -105,6 +108,13 @@ const transformATag: Transformer = (tagName, attribs) => ({
     ...attribs,
     rel: 'noreferrer noopener',
     target: '_blank',
+    // A link inside a message must not be a drag source: a pointer-down on one
+    // starts a native link drag instead of a text selection, so dragging out
+    // of a link selects nothing and the browser re-anchors the selection at
+    // the previous caret — the "copying starts from the left" bug. The CSS in
+    // MessageTextBody covers every engine that implements `-webkit-user-drag`;
+    // this attribute is what covers Gecko, which implements none.
+    draggable: 'false',
   },
 });
 

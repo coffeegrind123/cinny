@@ -136,7 +136,7 @@ function DeactivateDialog({ requestClose }: { requestClose: () => void }) {
                 <Input
                   value={typed}
                   onChange={(evt) => setTyped(evt.currentTarget.value)}
-                  variant="Background"
+                  variant="Secondary"
                   size="400"
                   radii="300"
                   autoComplete="off"

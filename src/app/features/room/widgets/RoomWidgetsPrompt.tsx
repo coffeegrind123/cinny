@@ -106,7 +106,12 @@ export function RoomWidgetsPrompt({ room, requestClose }: RoomWidgetsPromptProps
             escapeDeactivates: stopPropagation,
           }}
         >
-          <Modal size="500">
+          {/* The widget *list* sizes to its content — folds' Modal is
+              `height: 100%` by default, so a room with two widgets drew a
+              full-height dialog with an empty band under them. An *open*
+              widget is an iframe that has to fill the dialog, so it keeps the
+              fixed height; `height: unset` would collapse it to nothing. */}
+          <Modal size="500" flexHeight={!open}>
             <Box grow="Yes" direction="Column">
               <Header
                 size="500"

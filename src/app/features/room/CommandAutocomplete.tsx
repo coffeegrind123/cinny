@@ -14,6 +14,7 @@ import { UseAsyncSearchOptions, useAsyncSearch } from '../../hooks/useAsyncSearc
 import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { useKeyDown } from '../../hooks/useKeyDown';
 import { clickFocusedAutocompleteItem, onTabPress } from '../../utils/keyboard';
+import { useMapStyleUrl } from '../../hooks/useMapStyleUrl';
 
 type CommandAutoCompleteHandler = (commandName: string) => void;
 
@@ -38,7 +39,15 @@ export function CommandAutocomplete({
 }: CommandAutocompleteProps) {
   const mx = useMatrixClient();
   const commands = useCommands(mx, room);
-  const commandNames = useMemo(() => Object.keys(commands) as Command[], [commands]);
+  const mapStyleUrl = useMapStyleUrl();
+  const commandNames = useMemo(() => {
+    const names = Object.keys(commands) as Command[];
+    // Offering `/location` on a homeserver that publishes no `m.tile_server`
+    // would autocomplete to a picker with no map in it. Suggesting an action
+    // that cannot complete is worse than not suggesting it.
+    if (mapStyleUrl) return names;
+    return names.filter((name) => name !== Command.Location);
+  }, [commands, mapStyleUrl]);
 
   const [result, search, resetSearch] = useAsyncSearch(
     commandNames,
