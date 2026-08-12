@@ -2,6 +2,32 @@
 
 User-facing changes per commit. Most recent at the top.
 
+## 12.08.2026
+
+- `b3946e0` Added **voice messages**. Press the microphone in the composer, review what you recorded, then send it. They arrive with a waveform and a duration in Element and other clients, and voice notes from those clients now show as a proper player here instead of an anonymous file. Recording stops and releases the microphone when you cancel, switch rooms or close the app.
+- `b3946e0` Added **a thread panel**. Threads could be started before but never read — replies landed loose in the conversation and there was nowhere to open. A message that started a thread now shows how many replies it has and opens them in a panel beside the room, or full screen on a phone. Replies still appear in the main conversation as well, so nothing has disappeared.
+- `b3946e0` Added **polls**. Create one from the composer, vote, and end it when you are done. Polls sent from other clients used to show as "unsupported content" and now work properly. A poll set to hide its results shows nothing at all until it ends, not even to you.
+- `b3946e0` Added **forwarding a message** to one or more rooms, from the message menu.
+- `b3946e0` Added **edit history** on messages that have been edited, fetched from the server so it works for edits made before you opened the app.
+- `b3946e0` Added **a pinned-message banner** above the composer, so a pin is visible without opening the room menu. Dismissing it hides only that pin; pinning something new brings it back.
+- `b3946e0` Added **approving people who ask to join**. Setting a room to "ask to join" used to be a trap: requests arrived with nothing to show them, so people waited on a room that looked like it had ignored them.
+- `b3946e0` Added **exporting a conversation** as HTML, plain text or JSON, with attachments bundled alongside it. Also added **a file list** for the room, so you can find that PDF without scrolling for it.
+- `b3946e0` Added **sharing a location**, either where you are or a pin you drop, and **live location sharing** for 15 minutes, an hour or eight hours. While you are sharing, a banner stays on screen that cannot be dismissed — only stopped. Maps are off until you turn them on, because drawing one tells whoever serves the map tiles where you are looking.
+- `b3946e0` Added **widgets**. Room widgets can be opened, added and removed, and each one asks before it is allowed to read or send anything, item by item. Widgets never get the microphone, the camera or your Matrix identity, and one served from the same address as the app itself is refused outright.
+- `b3946e0` Added **changing your password, adding and removing email addresses, and closing your account** in Settings. Changing a password previously meant logging out and using the reset flow, which needed access to the email on the account.
+- `b3946e0` Added **privacy settings**: block all incoming invites, choose when media previews load, and hide avatars in invitations from strangers.
+- `b3946e0` Added **thirteen more slash commands**, including `/nick`, `/topic`, `/roomname`, `/myavatar`, `/whois`, `/query`, `/plain`, `/html` and `/rainbow`.
+- `b3946e0` Added **chat effects** — `/confetti`, `/fireworks`, `/snowfall`, `/rainfall` and `/hearts`, which also fire when someone sends the matching emoji. Skipped entirely if your system asks for reduced motion.
+- `b3946e0` Added **LaTeX rendering** for maths in messages, off by default.
+- `b3946e0` Added **microphone settings** — choose an input device and turn echo cancellation, noise suppression and gain control on or off. Used by voice messages and calls alike.
+- `b3946e0` Fixed **audio attachments being sent without a duration**, which made them show as unknown-length in every other client.
+- `f96ddb0` Fixed **the microphone never working on Linux**. The window's browser engine ships with capture switched off and silently refuses any request nothing is listening for, so recording and call audio could not have worked on that build. Screen sharing from a call is covered too.
+- `f96ddb0` Fixed **the app being killed on macOS the first time it touched the microphone or camera**, instead of asking for permission.
+- `f96ddb0` Added **opening `matrix:` links**, both inside the app and from other programs, on all four platforms. They previously did nothing at all when clicked.
+- `f96ddb0` Added **starting at login**, launching minimized to the tray. Related: a window closed to the tray no longer comes back invisible the next time you start the app by hand.
+- `f96ddb0` Added **hiding the window from screenshots and screen recordings**, in Settings. Works on Windows and macOS; most Linux desktops ignore it.
+- `f96ddb0` Added **spell checking on Linux**, which the window's browser engine leaves off by default, using the languages from your own system settings.
+
 ## 11.08.2026
 
 - `451148f` Fixed **the icon bar on the left not moving with the swipe on mobile**. It stayed put while the conversation list slid, then appeared or disappeared abruptly at the end, shifting everything sideways. It now slides away together with the list, and the chat opens at the full width of the screen without jumping.
