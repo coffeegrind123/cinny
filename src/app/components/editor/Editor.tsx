@@ -25,7 +25,24 @@ import { CustomElement } from './slate';
 import * as css from './Editor.css';
 import { toggleKeyboardShortcut } from './keyboard';
 
-const initialValue: CustomElement[] = [
+/**
+ * A fresh empty document, built per editor — never a shared constant.
+ *
+ * `<Slate>` assigns `editor.children = initialValue` on first mount, so one
+ * module-level constant handed to every editor left them all pointing at the
+ * *same* node objects. Slate's DOM bindings key their `NODE_TO_PARENT` /
+ * `NODE_TO_INDEX` maps on those objects globally, so with two composers on
+ * screen (the room and an open thread panel) whichever rendered last claimed
+ * the shared nodes, and `findPath` then failed for the other one — it walks up
+ * to the recorded parent and requires it to be the editor it was called with,
+ * so it threw "Unable to find the path for Slate node".
+ *
+ * The visible result: clicking that composer focused it but never gave it a
+ * Slate selection, so nothing typed into it registered and Enter, Ctrl+Enter
+ * and the send button all did nothing — the message body was still empty.
+ * Distinct objects per editor keep the maps unambiguous.
+ */
+const createInitialValue = (): CustomElement[] => [
   {
     type: BlockType.Paragraph,
     children: [{ text: '' }],
@@ -93,6 +110,9 @@ export const CustomEditor = forwardRef<HTMLDivElement, CustomEditorProps>(
     },
     ref
   ) => {
+    // Per-instance, and never regenerated: `<Slate>` reads it once on mount.
+    const [initialValue] = useState(createInitialValue);
+
     const renderElement = useCallback(
       (props: RenderElementProps) => <RenderElement {...props} />,
       []

@@ -10,38 +10,46 @@ export const HeadingRule: BlockMDRule = {
   },
 };
 
-// opening fence: 3 or more backticks
-// capture the exact fence length in group 1
-// optional info string in group 2
-// code content in group 3
-// closing fence must match the exact same fence sequence via \1
-const CODEBLOCK_REG_1 = /^(`{3,})(?!`)(\S*)\n((?:.*\n)+?)\1 *(?!.)\n?/m;
+// opening fence: 3 or more backticks at the start of a line, captured in group
+// 1 so the closing fence can be matched against the same length via \1
+// group 2 is everything between the fences, info string included
+// the closing fence ends a line (trailing spaces allowed) and may be longer
+// than the opening one, which is what `*` after \1 absorbs
+//
+// Everything about this shape is deliberate, because Discord is far more
+// forgiving than the previous pattern was:
+//
+//   ```code```            one line -> a block containing "code"
+//   ```lang\ncode\n```    a language token, but ONLY when a bare word is
+//                         followed immediately by a newline
+//   ```code\nmore\n```    content starting on the fence line itself
+//   ```\ncode\nmore```    closing fence at the end of the last content line
+//
+// The old regex demanded `\n` right after the info string and a closing fence
+// alone on its own line, so the last two forms did not match at all and came
+// out as literal backticks around the text. Those are exactly the forms you get
+// by typing ``` and pasting several lines after it — the common case, and the
+// one that was reported broken.
+const CODEBLOCK_REG_1 = /^(`{3,})(?!`)([\s\S]*?)\1`* *(?!.)\n?/m;
+// A language token is a run with no whitespace and no backtick, terminated by a
+// newline. Anything else on the fence line — "const a = 1;", a sentence, an
+// empty rest-of-line — is content, not a language.
+const CODEBLOCK_INFO_REG = /^([^\s`]*)\n/;
 export const CodeBlockRule: BlockMDRule = {
   match: (text) => text.match(CODEBLOCK_REG_1),
   html: (match) => {
-    const [, fence, g1, g2] = match;
+    const [, fence, body] = match;
+    const infoMatch = body.match(CODEBLOCK_INFO_REG);
+    // `infoMatch[1]` is empty for a plain "```\n" opening: no language, and the
+    // newline still belongs to the fence rather than to the code.
+    const info = infoMatch?.[1] || null;
+    const content = infoMatch ? body.slice(infoMatch[0].length) : body;
     // use last identifier after dot, e.g. for "example.json" gets us "json" as language code.
-    const langCode = g1 ? g1.substring(g1.lastIndexOf('.') + 1) : null;
-    const filename = g1 !== langCode ? g1 : null;
+    const langCode = info ? info.substring(info.lastIndexOf('.') + 1) : null;
+    const filename = info !== langCode ? info : null;
     const classNameAtt = langCode ? ` class="language-${langCode}"` : '';
     const filenameAtt = filename ? ` data-label="${filename}"` : '';
-    return `<pre data-md="${fence}"><code${classNameAtt}${filenameAtt}>${g2}</code></pre>`;
-  },
-};
-
-// Discord renders a triple-backtick as a code block even on a single line
-// (```code``` -> a block containing "code"), whereas CODEBLOCK_REG_1 requires a
-// newline after the opening fence. Without this, ```code``` fell through to the
-// inline code rule and came out as literal backticks around the text. A single
-// line carries no language token (that only applies when a newline follows the
-// fence), and its content is inserted verbatim — never inline-parsed — so
-// markdown characters inside stay literal, exactly like the multi-line block.
-const CODEBLOCK_REG_2 = /^(`{3,})(?!`)(.*?)\1(?!`) *$\n?/m;
-export const CodeBlockSingleLineRule: BlockMDRule = {
-  match: (text) => text.match(CODEBLOCK_REG_2),
-  html: (match) => {
-    const [, fence, g1] = match;
-    return `<pre data-md="${fence}"><code>${g1}</code></pre>`;
+    return `<pre data-md="${fence}"><code${classNameAtt}${filenameAtt}>${content}</code></pre>`;
   },
 };
 

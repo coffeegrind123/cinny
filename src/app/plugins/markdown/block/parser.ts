@@ -1,12 +1,5 @@
 import { replaceMatch } from '../internal';
-import {
-  BlockQuoteRule,
-  CodeBlockRule,
-  CodeBlockSingleLineRule,
-  ESC_BLOCK_SEQ,
-  HeadingRule,
-  ListRule,
-} from './rules';
+import { BlockQuoteRule, CodeBlockRule, ESC_BLOCK_SEQ, HeadingRule, ListRule } from './rules';
 import { runBlockRule } from './runner';
 import { BlockMDParser } from './type';
 
@@ -21,8 +14,9 @@ export const parseBlockMD: BlockMDParser = (text, parseInline) => {
   if (text === '') return text;
   let result: string | undefined;
 
+  // Code blocks are matched before anything else: their content is verbatim, so
+  // a `#`, `>` or `- ` inside one must never reach the heading/quote/list rules.
   if (!result) result = runBlockRule(text, CodeBlockRule, parseBlockMD, parseInline);
-  if (!result) result = runBlockRule(text, CodeBlockSingleLineRule, parseBlockMD, parseInline);
   if (!result) result = runBlockRule(text, BlockQuoteRule, parseBlockMD, parseInline);
   if (!result) result = runBlockRule(text, ListRule, parseBlockMD, parseInline);
   if (!result) result = runBlockRule(text, HeadingRule, parseBlockMD, parseInline);
