@@ -24,6 +24,7 @@ import Linkify from 'linkify-react';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { CDATA, ChildNode, Document } from 'domhandler';
 import * as css from '../styles/CustomHtml.css';
+import colorMXID from '../../util/colorMXID';
 import {
   getMxIdLocalPart,
   getCanonicalAliasRoomId,
@@ -93,12 +94,16 @@ export const renderMatrixMention = (
   const userId = parseMatrixToUser(href);
   if (userId) {
     const currentRoom = mx.getRoom(currentRoomId);
+    const mentionsMe = mx.getUserId() === userId;
 
     return (
       <a
         href={href}
         {...customProps}
-        className={css.Mention({ highlight: mx.getUserId() === userId })}
+        className={css.MentionPlain({ highlight: mentionsMe })}
+        // Per-user colour, matching the sender name in the timeline. Skipped
+        // when it mentions you, so the highlight variant is not overridden.
+        style={mentionsMe ? undefined : { color: colorMXID(userId) }}
         data-mention-id={userId}
       >
         {`@${
@@ -116,15 +121,16 @@ export const renderMatrixMention = (
     );
 
     const fallbackContent = mentionRoom ? `#${mentionRoom.name}` : roomIdOrAlias;
+    const mentionId = mentionRoom?.roomId ?? roomIdOrAlias;
+    const isCurrentRoom = currentRoomId === mentionId;
 
     return (
       <a
         href={href}
         {...customProps}
-        className={css.Mention({
-          highlight: currentRoomId === (mentionRoom?.roomId ?? roomIdOrAlias),
-        })}
-        data-mention-id={mentionRoom?.roomId ?? roomIdOrAlias}
+        className={css.MentionPlain({ highlight: isCurrentRoom })}
+        style={isCurrentRoom ? undefined : { color: colorMXID(mentionId) }}
+        data-mention-id={mentionId}
         data-mention-via={viaServers?.join(',')}
       >
         {customProps.children ? customProps.children : fallbackContent}
@@ -139,14 +145,16 @@ export const renderMatrixMention = (
       isRoomAlias(roomIdOrAlias) ? getCanonicalAliasRoomId(mx, roomIdOrAlias) : roomIdOrAlias
     );
 
+    const eventMentionId = mentionRoom?.roomId ?? roomIdOrAlias;
+    const isCurrentRoomEvent = currentRoomId === eventMentionId;
+
     return (
       <a
         href={href}
         {...customProps}
-        className={css.Mention({
-          highlight: currentRoomId === (mentionRoom?.roomId ?? roomIdOrAlias),
-        })}
-        data-mention-id={mentionRoom?.roomId ?? roomIdOrAlias}
+        className={css.MentionPlain({ highlight: isCurrentRoomEvent })}
+        style={isCurrentRoomEvent ? undefined : { color: colorMXID(eventMentionId) }}
+        data-mention-id={eventMentionId}
         data-mention-event-id={eventId}
         data-mention-via={viaServers?.join(',')}
       >

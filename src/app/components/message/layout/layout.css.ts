@@ -105,6 +105,36 @@ const AutoCollapse = style({
   },
 });
 
+/**
+ * Width reserved at the right of every message for the hover options toolbar.
+ *
+ * `MessageOptionsBase` is absolutely positioned against the row with a NEGATIVE
+ * top offset, so a message's toolbar floats up and sits over the *previous*
+ * message. Measured: the bar is 154px at its widest (5 IconButtons at 26px plus
+ * gaps) and 34px tall, while a collapsed one-line row is only ~18px tall — so it
+ * covered such a row's right-hand region completely. A pointer-down there hit a
+ * `<button>`, the caret resolved to `<BUTTON> off=0` rather than into the
+ * message text, and with no text anchor inside the message the engine fell back
+ * to the start of the container. That is why a selection begun on the right
+ * "started from the left", and why it only bit one-line messages: a taller
+ * message leaves most of its right-hand blank space below the overlay.
+ *
+ * Reserving this strip moves the bar OUT of every message's box (it is pulled
+ * into the margin by the matching negative `right` in
+ * `features/room/message/styles.css.ts`), so no message content is ever
+ * underneath it. Keep the two values in step — and raise this if a sixth button
+ * is ever added to the bar.
+ *
+ * Scoped to hover-capable input: a phone never renders the toolbar, so it keeps
+ * the full width. The test is `any-hover`, NOT `hover: hover` — the latter asks
+ * about the *primary* pointer, so a touchscreen laptop (primary pointer coarse,
+ * mouse also attached) would report no hover, lose the gutter, and keep the bug
+ * even though the toolbar still appears there. `any-hover` asks whether any
+ * attached input can hover, which is exactly the condition for the bar existing.
+ */
+export const OPTIONS_GUTTER = toRem(154);
+export const OPTIONS_GUTTER_QUERY = '(any-hover: hover)';
+
 export const MessageBase = recipe({
   base: [
     DefaultReset,
@@ -113,6 +143,11 @@ export const MessageBase = recipe({
       marginTop: SpacingVar,
       padding: `${config.space.S100} ${config.space.S200} ${config.space.S100} ${config.space.S400}`,
       borderRadius: `0 ${config.radii.R400} ${config.radii.R400} 0`,
+      '@media': {
+        [OPTIONS_GUTTER_QUERY]: {
+          marginRight: OPTIONS_GUTTER,
+        },
+      },
     },
   ],
   variants: {

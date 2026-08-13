@@ -14,6 +14,7 @@ import { getBeginCommand } from './utils';
 import { BlockType } from './types';
 import { mxcUrlToHttp } from '../../utils/matrix';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
+import colorMXID from '../../../util/colorMXID';
 
 // Put this at the start and end of an inline component to work around this Chromium bug:
 // https://bugs.chromium.org/p/chromium/issues/detail?id=1249405
@@ -36,10 +37,14 @@ function RenderMentionElement({
   return (
     <span
       {...attributes}
-      className={css.Mention({
+      className={css.MentionPlain({
         highlight: element.highlight,
         focus: selected && focused,
       })}
+      // The same per-user colour the timeline gives this person's name. Inline
+      // because it is derived from the mentioned id, which CSS cannot see —
+      // and omitted when highlighted, since inline would beat the variant.
+      style={element.highlight ? undefined : { color: colorMXID(element.id) }}
       contentEditable={false}
     >
       {element.name}

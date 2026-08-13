@@ -168,29 +168,50 @@ export const InlineChromiumBugfix = style({
   lineHeight: 0,
 });
 
-export const Mention = recipe({
+/**
+ * Mentions, in both the composer and sent messages, as plain coloured text.
+ *
+ * This replaced a bordered pill (background fill, a `boxShadow` ring, radius
+ * and padding) that used to style mentions in both places.
+ *
+ * A pill mid-sentence is visual noise, so this drops the background, ring,
+ * radius and padding and keeps only colour: the per-user colour the sender's
+ * name gets in the timeline (`colorMXID`, applied inline by the caller since it
+ * is derived from the mentioned id, which CSS cannot see). The medium weight
+ * matches the timeline username the mention is naming.
+ *
+ * `highlight` is NOT decoration — for a user mention it means the message
+ * mentions YOU. Nothing else in the timeline says so: the row's `highlight`
+ * prop is the jump-to-message animation and `repliedToMe` only covers replies,
+ * so the green pill was the sole ping indicator. Flattening it away entirely
+ * would have made a ping indistinguishable from a mention of anyone else, so it
+ * survives the pill's removal as colour plus weight. Callers must leave the
+ * inline colour off when this is set, or it would override the variant.
+ * (For room mentions the same flag means "this is the room you are in".)
+ *
+ * `focus` is an editor affordance, not decoration: in the composer the element
+ * is `contentEditable={false}`, so without it there is no sign the caret has
+ * landed on the mention. It tints the background rather than drawing the pill's
+ * ring, so selecting one does not reintroduce a box.
+ */
+export const MentionPlain = recipe({
   base: [
     DefaultReset,
     {
-      backgroundColor: color.SurfaceVariant.Container,
-      color: color.SurfaceVariant.OnContainer,
-      boxShadow: `0 0 0 ${config.borderWidth.B300} ${color.SurfaceVariant.ContainerLine}`,
-      padding: `0 ${toRem(2)}`,
-      borderRadius: config.radii.R300,
       fontWeight: config.fontWeight.W500,
     },
   ],
   variants: {
     highlight: {
       true: {
-        backgroundColor: color.Success.Container,
         color: color.Success.OnContainer,
-        boxShadow: `0 0 0 ${config.borderWidth.B300} ${color.Success.ContainerLine}`,
+        fontWeight: config.fontWeight.W600,
       },
     },
     focus: {
       true: {
-        boxShadow: `0 0 0 ${config.borderWidth.B300} ${color.SurfaceVariant.OnContainer}`,
+        backgroundColor: color.SurfaceVariant.ContainerActive,
+        borderRadius: config.radii.R300,
       },
     },
   },

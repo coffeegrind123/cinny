@@ -1,5 +1,9 @@
 import { style } from '@vanilla-extract/css';
 import { DefaultReset, config, toRem } from 'folds';
+import {
+  OPTIONS_GUTTER,
+  OPTIONS_GUTTER_QUERY,
+} from '../../../components/message/layout/layout.css';
 
 export const MessageBase = style({
   position: 'relative',
@@ -19,8 +23,19 @@ export const MessageOptionsBase = style([
   {
     position: 'absolute',
     top: toRem(-30),
+    // Pulled out into the gutter that MessageBase reserves, so the bar no longer
+    // overlaps the previous message's right-hand side. It used to sit at
+    // `right: 0`, i.e. on top of that message, where a pointer-down landed on a
+    // button instead of the text and the selection re-anchored to the left. See
+    // OPTIONS_GUTTER in components/message/layout/layout.css.ts for the full
+    // account and the measurements — keep the two values in step.
     right: 0,
     zIndex: 1,
+    '@media': {
+      [OPTIONS_GUTTER_QUERY]: {
+        right: `calc(-1 * ${OPTIONS_GUTTER})`,
+      },
+    },
   },
 ]);
 export const MessageOptionsBar = style([
