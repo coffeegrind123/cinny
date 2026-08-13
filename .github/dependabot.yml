@@ -8,7 +8,8 @@
 # disabled, so the dependency dashboard that its `:dependencyDashboardApproval`
 # gates every routine npm update behind cannot be created at all. Renovate's
 # `vulnerabilityAlerts` block, the part meant to make security patches land
-# without a human ticking a box, is inert for the same reason.
+# without a human ticking a box, was inert for the same reason. That config file
+# was deleted on 2026-08-13; this file is now the only dependency-update config.
 #
 # The consequence was measured, not theorised: 22 npm advisories accumulated,
 # 10 of them high, including arbitrary JavaScript execution from a malicious PDF
@@ -18,8 +19,8 @@
 # updates are a repository setting; alerts and automated security fixes were
 # switched on for this repo and coffeegrind123/prinny-client on 2026-08-11.
 #
-# If Renovate is ever actually installed, disable npm on ONE of the two before
-# it opens competing PRs on the same manifest — never both at once.
+# If Renovate is ever actually installed, remove the competing ecosystem from
+# this file in the same change — never run both on one manifest.
 
 version: 2
 updates:

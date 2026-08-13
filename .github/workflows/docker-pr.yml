@@ -1,11 +1,15 @@
 name: 'Docker check'
 
+# This is the only thing that validates the Dockerfile. Dependabot watches the
+# `docker` ecosystem (see .github/dependabot.yml), so this fires on every base
+# image bump it proposes — which is the case that most needs checking, since
+# both FROM lines are pinned by digest.
 on:
   pull_request:
     paths:
       - 'Dockerfile'
+      - 'docker-nginx.conf'
       - '.github/workflows/docker-pr.yml'
-      - '.github/workflows/prod-deploy.yml'
 
 permissions:
   contents: read
@@ -15,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # Read, not write: this job builds with `push: false`. The ghcr login
-      # only needs to be able to pull. Pushing happens in prod-deploy.yml.
+      # Read, not write: this job builds with `push: false`, so the ghcr login
+      # only needs to pull. Nothing in this repository pushes an image.
       packages: read
 
     steps:
@@ -29,14 +33,9 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
-      - name: Login to Docker Hub #Do not update this action from a outside PR
-        if: github.event.pull_request.head.repo.fork == false
-        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-        continue-on-error: true
-
+      # No Docker Hub login: DOCKER_USERNAME / DOCKER_PASSWORD are not set on
+      # this repository, so the step could only ever fail into
+      # `continue-on-error`. Base images pull anonymously.
       - name: Login to the Github Container registry #Do not update this action from a outside PR
         if: github.event.pull_request.head.repo.fork == false
         uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
@@ -51,7 +50,6 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: |
-            ajbura/cinny
             ghcr.io/${{ github.repository }}
 
       - name: Build Docker image (no push)

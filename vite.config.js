@@ -54,10 +54,6 @@ const copyFiles = {
       rename: { stripBase: true },
     },
     {
-      src: 'netlify.toml',
-      dest: '',
-    },
-    {
       src: 'config.json',
       dest: '',
     },

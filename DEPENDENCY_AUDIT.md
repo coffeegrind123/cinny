@@ -129,9 +129,10 @@ Fixed 2026-08-11:
 - **Dependabot owns npm**, plus github-actions and docker here, and npm,
   github-actions and cargo in prinny-client. It needs no app install and no
   Issues.
-- **Renovate's npm manager is disabled** in both `renovate.json` files, so
-  installing the app later cannot produce two bots on one manifest. Each
-  disabled block carries the swap instructions.
+- **Renovate is gone.** Both `renovate.json` files were deleted on 2026-08-13 —
+  the app was never installed, so every manager in them was inert. If it is ever
+  installed, remove the competing ecosystem from `.github/dependabot.yml` in the
+  same change; never run two bots on one manifest.
 - prinny-client also gained a **cargo** ecosystem — `cargo audit` is a CI gate
   there and found real advisories (rustls-webpki certificate path validation,
   quinn-proto remote memory exhaustion), so a bump nobody proposes is a red
@@ -210,10 +211,10 @@ the dependency entirely.
 SHA-256 source expressions rather than `'unsafe-inline'`.
 
 **Bumping this package changes those inline scripts and will silently break
-calls** until the hashes are regenerated in all five serving configs
-(`docker-nginx.conf`, `contrib/nginx/cinny.domain.tld.conf`,
-`contrib/caddy/caddyfile`, `netlify.toml`,
-`.github/webapp-release-template/nginx.conf`). The regeneration snippet is in
+calls** until the hashes are regenerated in both serving configs
+(`docker-nginx.conf` and `.github/webapp-release-template/nginx.conf`). The
+upstream `contrib/nginx/`, `contrib/caddy/` and `netlify.toml` configs that
+this list used to name do not exist in this fork. The regeneration snippet is in
 the comment block at the top of `docker-nginx.conf`. Treat this as part of the
 upgrade checklist for that package.
 
@@ -334,14 +335,13 @@ bots are allowed to move the pins. See §1.
 3. ~~`npm install ua-parser-js@2.0.10`~~ — **done.**
 4. ~~`npm install vite@8.2.1`~~ — **done.** The transitive set did *not* clear
    itself from parent bumps alone; it needed the `overrides` block in
-   `package.json` (§1). Renovate lockfile maintenance may drop those overrides
-   back out of date — re-check `npm audit` after any lockfile-only PR, and
-   remove an override once its parent has moved past the pin on its own.
-5. **Still open:** confirm Renovate is actually installed on the repository. The
-   ungated `vulnerabilityAlerts` config in `.github/renovate.json` does nothing
-   if the app is not enabled — in which case switch npm to Dependabot (uncomment
-   the npm ecosystem there and disable Renovate's npm manager, never both at
-   once). This is the control that stops the list in §1 rebuilding itself.
+   `package.json` (§1). A lockfile-maintenance PR may drop those overrides back
+   out of date — re-check `npm audit` after any lockfile-only PR, and remove an
+   override once its parent has moved past the pin on its own.
+5. ~~Confirm Renovate is actually installed on the repository.~~ **Resolved:** it
+   was not, so its `vulnerabilityAlerts` config did nothing. npm moved to
+   Dependabot on 2026-08-11 and `.github/renovate.json` was deleted on
+   2026-08-13. Dependabot is now the control that stops §1 rebuilding itself.
 6. Leave `badwords-list@2.0.1-4` alone (§4).
 7. `@vanilla-extract/vite-plugin` has a standing advisory chain with no forward
    fix — the only version npm considers clean is 3.9.4, two majors back. It is
