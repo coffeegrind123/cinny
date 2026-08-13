@@ -53,11 +53,15 @@ export const BlockQuoteRule: BlockMDRule = {
 
 const ORDERED_LIST_MD_1 = '-';
 const UNORDERED_LIST_MD_1 = '*';
-const LIST_ITEM_REG = /^( *)([-*]|[\da-zA-Z]\.) +(.+)$/;
+const LIST_ITEM_REG = /^( *)([-*+]|[\da-zA-Z]\.) +(.+)$/;
 type ListType = 'ol' | 'ul';
 
 function getListType(marker: string): ListType {
-  return marker === '*' ? 'ul' : 'ol';
+  // `-`, `*` and `+` are all unordered bullets (CommonMark / Discord); only the
+  // `N.` / `a.` markers are ordered. The old check treated `*` as the sole
+  // bullet, so a `- item` list was emitted as <ol> — a numbered list on the
+  // wire, visible even in "view source".
+  return marker === '-' || marker === '*' || marker === '+' ? 'ul' : 'ol';
 }
 
 function getOrderedMeta(marker: string) {
@@ -181,7 +185,7 @@ function buildList(lines: ParsedLine[], parseInline?: (s: string) => string): st
   return html;
 }
 
-const LIST_REG_1 = /^(?: *(?:[-*]|[\da-zA-Z]\.) +.+\n?)+/m;
+const LIST_REG_1 = /^(?: *(?:[-*+]|[\da-zA-Z]\.) +.+\n?)+/m;
 export const ListRule: BlockMDRule = {
   match: (text) => text.match(LIST_REG_1),
   html: (match, parseInline) => {

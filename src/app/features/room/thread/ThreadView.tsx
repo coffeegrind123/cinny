@@ -1,5 +1,6 @@
 import { useMemo, useRef } from 'react';
 import {
+  Avatar,
   Box,
   Button,
   Header,
@@ -90,16 +91,21 @@ function ThreadMessage({
     <MessageBase space="300">
       <ModernLayout
         before={
-          <UserAvatar
-            userId={senderId}
-            src={
-              avatarMxc
-                ? (mxcUrlToHttp(mx, avatarMxc, useAuthentication, 48, 48, 'crop') ?? undefined)
-                : undefined
-            }
-            alt={displayName}
-            renderFallback={() => <Text size="H6">{nameInitials(displayName)}</Text>}
-          />
+          // Must sit inside a sized <Avatar>: UserAvatar renders a fill-parent
+          // AvatarImage, so without the fixed box it expanded to the column
+          // width — the "avatar fills the whole thing" in the thread panel.
+          <Avatar size="300">
+            <UserAvatar
+              userId={senderId}
+              src={
+                avatarMxc
+                  ? (mxcUrlToHttp(mx, avatarMxc, useAuthentication, 48, 48, 'crop') ?? undefined)
+                  : undefined
+              }
+              alt={displayName}
+              renderFallback={() => <Text size="H6">{nameInitials(displayName)}</Text>}
+            />
+          </Avatar>
         }
       >
         <Box gap="200" alignItems="Baseline">
