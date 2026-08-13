@@ -29,6 +29,22 @@ export const CodeBlockRule: BlockMDRule = {
   },
 };
 
+// Discord renders a triple-backtick as a code block even on a single line
+// (```code``` -> a block containing "code"), whereas CODEBLOCK_REG_1 requires a
+// newline after the opening fence. Without this, ```code``` fell through to the
+// inline code rule and came out as literal backticks around the text. A single
+// line carries no language token (that only applies when a newline follows the
+// fence), and its content is inserted verbatim — never inline-parsed — so
+// markdown characters inside stay literal, exactly like the multi-line block.
+const CODEBLOCK_REG_2 = /^(`{3,})(?!`)(.*?)\1(?!`) *$\n?/m;
+export const CodeBlockSingleLineRule: BlockMDRule = {
+  match: (text) => text.match(CODEBLOCK_REG_2),
+  html: (match) => {
+    const [, fence, g1] = match;
+    return `<pre data-md="${fence}"><code>${g1}</code></pre>`;
+  },
+};
+
 const BLOCKQUOTE_MD_1 = '>';
 const QUOTE_LINE_PREFIX = /^> */;
 const BLOCKQUOTE_TRAILING_NEWLINE = /\n$/;

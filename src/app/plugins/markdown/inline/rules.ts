@@ -74,15 +74,19 @@ export const StrikeRule: InlineMDRule = {
   },
 };
 
-const CODE_MD_1 = '`';
-const CODE_PREFIX_1 = `${ESC_NEG_LB}\``;
-const CODE_NEG_LA_1 = '(?!`)';
-const CODE_REG_1 = new RegExp(`${URL_NEG_LB}${CODE_PREFIX_1}(.+?)${CODE_PREFIX_1}${CODE_NEG_LA_1}`);
+// Inline code, Discord-style: a fence of one OR two backticks. Two backticks let
+// the content hold a literal single backtick (``a`b`` -> a`b). Three or more is a
+// (possibly single-line) code *block*, handled by the block parser — the
+// `(?!\`)` after the fence stops this rule biting into a triple fence. The fence
+// is captured (group after URL_NEG_LB's own group -> \2) so the close must match
+// the open, and the content is emitted verbatim, never re-parsed.
+const CODE_PREFIX_1 = `${ESC_NEG_LB}(\`{1,2})(?!\`)`;
+const CODE_REG_1 = new RegExp(`${URL_NEG_LB}${CODE_PREFIX_1}(.+?)\\2(?!\`)`);
 export const CodeRule: InlineMDRule = {
   match: (text) => text.match(CODE_REG_1),
-  html: (parse, match) => {
-    const [, , g2] = match;
-    return `<code data-md="${CODE_MD_1}">${g2}</code>`;
+  html: (_parse, match) => {
+    const [, , fence, g3] = match;
+    return `<code data-md="${fence}">${g3}</code>`;
   },
 };
 
