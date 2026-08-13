@@ -51,6 +51,7 @@ import {
   useThemes,
 } from '../../../hooks/useTheme';
 import { stopPropagation } from '../../../utils/keyboard';
+import { PIPED_INSTANCES } from '../../../utils/piped';
 import { useMessageLayoutItems } from '../../../hooks/useMessageLayout';
 import { useMessageSpacingItems } from '../../../hooks/useMessageSpacing';
 import { useDateFormatItems } from '../../../hooks/useDateFormat';
@@ -136,6 +137,81 @@ function SelectTheme({ disabled }: { disabled?: boolean }) {
               selected={selectedTheme}
               onSelect={handleThemeSelect}
             />
+          </FocusTrap>
+        }
+      />
+    </>
+  );
+}
+
+const pipedInstanceLabel = (origin: string): string => {
+  if (!origin) return 'Auto (fastest reachable)';
+  try {
+    return new URL(origin).host;
+  } catch {
+    return origin;
+  }
+};
+
+function SelectPipedInstance() {
+  const [pipedInstance, setPipedInstance] = useSetting(settingsAtom, 'pipedInstance');
+  const [menuCords, setMenuCords] = useState<RectCords>();
+  const options = ['', ...PIPED_INSTANCES];
+
+  const handleMenu: MouseEventHandler<HTMLButtonElement> = (evt) => {
+    setMenuCords(evt.currentTarget.getBoundingClientRect());
+  };
+  const handleSelect = (value: string) => {
+    setPipedInstance(value);
+    setMenuCords(undefined);
+  };
+
+  return (
+    <>
+      <Button
+        size="300"
+        variant="Secondary"
+        outlined
+        fill="Soft"
+        radii="300"
+        after={<Icon size="300" src={Icons.ChevronBottom} />}
+        onClick={handleMenu}
+      >
+        <Text size="T300">{pipedInstanceLabel(pipedInstance)}</Text>
+      </Button>
+      <PopOut
+        anchor={menuCords}
+        offset={5}
+        position="Bottom"
+        align="End"
+        content={
+          <FocusTrap
+            focusTrapOptions={{
+              initialFocus: false,
+              onDeactivate: () => setMenuCords(undefined),
+              clickOutsideDeactivates: true,
+              escapeDeactivates: stopPropagation,
+            }}
+          >
+            <Menu>
+              <Box
+                direction="Column"
+                gap="100"
+                style={{ padding: config.space.S100, maxHeight: toRem(320), overflowY: 'auto' }}
+              >
+                {options.map((value) => (
+                  <MenuItem
+                    key={value || 'auto'}
+                    size="300"
+                    variant={value === pipedInstance ? 'Primary' : 'Surface'}
+                    radii="300"
+                    onClick={() => handleSelect(value)}
+                  >
+                    <Text size="T300">{pipedInstanceLabel(value)}</Text>
+                  </MenuItem>
+                ))}
+              </Box>
+            </Menu>
           </FocusTrap>
         }
       />
@@ -856,9 +932,16 @@ function Editor() {
       <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
         <SettingTile
           title="Use Piped for YouTube"
-          description="Replace YouTube embeds with piped.video for privacy-friendly playback."
+          description="Replace YouTube embeds with a Piped instance for privacy-friendly playback."
           after={<Switch variant="Primary" value={usePiped} onChange={setUsePiped} />}
         />
+        {usePiped && (
+          <SettingTile
+            title="Piped instance"
+            description="Which Piped instance to embed from. Auto probes the list and uses the first that responds; http instances only load in the desktop app (the web app blocks them as mixed content)."
+            after={<SelectPipedInstance />}
+          />
+        )}
       </SequenceCard>
       {isTauri() && (
         <>

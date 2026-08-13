@@ -36,6 +36,7 @@ import { stopPropagation, onEnterOrSpace } from '../../utils/keyboard';
 import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
 import { isYoutubeUrl, getYoutubeVideoId } from '../../utils/youtube';
+import { pipedEmbedUrl, usePipedInstance } from '../../utils/piped';
 import { fetchOgPreview } from '../../utils/tauri-og-preview';
 import { isWebUrl, webUrlOrUndefined } from '../../utils/safeUrl';
 import { GifImage, ProxiedImg, ProxiedVideo } from './GifMedia';
@@ -108,12 +109,11 @@ async function fetchBskyProfile(actor: string): Promise<any> {
 const SOUNDCLOAK_HOST = 'sc1.maid.zone';
 const SOUNDCLOAK_RESTREAM_PATH = '/_/api/restream/';
 
-// Fixed, compile-time embed origins. Neither is user-configurable — there is no
-// setting for a custom Piped instance — so the only variable part of the iframe
-// src is the video id, which `getYoutubeVideoId` already constrains. If a
-// custom-instance setting is ever added, it must be run through `isWebUrl`
-// (and ideally pinned to https) before it is concatenated here.
-const PIPED_EMBED_BASE = 'https://piped.private.coffee/embed/';
+// The Piped instance is chosen from a curated allowlist (utils/piped.ts) via a
+// reachability probe, never taken as free text from a message — so the only
+// variable part of the iframe src is the video id, which `getYoutubeVideoId`
+// already constrains, plus an origin that is guaranteed to be one of the pinned
+// entries.
 const YOUTUBE_EMBED_BASE = 'https://www.youtube.com/embed/';
 
 function rewriteEmbedUrl(url: string, useSoundcloak: boolean): string {
@@ -350,6 +350,8 @@ export const UrlPreviewCard = as<
   const [useSoundcloak] = useSetting(settingsAtom, 'useSoundcloak');
   const [useBlueskyEmbeds] = useSetting(settingsAtom, 'useBlueskyEmbeds');
   const [usePiped] = useSetting(settingsAtom, 'usePiped');
+  const [pipedInstance] = useSetting(settingsAtom, 'pipedInstance');
+  const pipedBase = usePipedInstance(pipedInstance);
   const [clientPreviewFallback] = useSetting(settingsAtom, 'clientPreviewFallback');
 
   // The previewed URL itself is message content, and it is rendered into five
@@ -1136,7 +1138,7 @@ export const UrlPreviewCard = as<
                 border: 'none',
               }}
               src={usePiped
-                ? `${PIPED_EMBED_BASE}${ytVideoId}`
+                ? pipedEmbedUrl(pipedBase, ytVideoId)
                 : `${YOUTUBE_EMBED_BASE}${ytVideoId}`}
               title={title || 'YouTube video'}
               // This frame auto-loads for anyone who reads the message, so it

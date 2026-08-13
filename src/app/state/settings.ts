@@ -75,6 +75,9 @@ export interface Settings {
   // existing installs are unchanged; 'sender-only' and 'hidden' are opt-in.
   notificationContentMode: NotificationContentMode;
   usePiped: boolean;
+  // Which Piped instance to embed from. '' means auto — pick the first reachable
+  // one from the curated list (see utils/piped.ts). A specific origin pins it.
+  pipedInstance: string;
   clientPreviewFallback: boolean;
   // Renders LaTeX sent as MSC2191 `data-mx-maths`. Off by default: it is a
   // niche need, and leaving it off means messages show the sender's plain-text
@@ -174,6 +177,7 @@ const defaultSettings: Settings = {
   useBlueskyEmbeds: true,
   notificationContentMode: DEFAULT_NOTIFICATION_CONTENT_MODE,
   usePiped: false,
+  pipedInstance: '',
   // Same reasoning: the client-side OG fallback fetches an arbitrary
   // message-supplied URL straight from the user's own machine.
   clientPreviewFallback: false,
