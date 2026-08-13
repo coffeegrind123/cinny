@@ -7,12 +7,17 @@ import { useEffect, useState } from 'react';
 // context can't reach — a mixed-content-blocked origin, a bad cert, or a dead
 // host — so the list degrades gracefully instead of showing a blank player.
 export const PIPED_INSTANCES: string[] = [
+  // Real domains with valid TLS — usable from the web app.
   'https://piped.private.coffee',
+  'https://piped.gmach.online', // = 87.184.81.212 (cert SAN); embed + API verified
+  // Raw IPs: no valid-cert https front exists for these (the operators front
+  // other services — itcorp.mooo.com, fairydust.ch, arity8.com — but run Piped
+  // on a bare IP:port). They only load in the desktop shell; the web app blocks
+  // http as mixed content and rejects the IP https certs. The probe skips them.
   'https://183.179.57.169:7000',
-  'https://87.184.81.212',
   'http://130.12.171.163:8080',
-  'http://82.24.19.217:8083',
-  'http://51.154.9.70:8080',
+  'http://82.24.19.217:8083', // host: itcorp.mooo.com
+  'http://51.154.9.70:8080', // host: fairydust.ch
   'http://77.110.101.50',
   'http://51.68.180.170:8090',
 ];
