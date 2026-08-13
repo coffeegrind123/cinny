@@ -4,6 +4,7 @@ User-facing changes per commit. Most recent at the top.
 
 ## 13.08.2026
 
+- `90eef8a` Fixed **code formatting to match Discord**. A single-line ` ```code``` ` now renders as a code block instead of showing literal backticks, and inline code accepts double backticks (` ``a`b`` `) so you can put a backtick inside. The rest of the formatting — **bold**, *italic*, `__underline__`, `~~strike~~`, `||spoiler||` — was already Discord-compatible.
 - `30112a4` Fixed **`-` bullet lists turning into numbered lists**. A list written with `-` (or `+`) was sent as an ordered `<ol>` — numbered even in the raw Matrix source. All of `-`, `*` and `+` are now bullet lists, matching every other Matrix/Markdown client.
 - `30112a4` Fixed **the thread panel's avatar filling its whole column**. The sender avatar now sits in a fixed-size box like it does in the main timeline.
 - `61e9b8a` Fixed **images and voice messages that failed to load** ("Mismatched SHA-256 digest" in the console). When the app's access token was refreshed, the service worker kept sending the old one for media, so every image/voice note silently failed until a reload. The worker now notices the rejection, refreshes its token and retries, and media download failures report the real error instead of a misleading digest mismatch.
