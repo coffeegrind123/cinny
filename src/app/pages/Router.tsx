@@ -73,15 +73,32 @@ import { KeyboardShortcutsRenderer } from '../features/keyboard-shortcuts/Keyboa
 import { getFallbackSession } from '../state/sessions';
 import { CallStatusRenderer } from './CallStatusRenderer';
 import { CallEmbedProvider } from '../components/CallEmbedProvider';
+import { SplashScreen } from '../components/splash-screen';
+import { Spinner } from 'folds';
+
+// Shown while the router runs its initial loaders. Doubles as the index route's
+// element: that route only ever redirects (its loader returns `redirect(...)`),
+// but react-router still warns "Matched leaf route ... does not have an element"
+// for a loader-only leaf, and warns again when a data router hydrates with no
+// HydrateFallback. Giving both a real element silences both warnings; because
+// the loader redirects, this renders for only a frame.
+function RouteLoading() {
+  return (
+    <SplashScreen>
+      <Spinner variant="Secondary" size="600" />
+    </SplashScreen>
+  );
+}
 
 export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize) => {
   const { hashRouter } = clientConfig;
   const mobile = screenSize === ScreenSize.Mobile;
 
   const routes = createRoutesFromElements(
-    <Route>
+    <Route HydrateFallback={RouteLoading}>
       <Route
         index
+        element={<RouteLoading />}
         loader={() => {
           if (getFallbackSession()) return redirect(getHomePath());
           const afterLoginPath = getAppPathFromHref(getOriginBaseUrl(), window.location.href);

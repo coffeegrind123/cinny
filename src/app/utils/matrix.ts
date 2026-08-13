@@ -310,6 +310,17 @@ export const mxcUrlToHttp = (
 export const downloadMedia = async (src: string): Promise<Blob> => {
   // this request is authenticated by service worker
   const res = await fetch(src, { method: 'GET' });
+  // Without this guard a non-2xx response (e.g. a 401 whose body is
+  // `{"errcode":"M_MISSING_TOKEN"}`) flows on as if it were the media: the
+  // JSON gets handed to decryptAttachment, its SHA-256 never matches the
+  // event's hash, and the only symptom the user sees is the misleading
+  // "Mismatched SHA-256 digest". Fail loudly with the real HTTP status.
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(
+      `Media download failed: ${res.status} ${res.statusText}${detail ? ` — ${detail.slice(0, 200)}` : ''}`
+    );
+  }
   const blob = await res.blob();
   return blob;
 };

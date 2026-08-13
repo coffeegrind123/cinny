@@ -1148,8 +1148,10 @@ export const UrlPreviewCard = as<
               // has no business being delegated to an embed the message sender
               // chose; accelerometer/gyroscope are sensor access playback
               // doesn't require.
+              // `allow` already grants fullscreen to the frame; a separate
+              // `allowFullScreen` attribute is redundant and makes Chrome warn
+              // that the allow policy takes precedence.
               allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-              allowFullScreen
             />
           </Box>
         )}
@@ -1164,7 +1166,6 @@ export const UrlPreviewCard = as<
             sandbox="allow-scripts allow-same-origin allow-presentation"
             allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
             seamless
-            allowFullScreen
           />
         )}
         {/* Tenor/Giphy and friends: the og:video IS the animation, so it plays

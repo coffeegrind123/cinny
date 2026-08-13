@@ -264,6 +264,51 @@ self.addEventListener('notificationclick', (event: NotificationEvent) => {
   );
 });
 
+function invalidateSession(clientId: string) {
+  sessions.delete(clientId);
+  clientToResolve.delete(clientId);
+  clientToSessionPromise.delete(clientId);
+}
+
+async function handleMediaRequest(request: Request, clientId: string): Promise<Response> {
+  const { url } = request;
+
+  let session = sessions.get(clientId) ?? (await requestSessionWithTimeout(clientId));
+
+  if (!session || !validMediaRequest(url, session.baseUrl)) {
+    // No usable session (e.g. logged out, or the request is for a different
+    // homeserver than this client is signed into) — let it go out unmodified.
+    return fetch(request);
+  }
+
+  const res = await fetch(url, fetchConfig(session.accessToken));
+
+  // A 401 here almost always means the cached token is stale: the client
+  // refreshed its access token (or re-logged-in in the same tab) after we
+  // cached the old one, and the service worker holds the map per client id and
+  // never revalidates. Left alone, EVERY media fetch 401s until the tab is
+  // reloaded — which surfaces to the user as a broken image / "failed to load
+  // voice message", because downloadMedia would otherwise feed the 401 body to
+  // the attachment decryptor ("Mismatched SHA-256 digest"). So drop the cached
+  // token, ask the client for its current one, and retry once. The retry only
+  // fires when the fresh token actually differs, so a genuinely-invalid token
+  // (real 401) is returned as-is rather than looping.
+  if (res.status === 401) {
+    const staleToken = session.accessToken;
+    invalidateSession(clientId);
+    const fresh = await requestSessionWithTimeout(clientId);
+    if (
+      fresh &&
+      fresh.accessToken !== staleToken &&
+      validMediaRequest(url, fresh.baseUrl)
+    ) {
+      return fetch(url, fetchConfig(fresh.accessToken));
+    }
+  }
+
+  return res;
+}
+
 self.addEventListener('fetch', (event: FetchEvent) => {
   const { url, method } = event.request;
 
@@ -272,20 +317,5 @@ self.addEventListener('fetch', (event: FetchEvent) => {
   const { clientId } = event;
   if (!clientId) return;
 
-  const session = sessions.get(clientId);
-  if (session) {
-    if (validMediaRequest(url, session.baseUrl)) {
-      event.respondWith(fetch(url, fetchConfig(session.accessToken)));
-    }
-    return;
-  }
-
-  event.respondWith(
-    requestSessionWithTimeout(clientId).then((s) => {
-      if (s && validMediaRequest(url, s.baseUrl)) {
-        return fetch(url, fetchConfig(s.accessToken));
-      }
-      return fetch(event.request);
-    })
-  );
+  event.respondWith(handleMediaRequest(event.request, clientId));
 });
