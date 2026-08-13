@@ -8,7 +8,7 @@ import { ChangelogBullet, formatDate, parseChangelog } from './parser';
 import changelogMd from '../../../../CHANGELOG.md?raw';
 
 const REPO_RELEASES = 'https://github.com/coffeegrind123/prinny-client/releases';
-const CINNY_COMMIT_BASE = 'https://github.com/coffeegrind123/cinny/commit/';
+const CINNY_COMMIT_BASE = 'https://github.com/coffeegrind123/prinny/commit/';
 
 function CodeSpan({ children }: { children: React.ReactNode }) {
   return (
@@ -154,7 +154,7 @@ export function Changelog() {
               </a>
               {' / '}
               <a
-                href="https://github.com/coffeegrind123/cinny/commits/main"
+                href="https://github.com/coffeegrind123/prinny/commits/main"
                 target="_blank"
                 rel="noreferrer noopener"
                 style={{ color: color.Secondary.Main }}

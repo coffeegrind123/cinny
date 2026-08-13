@@ -31,7 +31,7 @@ You almost certainly want the desktop or mobile app, which bundles this frontend
 No build step required. Clone the generated branch and point a webserver at its `dist/`:
 
 ```bash
-git clone -b webapp-release https://github.com/coffeegrind123/cinny.git /usr/share/webapps/prinny
+git clone -b webapp-release https://github.com/coffeegrind123/prinny.git /usr/share/webapps/prinny
 cd /usr/share/webapps/prinny && git pull   # later, to update
 ```
 

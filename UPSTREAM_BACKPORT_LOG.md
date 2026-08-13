@@ -1,6 +1,6 @@
 # Cinny Upstream Backport Log
 
-Tracks upstream `cinnyapp/cinny` commits cherry-picked into our fork (`coffeegrind123/cinny`, branch `main`).
+Tracks upstream `cinnyapp/cinny` commits cherry-picked into our fork (`coffeegrind123/prinny`, branch `main`).
 
 **Fork base:** `6a05ff5` (v4.11.1-era)
 **Last sync:** 2026-08-10 (formal merge of `upstream/dev` @ `33f4ba36` via `-X ours`)

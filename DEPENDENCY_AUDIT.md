@@ -4,7 +4,7 @@
 *cleared*, and the counts below drop the removed `husky` / `lint-staged` /
 `cz-conventional-changelog` dev tooling; previous revisions: 2026-08-10, and
 2026-05-15 which described a manifest three major upgrade rounds out of date)
-**Project:** cinny (Matrix client fork — coffeegrind123/cinny, branch `main`)
+**Project:** cinny (Matrix client fork — coffeegrind123/prinny, branch `main`)
 **Manifest:** 58 `dependencies`, 35 `devDependencies`
 **Resolved tree:** 801 packages (166 prod, 623 dev, 101 optional)
 
@@ -105,8 +105,8 @@ rather than against the config file:
 
 | Check | Result |
 |---|---|
-| `GET /repos/coffeegrind123/cinny/vulnerability-alerts` | **404** — Dependabot alerts off |
-| `GET /repos/coffeegrind123/cinny/automated-security-fixes` | `{"enabled": false}` |
+| `GET /repos/coffeegrind123/prinny/vulnerability-alerts` | **404** — Dependabot alerts off |
+| `GET /repos/coffeegrind123/prinny/automated-security-fixes` | `{"enabled": false}` |
 | Renovate PRs / branches on either repo | none |
 | `has_issues` on either repo | **false** |
 
@@ -123,7 +123,7 @@ and is running before recording a supply-chain gap as closed.
 Fixed 2026-08-11:
 
 - **Dependabot alerts and automated security fixes enabled** on
-  `coffeegrind123/cinny` and `coffeegrind123/prinny-client` (a repository
+  `coffeegrind123/prinny` and `coffeegrind123/prinny-client` (a repository
   setting, not a file — `PUT .../vulnerability-alerts` and
   `.../automated-security-fixes`, both now confirming enabled).
 - **Dependabot owns npm**, plus github-actions and docker here, and npm,

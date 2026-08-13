@@ -1,6 +1,6 @@
 # Prinny webapp (built artifacts)
 
-This branch contains the **built** Cinny webapp used by Prinny — pre-compiled, ready to serve. The source lives on the [`main`](https://github.com/coffeegrind123/cinny/tree/main) branch and is auto-built into this branch on every push by [`.github/workflows/publish-webapp.yml`](https://github.com/coffeegrind123/cinny/blob/main/.github/workflows/publish-webapp.yml).
+This branch contains the **built** Cinny webapp used by Prinny — pre-compiled, ready to serve. The source lives on the [`main`](https://github.com/coffeegrind123/prinny/tree/main) branch and is auto-built into this branch on every push by [`.github/workflows/publish-webapp.yml`](https://github.com/coffeegrind123/prinny/blob/main/.github/workflows/publish-webapp.yml).
 
 Each commit on this branch is one full build. To install or update, you only need `git`.
 
@@ -25,7 +25,7 @@ Each commit on this branch is one full build. To install or update, you only nee
 ## Install
 
 ```bash
-git clone -b webapp-release https://github.com/coffeegrind123/cinny.git /usr/share/webapps/prinny
+git clone -b webapp-release https://github.com/coffeegrind123/prinny.git /usr/share/webapps/prinny
 ```
 
 ## Update
