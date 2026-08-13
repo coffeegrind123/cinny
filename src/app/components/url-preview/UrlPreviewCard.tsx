@@ -376,7 +376,8 @@ export const UrlPreviewCard = as<
   // vxtwitter client-side fetch
   const [vxData, setVxData] = useState<any>(null);
   const [vxLoading, setVxLoading] = useState(false);
-  const [, setVxError] = useState(false);
+  // Read, not just written: it gates the homeserver preview below.
+  const [vxError, setVxError] = useState(false);
   useEffect(() => {
     if (!twId) return;
     setVxLoading(true);
@@ -437,15 +438,36 @@ export const UrlPreviewCard = as<
     useCallback(() => mx.getUrlPreview(embedUrl, ts), [embedUrl, ts, mx])
   );
 
+  // Ask the homeserver for a preview only when its answer can actually be used.
+  //
+  // Direct audio (soundcloak restream, raw mp3/ogg): homeservers reject
+  // non-text content types with 502 "content type not allowed", and the audio
+  // renderer below needs no OG data anyway.
+  //
+  // Twitter/X while our own renderer is in play: the card is built from
+  // api.vxtwitter.com and the homeserver's answer is discarded unread. Worse,
+  // it is an answer nobody could use — fetched from here, `x.com` replies 200
+  // with `<title>Post / X</title>`, a stock `og:image` and no tweet text at
+  // all, because X serves scrapers a placeholder. From a homeserver's address
+  // it commonly refuses outright with 403, which Synapse relays as the
+  // `[502] Got error 403` in the console. That error is X declining to be
+  // scraped, not a fault in the homeserver or this client — the fix is not to
+  // ask. It IS asked once vxtwitter itself fails, because that is the one case
+  // where the standard card is what gets rendered.
+  const skipHomeserverPreview = directAudio || (twId !== null && !vxError);
+
   useEffect(() => {
-    // Skip OG metadata fetch for direct-audio URLs (soundcloak restream,
-    // raw mp3/ogg etc.). Homeservers commonly reject non-text content
-    // types from preview_url with 502 ("content type not allowed"),
-    // which spams the console and leaves an error toast for nothing —
-    // the audio renderer below doesn't need OG data anyway.
-    if (directAudio) return;
-    loadPreview();
-  }, [loadPreview, directAudio]);
+    if (skipHomeserverPreview) return;
+    // The rejection is deliberately swallowed: `useAsyncCallback` records the
+    // failure in `previewStatus` (which drives both the fallback below and the
+    // decision to render nothing) AND re-throws so callers that await it can
+    // handle it. Nothing awaits this one, so without a catch every failed
+    // preview surfaced as an "Uncaught (in promise) MatrixError" in the
+    // console. A homeserver returning 502 here is routine — it means the target
+    // site refused Synapse's preview fetcher, which is not this client's
+    // problem to report.
+    loadPreview().catch(() => {});
+  }, [loadPreview, skipHomeserverPreview]);
 
   // Client-side OG fallback (desktop/mobile app, opt-in). When the homeserver
   // preview_url errors — e.g. a 504 because the target rejects Synapse's

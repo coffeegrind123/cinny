@@ -32,7 +32,17 @@ export function ServerConfigsLoader({ children }: ServerConfigsLoaderProps) {
       const authMetadata = promiseFulfilledResult(result[2]);
       let validatedAuthMetadata: ValidatedAuthMetadata | undefined;
 
+      // A homeserver without MSC2965 simply 404s both discovery endpoints, so
+      // `getAuthMetadata()` rejects, `authMetadata` is undefined, and
+      // `validateAuthMetadata` throws "Configured OIDC OP does not support
+      // required functions". That is the expected answer for most homeservers,
+      // not a fault, and logging it as an error on every load made a normal
+      // startup look broken. Only a server that DID return a document worth
+      // validating gets past here.
       try {
+        // Nothing to validate, and nothing to report: the server said no.
+        if (authMetadata === undefined) return { capabilities, mediaConfig };
+
         validatedAuthMetadata = validateAuthMetadata(authMetadata);
 
         // `validateAuthMetadata` checks the OIDC document's shape, not the
@@ -55,7 +65,9 @@ export function ServerConfigsLoader({ children }: ServerConfigsLoaderProps) {
           }
         }
       } catch (e) {
-        console.error(e);
+        // Reached only when the server DID return a document and it does not
+        // validate. Worth saying, but it only costs the OIDC-backed screens.
+        console.warn('Ignoring unusable auth metadata:', e);
       }
 
       return {

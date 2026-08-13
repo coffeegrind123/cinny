@@ -114,7 +114,12 @@ export const useAsyncCallbackValue = <TData, TError>(
   const [state, load] = useAsyncCallback<TData, TError, []>(asyncCallback);
 
   useEffect(() => {
-    load();
+    // `useAsync` both records the error in `state` and re-throws it, so a
+    // caller that awaits can still handle it. This one does not await, and an
+    // ignored rejected promise is reported as "Uncaught (in promise)" — so
+    // every loader built on this hook logged a stack trace for failures its
+    // consumers already render from `state`.
+    load().catch(() => {});
   }, [load]);
 
   return [state, load];
