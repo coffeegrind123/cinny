@@ -4,6 +4,7 @@ User-facing changes per commit. Most recent at the top.
 
 ## 13.08.2026
 
+- `d08c6cc` Added **a Piped instance picker with automatic failover**. Instead of one hardcoded instance, YouTube embeds now choose from a list — Settings → General → *Piped instance* lets you pick one or leave it on **Auto**, which probes the list and uses the first that responds. (On the web app, `http://` instances are blocked as mixed content and only work in the desktop app; Auto skips unreachable ones for you.)
 - `90eef8a` Fixed **code formatting to match Discord**. A single-line ` ```code``` ` now renders as a code block instead of showing literal backticks, and inline code accepts double backticks (` ``a`b`` `) so you can put a backtick inside. The rest of the formatting — **bold**, *italic*, `__underline__`, `~~strike~~`, `||spoiler||` — was already Discord-compatible.
 - `30112a4` Fixed **`-` bullet lists turning into numbered lists**. A list written with `-` (or `+`) was sent as an ordered `<ol>` — numbered even in the raw Matrix source. All of `-`, `*` and `+` are now bullet lists, matching every other Matrix/Markdown client.
 - `30112a4` Fixed **the thread panel's avatar filling its whole column**. The sender avatar now sits in a fixed-size box like it does in the main timeline.
