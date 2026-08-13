@@ -4,6 +4,9 @@ User-facing changes per commit. Most recent at the top.
 
 ## 13.08.2026
 
+- `61e9b8a` Fixed **images and voice messages that failed to load** ("Mismatched SHA-256 digest" in the console). When the app's access token was refreshed, the service worker kept sending the old one for media, so every image/voice note silently failed until a reload. The worker now notices the rejection, refreshes its token and retries, and media download failures report the real error instead of a misleading digest mismatch.
+- `61e9b8a` Fixed **a member list flooding the console** with a repeated "event not found" 404 and an EventEmitter memory-leak warning in rooms with many people. Presence now uses a single shared subscription instead of one per member, and the pinned-message banner no longer requests an empty event id.
+- `61e9b8a` Fixed **stray React Router and fullscreen warnings** on load — the landing route now shows a loading splash while it redirects, and video embeds no longer double up the fullscreen permission.
 - `2d0d32d` Added **an update button in Settings → About**, next to Source Code. It tells you what it is doing — checking, downloading, or that you are up to date — and when an update is waiting it installs it, rather than sending you looking for the banner.
 - `2d0d32d` Fixed **the update banner telling you to "tap" on a desktop**. It now says tap or click to match the device you are actually using. The banner text is also centred properly instead of sitting off to one side.
 - `842520e` Changed **where the web client's source lives**: the repository is now `coffeegrind123/prinny` instead of `coffeegrind123/cinny`, matching the name of the app. If you self-host by cloning the `webapp-release` branch, your existing copy keeps updating — GitHub forwards the old address — but the address to use from now on is `https://github.com/coffeegrind123/prinny.git`.
