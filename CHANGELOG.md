@@ -4,6 +4,8 @@ User-facing changes per commit. Most recent at the top.
 
 ## 13.08.2026
 
+- `30112a4` Fixed **`-` bullet lists turning into numbered lists**. A list written with `-` (or `+`) was sent as an ordered `<ol>` — numbered even in the raw Matrix source. All of `-`, `*` and `+` are now bullet lists, matching every other Matrix/Markdown client.
+- `30112a4` Fixed **the thread panel's avatar filling its whole column**. The sender avatar now sits in a fixed-size box like it does in the main timeline.
 - `61e9b8a` Fixed **images and voice messages that failed to load** ("Mismatched SHA-256 digest" in the console). When the app's access token was refreshed, the service worker kept sending the old one for media, so every image/voice note silently failed until a reload. The worker now notices the rejection, refreshes its token and retries, and media download failures report the real error instead of a misleading digest mismatch.
 - `61e9b8a` Fixed **a member list flooding the console** with a repeated "event not found" 404 and an EventEmitter memory-leak warning in rooms with many people. Presence now uses a single shared subscription instead of one per member, and the pinned-message banner no longer requests an empty event id.
 - `61e9b8a` Fixed **stray React Router and fullscreen warnings** on load — the landing route now shows a loading splash while it redirects, and video embeds no longer double up the fullscreen permission.
