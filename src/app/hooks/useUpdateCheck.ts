@@ -1,9 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { isTauri, sendDesktopNotification, onNotificationAction } from '../utils/desktop-notifications';
+import {
+  isTauri,
+  sendDesktopNotification,
+  onNotificationAction,
+} from '../utils/desktop-notifications';
 import { isMobile as isMobileTauri } from '../utils/platform';
 import LogoSVG from '../../../public/res/svg/cinny.svg';
 
-type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'installing' | 'error' | 'no-update';
+type UpdateStatus =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'installing'
+  | 'error'
+  | 'no-update';
 
 interface UpdateInfo {
   version: string;
@@ -18,7 +29,21 @@ interface UpdateCheckState {
   downloadAndInstall: () => Promise<void>;
 }
 
-export function useUpdateCheck(): UpdateCheckState {
+type UpdateCheckOptions = {
+  /**
+   * Skip the automatic check on mount, the "update available" notification and
+   * the toast-action listener — leaving only the state and the two actions.
+   *
+   * A second live instance of this hook would otherwise fire a second OS
+   * notification for the same version (the seen-versions set is per instance)
+   * and register a second toast-action listener. Anything that is a button
+   * rather than the banner wants this.
+   */
+  manual?: boolean;
+};
+
+export function useUpdateCheck(options: UpdateCheckOptions = {}): UpdateCheckState {
+  const manual = options.manual ?? false;
   const [status, setStatus] = useState<UpdateStatus>('idle');
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +57,27 @@ export function useUpdateCheck(): UpdateCheckState {
   const notifiedVersions = useRef<Set<string>>(new Set());
 
   const checkForUpdate = useCallback(async () => {
-    if (!isTauri()) return;
+    if (!isTauri()) {
+      // Web: there is no updater plugin, but there is a service worker, and
+      // asking it to re-fetch is the honest equivalent of "check for updates".
+      // Without this the About button would be dead on the web build — the
+      // only path to `status: 'available'` was the passive `updatefound` event.
+      if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+      setStatus('checking');
+      setError(null);
+      try {
+        const registration = await navigator.serviceWorker.getRegistration();
+        await registration?.update();
+        // A new worker fires `cinny:web-update-available`, which sets
+        // 'available'. Only fall back to 'no-update' if that has not already
+        // happened — `update()` can resolve after the event.
+        setStatus((current) => (current === 'checking' ? 'no-update' : current));
+      } catch (err: any) {
+        setError(err?.message ?? String(err));
+        setStatus('error');
+      }
+      return;
+    }
     // Mobile (Android/iOS) handles updates natively — Android via
     // `UpdateChecker.kt` from `MainActivity.onCreate`, which downloads
     // the new APK through DownloadManager and prompts the user to
@@ -93,6 +138,7 @@ export function useUpdateCheck(): UpdateCheckState {
   // (message clicks → room navigation) are handled in ClientNonUIFeatures;
   // this listener only acts on the update kind.
   useEffect(() => {
+    if (manual) return undefined;
     if (!isTauri()) return undefined;
     let unlisten: (() => void) | undefined;
     onNotificationAction((extra) => {
@@ -105,17 +151,18 @@ export function useUpdateCheck(): UpdateCheckState {
     return () => {
       unlisten?.();
     };
-  }, []);
+  }, [manual]);
 
   // Check for updates on mount, but only in Tauri
   useEffect(() => {
-    if (!isTauri()) return;
+    if (manual) return undefined;
+    if (!isTauri()) return undefined;
     // Delay to let the app finish loading
     const timer = setTimeout(() => {
       checkForUpdate();
     }, 5000);
     return () => clearTimeout(timer);
-  }, [checkForUpdate]);
+  }, [checkForUpdate, manual]);
 
   // Web: listen for SW update events dispatched from src/index.tsx
   useEffect(() => {
@@ -137,6 +184,7 @@ export function useUpdateCheck(): UpdateCheckState {
   // UpdateChecker.kt already shows the DownloadManager system notification
   // when it starts pulling the APK, so a second toast would be noise.
   useEffect(() => {
+    if (manual) return;
     if (status !== 'available' || !update) return;
     const key = update.version || 'web-update';
     if (notifiedVersions.current.has(key)) return;
@@ -144,9 +192,7 @@ export function useUpdateCheck(): UpdateCheckState {
 
     (async () => {
       if (isTauri() && (await isMobileTauri())) return; // Android handles itself
-      const title = update.version
-        ? `Cinny ${update.version} available`
-        : 'New version available';
+      const title = update.version ? `Prinny ${update.version} available` : 'New version available';
       const body = update.version
         ? 'Click the banner to download and install.'
         : 'Click the banner to reload and load the new build.';
@@ -162,7 +208,7 @@ export function useUpdateCheck(): UpdateCheckState {
         // Notification permission may be denied — banner still shows.
       }
     })();
-  }, [status, update]);
+  }, [status, update, manual]);
 
   return { status, update, error, checkForUpdate, downloadAndInstall };
 }

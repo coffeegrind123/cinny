@@ -1,6 +1,15 @@
 import React from 'react';
 import { Box, Text, Button, Icon, Icons, IconButton, Spinner, color, toRem } from 'folds';
 import { useUpdateCheck } from '../../hooks/useUpdateCheck';
+import { mobileOrTablet } from '../../utils/user-agent';
+
+// "Tap" on a touch device, "Click" everywhere else. The instruction is only
+// useful if it names the gesture the reader actually has — telling a desktop
+// user to tap reads as a mobile app someone forgot to adapt.
+//
+// Read from the user agent rather than from a touch-capability query: a
+// touchscreen laptop still has a pointer, and its owner clicks.
+const pressVerb = (): string => (mobileOrTablet() ? 'tap' : 'click');
 
 // Shared layout for every banner variant. `width: 100%` forces the Box
 // to span the parent column (folds Boxes don't stretch their cross-axis
@@ -26,15 +35,26 @@ export function UpdateBanner() {
 
   if (status === 'error') {
     return (
-      <Box
-        style={containerStyle}
-        alignItems="Center"
-        justifyContent="SpaceBetween"
-        gap="200"
-      >
-        <Box grow="Yes" gap="100" alignItems="Center" style={{ minWidth: 0 }}>
+      <Box style={containerStyle} alignItems="Center" justifyContent="SpaceBetween" gap="200">
+        {/* Invisible mirror of the action button. Without it the text is
+            centred in the space *left of* the button rather than in the
+            banner, which reads as slightly-off rather than centred. */}
+        <Box shrink="No" aria-hidden style={{ visibility: 'hidden' }}>
+          <IconButton size="300" variant="SurfaceVariant" tabIndex={-1}>
+            <Icon src={Icons.Reload} />
+          </IconButton>
+        </Box>
+        <Box
+          grow="Yes"
+          gap="100"
+          alignItems="Center"
+          justifyContent="Center"
+          style={{ minWidth: 0 }}
+        >
           <Icon src={Icons.Warning} size="200" />
-          <Text size="T300" truncate>Update check failed: {error}</Text>
+          <Text size="T300" truncate>
+            Update check failed: {error}
+          </Text>
         </Box>
         <IconButton size="300" variant="SurfaceVariant" onClick={checkForUpdate}>
           <Icon src={Icons.Reload} />
@@ -45,17 +65,23 @@ export function UpdateBanner() {
 
   if (status === 'available' && update) {
     return (
-      <Box
-        style={containerStyle}
-        alignItems="Center"
-        justifyContent="SpaceBetween"
-        gap="200"
-      >
-        <Box grow="Yes" gap="100" alignItems="Center" style={{ minWidth: 0 }}>
+      <Box style={containerStyle} alignItems="Center" justifyContent="SpaceBetween" gap="200">
+        <Box shrink="No" aria-hidden style={{ visibility: 'hidden' }}>
+          <Button variant="Primary" size="300" tabIndex={-1}>
+            <Text size="T300">{update.version ? 'Update' : 'Reload'}</Text>
+          </Button>
+        </Box>
+        <Box
+          grow="Yes"
+          gap="100"
+          alignItems="Center"
+          justifyContent="Center"
+          style={{ minWidth: 0 }}
+        >
           <Icon src={Icons.Info} size="200" />
           <Text size="T300" truncate>
             {update.version
-              ? `Cinny ${update.version} available, tap to update`
+              ? `Prinny ${update.version} available, ${pressVerb()} to update`
               : 'New version available — reload to apply'}
           </Text>
         </Box>
@@ -68,7 +94,7 @@ export function UpdateBanner() {
 
   if (status === 'downloading') {
     return (
-      <Box style={containerStyle} alignItems="Center" gap="200">
+      <Box style={containerStyle} alignItems="Center" justifyContent="Center" gap="200">
         <Spinner size="200" />
         <Text size="T300">Downloading update...</Text>
       </Box>

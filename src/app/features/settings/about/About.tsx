@@ -1,4 +1,16 @@
-import { Box, Text, IconButton, Icon, Icons, Scroll, Button, config, toRem } from 'folds';
+import {
+  Box,
+  Text,
+  IconButton,
+  Icon,
+  Icons,
+  Scroll,
+  Button,
+  Spinner,
+  color,
+  config,
+  toRem,
+} from 'folds';
 import { Page, PageContent, PageContentCenter, PageHeader } from '../../../components/page';
 import { SequenceCard } from '../../../components/sequence-card';
 import { SequenceCardStyle } from '../styles.css';
@@ -6,13 +18,49 @@ import { SettingTile } from '../../../components/setting-tile';
 import CinnySVG from '../../../../../public/res/svg/cinny.svg';
 import { clearCacheAndReload } from '../../../../client/initMatrix';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
+import { useUpdateCheck } from '../../../hooks/useUpdateCheck';
 import { version } from '../../../../../package.json';
+
+// What the update button says and does, per state. An update button that only
+// ever reads "Check for Updates" makes the user hunt for the banner to
+// actually apply one, so when an update is waiting this button applies it.
+const updateButton = (
+  status: ReturnType<typeof useUpdateCheck>['status'],
+  update: ReturnType<typeof useUpdateCheck>['update'],
+): { label: string; busy: boolean; install: boolean } => {
+  switch (status) {
+    case 'checking':
+      return { label: 'Checking...', busy: true, install: false };
+    case 'downloading':
+      return { label: 'Downloading...', busy: true, install: false };
+    case 'installing':
+      return { label: 'Installing...', busy: true, install: false };
+    case 'available':
+      return {
+        label: update?.version ? `Update to v${update.version}` : 'Reload to Update',
+        busy: false,
+        install: true,
+      };
+    case 'no-update':
+      return { label: 'Up to Date', busy: false, install: false };
+    case 'error':
+      return { label: 'Retry Update Check', busy: false, install: false };
+    default:
+      return { label: 'Check for Updates', busy: false, install: false };
+  }
+};
 
 type AboutProps = {
   requestClose: () => void;
 };
 export function About({ requestClose }: AboutProps) {
   const mx = useMatrixClient();
+  // manual: the banner owns the automatic check and the notification. A second
+  // full instance would notify twice for the same version.
+  const { status, update, error, checkForUpdate, downloadAndInstall } = useUpdateCheck({
+    manual: true,
+  });
+  const updateAction = updateButton(status, update);
 
   return (
     <Page>
@@ -66,7 +114,33 @@ export function About({ requestClose }: AboutProps) {
                       >
                         <Text size="B300">Source Code</Text>
                       </Button>
+                      <Button
+                        onClick={updateAction.install ? downloadAndInstall : checkForUpdate}
+                        disabled={updateAction.busy}
+                        variant={updateAction.install ? 'Primary' : 'Secondary'}
+                        fill="Soft"
+                        size="300"
+                        radii="300"
+                        before={
+                          updateAction.busy ? (
+                            <Spinner size="100" variant="Secondary" />
+                          ) : (
+                            <Icon
+                              src={updateAction.install ? Icons.Download : Icons.Reload}
+                              size="100"
+                              filled
+                            />
+                          )
+                        }
+                      >
+                        <Text size="B300">{updateAction.label}</Text>
+                      </Button>
                     </Box>
+                    {status === 'error' && error && (
+                      <Text size="T200" style={{ color: color.Critical.Main }}>
+                        {error}
+                      </Text>
+                    )}
                   </Box>
                 </Box>
                 <Box direction="Column" gap="100">
