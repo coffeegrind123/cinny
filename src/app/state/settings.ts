@@ -34,6 +34,7 @@ export interface Settings {
   minimizeToTray: boolean;
 
   unreadDirectsOnly: boolean;
+  unreadRoomsOnly: boolean;
 
   isPeopleDrawer: boolean;
   memberSortFilterIndex: number;
@@ -133,6 +134,7 @@ const defaultSettings: Settings = {
   minimizeToTray: true,
 
   unreadDirectsOnly: false,
+  unreadRoomsOnly: false,
 
   isPeopleDrawer: true,
   memberSortFilterIndex: 0,

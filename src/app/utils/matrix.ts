@@ -14,6 +14,7 @@ import {
   UploadResponse,
 } from 'matrix-js-sdk';
 import to from './await-to';
+import { getMediaAuthHeaders } from '../../sw-session';
 import { IImageInfo, IThumbnailContent, IVideoInfo } from '../../types/matrix/common';
 import { AccountDataEvent } from '../../types/matrix/accountData';
 import { getStateEvent } from './room';
@@ -308,8 +309,17 @@ export const mxcUrlToHttp = (
   );
 
 export const downloadMedia = async (src: string): Promise<Blob> => {
-  // this request is authenticated by service worker
-  const res = await fetch(src, { method: 'GET' });
+  // Authenticated twice over, deliberately. The service worker rewrites media
+  // requests with its own token and is the ONLY mechanism available to an
+  // `<img src>`, but it is missing on an uncontrolled page and empty until the
+  // client has answered its session request — and a media fetch that slips
+  // through either gap comes back 401 M_MISSING_TOKEN. Unlike an `<img>`, this
+  // call can simply carry the header itself, and the worker passes a request it
+  // has no token for through untouched, so the header survives.
+  const res = await fetch(src, {
+    method: 'GET',
+    headers: getMediaAuthHeaders(src),
+  });
   // Without this guard a non-2xx response (e.g. a 401 whose body is
   // `{"errcode":"M_MISSING_TOKEN"}`) flows on as if it were the media: the
   // JSON gets handed to decryptAttachment, its SHA-256 never matches the

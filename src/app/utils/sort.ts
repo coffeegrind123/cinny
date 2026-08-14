@@ -34,6 +34,37 @@ export const factoryRoomIdByAtoZ =
     return 0;
   };
 
+/**
+ * Pinned rooms first, everything else in whatever order `next` gives.
+ *
+ * Within the pinned block the `m.tag` `order` wins where both rooms have one —
+ * that is the field Element writes when favourites are dragged into a manual
+ * order, so honouring it keeps the two clients showing the same sequence. It is
+ * optional though, so untagged-order pins fall through to `next` rather than
+ * being lumped together arbitrarily.
+ */
+export const factoryRoomIdByPinned =
+  (pinned: Map<string, number | undefined>, next: SortFunc<string>): SortFunc<string> =>
+  (a, b) => {
+    const aPinned = pinned.has(a);
+    const bPinned = pinned.has(b);
+    if (aPinned !== bPinned) return aPinned ? -1 : 1;
+
+    if (aPinned && bPinned) {
+      const aOrder = pinned.get(a);
+      const bOrder = pinned.get(b);
+      if (typeof aOrder === 'number' && typeof bOrder === 'number') {
+        if (aOrder !== bOrder) return aOrder - bOrder;
+      } else if (typeof aOrder === 'number') {
+        return -1;
+      } else if (typeof bOrder === 'number') {
+        return 1;
+      }
+    }
+
+    return next(a, b);
+  };
+
 export const factoryRoomIdByUnreadCount =
   (getUnreadCount: (roomId: string) => number): SortFunc<string> =>
   (a, b) => {

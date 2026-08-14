@@ -63,17 +63,22 @@ import { useUserPresence } from '../../hooks/useUserPresence';
 import { AvatarPresence, PresenceBadge } from '../../components/presence';
 import { StateEvent } from '../../../types/matrix/room';
 import { webRTCSupported } from '../../utils/rtc';
+import { useRoomFavourite, useToggleRoomFavourite } from '../../hooks/useRoomFavourites';
 
 type RoomNavItemMenuProps = {
   room: Room;
   requestClose: () => void;
   notificationMode?: RoomNotificationMode;
+  pinnable?: boolean;
 };
 const RoomNavItemMenu = forwardRef<HTMLDivElement, RoomNavItemMenuProps>(
-  ({ room, requestClose, notificationMode }, ref) => {
+  ({ room, requestClose, notificationMode, pinnable }, ref) => {
     const mx = useMatrixClient();
     const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
     const unread = useRoomUnread(room.roomId, roomToUnreadAtom);
+    const pinned = useRoomFavourite(room.roomId);
+    const toggleFavourite = useToggleRoomFavourite();
+    const [pinning, setPinning] = useState(false);
     const powerLevels = usePowerLevels(room);
     const creators = useRoomCreators(room);
 
@@ -105,6 +110,17 @@ const RoomNavItemMenu = forwardRef<HTMLDivElement, RoomNavItemMenuProps>(
       requestClose();
     };
 
+    const handleTogglePin = async () => {
+      if (pinning) return;
+      setPinning(true);
+      try {
+        await toggleFavourite(room.roomId, !pinned);
+        requestClose();
+      } finally {
+        setPinning(false);
+      }
+    };
+
     return (
       <Menu ref={ref} style={{ maxWidth: toRem(160), width: '100vw' }}>
         {invitePrompt && room && (
@@ -117,6 +133,25 @@ const RoomNavItemMenu = forwardRef<HTMLDivElement, RoomNavItemMenuProps>(
           />
         )}
         <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
+          {pinnable && (
+            <MenuItem
+              onClick={handleTogglePin}
+              size="300"
+              after={
+                pinning ? (
+                  <Spinner size="100" variant="Secondary" />
+                ) : (
+                  <Icon size="100" src={Icons.Pin} filled={pinned} />
+                )
+              }
+              radii="300"
+              aria-pressed={pinned}
+            >
+              <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+                {pinned ? 'Unpin' : 'Pin to Top'}
+              </Text>
+            </MenuItem>
+          )}
           <MenuItem
             onClick={handleMarkAsRead}
             size="300"
@@ -246,6 +281,15 @@ type RoomNavItemProps = {
   notificationMode?: RoomNotificationMode;
   showAvatar?: boolean;
   direct?: boolean;
+  /**
+   * Offer Pin/Unpin, and show the pin marker.
+   *
+   * Only for the flat lists — Direct and Home — which can actually honour a pin
+   * by sorting it to the top. A space nav is ordered by its `m.space.child`
+   * hierarchy and grouped by subspace, so a pin there would set the tag and
+   * visibly do nothing, which is worse than not offering it.
+   */
+  pinnable?: boolean;
 };
 export function RoomNavItem({
   room,
@@ -254,9 +298,11 @@ export function RoomNavItem({
   direct,
   notificationMode,
   linkPath,
+  pinnable,
 }: RoomNavItemProps) {
   const mx = useMatrixClient();
   const useAuthentication = useMediaAuthentication();
+  const pinned = useRoomFavourite(room.roomId);
   const [hover, setHover] = useState(false);
   const { hoverProps } = useHover({ onHoverChange: setHover });
   const { focusWithinProps } = useFocusWithin({ onFocusWithinChange: setHover });
@@ -377,6 +423,9 @@ export function RoomNavItem({
                 {roomName}
               </Text>
             </Box>
+            {pinnable && pinned && !optionsVisible && (
+              <Icon size="50" src={Icons.Pin} filled aria-label="Pinned" />
+            )}
             {!optionsVisible && !unread && !selected && typingMember.length > 0 && (
               <Badge size="300" variant="Secondary" fill="Soft" radii="Pill" outlined>
                 <TypingIndicator size="300" disableAnimation />
@@ -433,6 +482,7 @@ export function RoomNavItem({
                   room={room}
                   requestClose={() => setMenuAnchor(undefined)}
                   notificationMode={notificationMode}
+                  pinnable={pinnable}
                 />
               </FocusTrap>
             }

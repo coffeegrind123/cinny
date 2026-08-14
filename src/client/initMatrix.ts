@@ -33,6 +33,12 @@ export const initClient = async (session: Session): Promise<MatrixClient> => {
     verificationMethods: ['m.sas.v1'],
   });
 
+  // Hand the token to the service worker as soon as we have a client for it.
+  // Boot-time pushes happen before login, so on a fresh sign-in the worker would
+  // otherwise hold nothing until a media fetch made it ask — and the answer to
+  // that question races the login it is waiting on.
+  pushSessionToSW(session.baseUrl, session.accessToken);
+
   await indexedDBStore.startup();
   await mx.initRustCrypto();
 

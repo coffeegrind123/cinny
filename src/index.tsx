@@ -16,7 +16,7 @@ import { initBlobLinkHandler } from './app/utils/blob-links';
 
 // import i18n (needs to be bundled ;))
 import './app/i18n';
-import { pushSessionToSW } from './sw-session';
+import { ensureSWControl, pushSessionToSW } from './sw-session';
 import { getFallbackSession } from './app/state/sessions';
 
 document.body.classList.add(configClass, varsClass);
@@ -91,7 +91,23 @@ if ('serviceWorker' in navigator) {
     // explicit polling.
     setInterval(() => registration.update().catch(() => {}), 30 * 60 * 1000);
   });
-  navigator.serviceWorker.ready.then(sendSessionToSW);
+  navigator.serviceWorker.ready.then(() => {
+    sendSessionToSW();
+    // A page that did not install this worker — most often one loaded with a
+    // shift-reload — is never claimed, because `clients.claim()` lives in the
+    // worker's `activate` handler and that does not re-run for a worker which
+    // is already active. Such a page has ITS media fetches go straight to the
+    // network with no Authorization header, so every image and avatar 401s with
+    // M_MISSING_TOKEN for the whole life of the page and reloading does not help.
+    // Ask for the claim explicitly; `controllerchange` below then delivers the
+    // token to the worker that just took over.
+    ensureSWControl();
+  });
+
+  // Both sends above are no-ops on a page that is not controlled yet, which is
+  // exactly the page that installed the worker. Without this the worker would
+  // hold no token until something happened to make it ask for one.
+  navigator.serviceWorker.addEventListener('controllerchange', sendSessionToSW);
 
   navigator.serviceWorker.addEventListener('message', (ev) => {
     const { type } = ev.data ?? {};

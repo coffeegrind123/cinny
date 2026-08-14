@@ -1,8 +1,23 @@
 /* eslint-disable react/destructuring-assignment */
-import { MouseEventHandler, useMemo } from 'react';
-import { IEventWithRoomId, JoinRule, RelationType, Room } from 'matrix-js-sdk';
+import { MouseEventHandler, useMemo, useState } from 'react';
+import { IEventWithRoomId, JoinRule, MatrixEvent, RelationType, Room } from 'matrix-js-sdk';
 import { HTMLReactParserOptions } from 'html-react-parser';
-import { Avatar, Box, Chip, Header, Icon, Icons, Text, config } from 'folds';
+import {
+  Avatar,
+  Box,
+  Chip,
+  Header,
+  Icon,
+  Icons,
+  Line,
+  Menu,
+  MenuItem,
+  PopOut,
+  RectCords,
+  Text,
+  config,
+} from 'folds';
+import { FocusTrap } from 'focus-trap-react';
 import { Opts as LinkifyOpts } from 'linkifyjs';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
 import {
@@ -51,6 +66,20 @@ import {
 } from '../../hooks/useMemberPowerTag';
 import { useRoomCreators } from '../../hooks/useRoomCreators';
 import { useRoomCreatorsTag } from '../../hooks/useRoomCreatorsTag';
+import { useRoomPermissions } from '../../hooks/useRoomPermissions';
+import { stopPropagation } from '../../utils/keyboard';
+import { useSetting } from '../../state/hooks/settings';
+import { settingsAtom } from '../../state/settings';
+import * as messageCss from '../room/message/styles.css';
+import {
+  MessageCopyLinkItem,
+  MessageDeleteItem,
+  MessageEditHistoryItem,
+  MessageForwardItem,
+  MessagePinItem,
+  MessageReportItem,
+  MessageSourceCodeItem,
+} from '../room/message';
 
 type SearchResultGroupProps = {
   room: Room;
@@ -193,6 +222,43 @@ export function SearchResultGroup({
     onOpen(room.roomId, eventId);
   };
 
+  const [showDeveloperTools] = useSetting(settingsAtom, 'developerTools');
+  const permissions = useRoomPermissions(creators, powerLevels);
+  const canRedact = permissions.action('redact', mx.getSafeUserId());
+  const canDeleteOwn = permissions.event(MessageEvent.RoomRedaction, mx.getSafeUserId());
+  const canPinEvent = permissions.stateEvent(StateEvent.RoomPinnedEvents, mx.getSafeUserId());
+
+  // One menu for the whole group rather than one PopOut per result: a search can
+  // list hundreds of hits and only ever one menu is open.
+  const [menu, setMenu] = useState<{ anchor: RectCords; mEvent: MatrixEvent }>();
+  const closeMenu = () => setMenu(undefined);
+
+  const handleContextMenu =
+    (event: IEventWithRoomId): MouseEventHandler =>
+    (evt) => {
+      // Same escape hatches the timeline's menu uses: alt is the browser's own
+      // "give me the real menu" gesture, an active selection means the user is
+      // after copy/paste, and a link has its own menu worth more than ours.
+      if (evt.altKey || !window.getSelection()?.isCollapsed) return;
+      const tag = (evt.target as HTMLElement).tagName;
+      if (typeof tag === 'string' && tag.toLowerCase() === 'a') return;
+      evt.preventDefault();
+
+      // A search hit is a raw `IEventWithRoomId` off the search API, not a live
+      // timeline event. Wrapping it is what lets the timeline's own menu items
+      // be reused verbatim — they only ever ask it for id, sender, type and
+      // content. The ones that need a loaded timeline (edit history, and the
+      // edit list in view-source) degrade on their own when there is none.
+      setMenu({
+        anchor: { x: evt.clientX, y: evt.clientY, width: 0, height: 0 },
+        mEvent: new MatrixEvent(event),
+      });
+    };
+
+  const menuEventId = menu?.mEvent.getId();
+  const menuIsOwn = menu?.mEvent.getSender() === mx.getUserId();
+  const menuCanDelete = canRedact || (canDeleteOwn && menuIsOwn);
+
   return (
     <Box direction="Column" gap="200">
       <Header size="300">
@@ -256,6 +322,7 @@ export function SearchResultGroup({
               direction="Column"
             >
               <ModernLayout
+                onContextMenu={handleContextMenu(event)}
                 before={
                   <AvatarBase>
                     <Avatar size="300">
@@ -324,6 +391,71 @@ export function SearchResultGroup({
           );
         })}
       </Box>
+      <PopOut
+        anchor={menu?.anchor}
+        position="Bottom"
+        align="Start"
+        offset={0}
+        content={
+          menu && (
+            <FocusTrap
+              focusTrapOptions={{
+                initialFocus: false,
+                onDeactivate: closeMenu,
+                clickOutsideDeactivates: true,
+                isKeyForward: (evt: KeyboardEvent) => evt.key === 'ArrowDown',
+                isKeyBackward: (evt: KeyboardEvent) => evt.key === 'ArrowUp',
+                escapeDeactivates: stopPropagation,
+              }}
+            >
+              <Menu>
+                <Box direction="Column" gap="100" className={messageCss.MessageMenuGroup}>
+                  <MenuItem
+                    size="300"
+                    after={<Icon size="100" src={Icons.ArrowGoRight} />}
+                    radii="300"
+                    onClick={() => {
+                      if (menuEventId) onOpen(room.roomId, menuEventId);
+                      closeMenu();
+                    }}
+                  >
+                    <Text
+                      className={messageCss.MessageMenuItemText}
+                      as="span"
+                      size="T300"
+                      truncate
+                    >
+                      Open in Room
+                    </Text>
+                  </MenuItem>
+                  <MessageForwardItem mEvent={menu.mEvent} onClose={closeMenu} />
+                  <MessageEditHistoryItem room={room} mEvent={menu.mEvent} onClose={closeMenu} />
+                  <MessageCopyLinkItem room={room} mEvent={menu.mEvent} onClose={closeMenu} />
+                  {showDeveloperTools && (
+                    <MessageSourceCodeItem room={room} mEvent={menu.mEvent} onClose={closeMenu} />
+                  )}
+                  {canPinEvent && (
+                    <MessagePinItem room={room} mEvent={menu.mEvent} onClose={closeMenu} />
+                  )}
+                </Box>
+                {(menuCanDelete || !menuIsOwn) && (
+                  <>
+                    <Line size="300" />
+                    <Box direction="Column" gap="100" className={messageCss.MessageMenuGroup}>
+                      {menuCanDelete && (
+                        <MessageDeleteItem room={room} mEvent={menu.mEvent} onClose={closeMenu} />
+                      )}
+                      {!menuIsOwn && (
+                        <MessageReportItem room={room} mEvent={menu.mEvent} onClose={closeMenu} />
+                      )}
+                    </Box>
+                  </>
+                )}
+              </Menu>
+            </FocusTrap>
+          )
+        }
+      />
     </Box>
   );
 }

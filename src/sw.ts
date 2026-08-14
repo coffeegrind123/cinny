@@ -69,11 +69,29 @@ async function requestSessionWithTimeout(
 
   const sessionPromise = requestSession(client);
 
+  let timer: ReturnType<typeof setTimeout>;
   const timeout = new Promise<undefined>((resolve) => {
-    setTimeout(() => resolve(undefined), timeoutMs);
+    timer = setTimeout(() => resolve(undefined), timeoutMs);
   });
 
-  return Promise.race([sessionPromise, timeout]);
+  const session = await Promise.race([sessionPromise, timeout]);
+  clearTimeout(timer!);
+
+  // The client did not answer in time. `requestSession` memoises its promise per
+  // client so a burst of media fetches shares one round trip — but that promise
+  // only ever settles from `setSession`, so an unanswered request would sit in
+  // the map forever and EVERY later media fetch in this tab would await the same
+  // dead promise, time out, and go out unauthenticated. Drop it so the next
+  // fetch asks again.
+  //
+  // An answer of "no session" (logged out) is not this case: `setSession` has
+  // already cleared both maps, which is what the `has` check distinguishes.
+  if (session === undefined && clientToSessionPromise.has(clientId)) {
+    clientToResolve.delete(clientId);
+    clientToSessionPromise.delete(clientId);
+  }
+
+  return session;
 }
 
 self.addEventListener('install', () => {
@@ -101,6 +119,16 @@ self.addEventListener('message', (event: ExtendableMessageEvent) => {
   if (type === 'setSession') {
     setSession(client.id, accessToken, baseUrl);
     cleanupDeadClients();
+  }
+
+  // A page loaded with a shift-reload is not controlled by this worker and never
+  // becomes controlled on its own: `clients.claim()` runs in `activate`, which
+  // does not re-run for a worker that is already active. Uncontrolled means no
+  // fetch is intercepted, so every media request goes out without an
+  // Authorization header and comes back 401 M_MISSING_TOKEN. Claiming on request
+  // is what lets such a page recover — see `ensureSWControl` in sw-session.ts.
+  if (type === 'claimClients') {
+    self.clients.claim();
   }
 });
 
@@ -273,12 +301,28 @@ function invalidateSession(clientId: string) {
 async function handleMediaRequest(request: Request, clientId: string): Promise<Response> {
   const { url } = request;
 
-  let session = sessions.get(clientId) ?? (await requestSessionWithTimeout(clientId));
+  const session = sessions.get(clientId) ?? (await requestSessionWithTimeout(clientId));
 
   if (!session || !validMediaRequest(url, session.baseUrl)) {
-    // No usable session (e.g. logged out, or the request is for a different
-    // homeserver than this client is signed into) — let it go out unmodified.
-    return fetch(request);
+    // No usable session (e.g. logged out, the request is for a different
+    // homeserver than this client is signed into, or the client had not answered
+    // yet) — let it go out unmodified. It may already carry an Authorization
+    // header of its own: `getMediaAuthHeaders` in sw-session.ts attaches one to
+    // every fetch-based media download, so those succeed here regardless of what
+    // this worker knows.
+    const passthrough = await fetch(request);
+    if (passthrough.status !== 401) return passthrough;
+
+    // It did not. An `<img>` cannot carry a header, so this is the only place
+    // that can rescue it: ask the client once more — the earlier attempt may
+    // have raced a login, a token refresh, or this worker being restarted with
+    // an empty session map — and retry with whatever comes back.
+    invalidateSession(clientId);
+    const late = await requestSessionWithTimeout(clientId);
+    if (late && validMediaRequest(url, late.baseUrl)) {
+      return fetch(url, fetchConfig(late.accessToken));
+    }
+    return passthrough;
   }
 
   const res = await fetch(url, fetchConfig(session.accessToken));

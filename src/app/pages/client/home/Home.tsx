@@ -16,9 +16,13 @@ import {
   toRem,
 } from 'folds';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useAtom, useAtomValue } from 'jotai';
+import { useAtomValue } from 'jotai';
 import { FocusTrap } from 'focus-trap-react';
-import { factoryRoomIdByActivity, factoryRoomIdByAtoZ } from '../../../utils/sort';
+import {
+  factoryRoomIdByActivity,
+  factoryRoomIdByAtoZ,
+  factoryRoomIdByPinned,
+} from '../../../utils/sort';
 import {
   NavButton,
   NavCategory,
@@ -46,15 +50,13 @@ import {
 import { useHomeRooms } from './useHomeRooms';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { VirtualTile } from '../../../components/virtualizer';
-import { RoomNavCategoryButton, RoomNavItem } from '../../../features/room-nav';
-import { makeNavCategoryId } from '../../../state/closedNavCategories';
+import { RoomNavCategoryLabel, RoomNavItem } from '../../../features/room-nav';
 import { roomToUnreadAtom } from '../../../state/room/roomToUnread';
-import { useCategoryHandler } from '../../../hooks/useCategoryHandler';
 import { useNavToActivePathMapper } from '../../../hooks/useNavToActivePathMapper';
 import { PageNav, PageNavHeader, PageNavContent } from '../../../components/page';
 import { useRoomsUnread } from '../../../state/hooks/unread';
 import { markAsRead } from '../../../utils/notifications';
-import { useClosedNavCategoriesAtom } from '../../../state/hooks/closedNavCategories';
+import { useRoomFavourites } from '../../../hooks/useRoomFavourites';
 import { stopPropagation } from '../../../utils/keyboard';
 import { useSetting } from '../../../state/hooks/settings';
 import { settingsAtom } from '../../../state/settings';
@@ -72,6 +74,7 @@ type HomeMenuProps = {
 const HomeMenu = forwardRef<HTMLDivElement, HomeMenuProps>(({ requestClose }, ref) => {
   const orphanRooms = useHomeRooms();
   const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
+  const [unreadOnly, setUnreadOnly] = useSetting(settingsAtom, 'unreadRoomsOnly');
   const unread = useRoomsUnread(orphanRooms, roomToUnreadAtom);
   const mx = useMatrixClient();
 
@@ -82,8 +85,23 @@ const HomeMenu = forwardRef<HTMLDivElement, HomeMenuProps>(({ requestClose }, re
   };
 
   return (
-    <Menu ref={ref} style={{ maxWidth: toRem(160), width: '100vw' }}>
+    <Menu ref={ref} style={{ maxWidth: toRem(200), width: '100vw' }}>
       <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
+        {/*
+          The unread filter used to be the category's collapse chevron, which
+          hid nothing and filtered instead. It is a filter, so it lives with the
+          other filters, worded the same as the one in Direct.
+        */}
+        <MenuItem
+          onClick={() => setUnreadOnly((v) => !v)}
+          size="300"
+          after={unreadOnly ? <Icon size="100" src={Icons.Check} /> : undefined}
+          radii="300"
+        >
+          <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+            Show unread only
+          </Text>
+        </MenuItem>
         <MenuItem
           onClick={handleMarkAsRead}
           size="300"
@@ -193,7 +211,6 @@ function HomeEmpty() {
   );
 }
 
-const DEFAULT_CATEGORY_ID = makeNavCategoryId('home', 'room');
 export function Home() {
   const mx = useMatrixClient();
   useNavToActivePathMapper('home');
@@ -207,19 +224,23 @@ export function Home() {
   const createRoomSelected = useHomeCreateSelected();
   const searchSelected = useHomeSearchSelected();
   const noRoomToDisplay = rooms.length === 0;
-  const [closedCategories, setClosedCategories] = useAtom(useClosedNavCategoriesAtom());
+  const [unreadOnly] = useSetting(settingsAtom, 'unreadRoomsOnly');
+  const pinned = useRoomFavourites();
 
   const sortedRooms = useMemo(() => {
+    // Activity order while filtered, A-Z otherwise. Same pairing the collapsed
+    // category used to have: a list showing only what has news reads better
+    // newest-first, a full list reads better alphabetically.
     const items = Array.from(rooms).sort(
-      closedCategories.has(DEFAULT_CATEGORY_ID)
-        ? factoryRoomIdByActivity(mx)
-        : factoryRoomIdByAtoZ(mx)
+      factoryRoomIdByPinned(pinned, unreadOnly ? factoryRoomIdByActivity(mx) : factoryRoomIdByAtoZ(mx))
     );
-    if (closedCategories.has(DEFAULT_CATEGORY_ID)) {
-      return items.filter((rId) => roomToUnread.has(rId) || rId === selectedRoomId);
+    if (unreadOnly) {
+      return items.filter(
+        (rId) => pinned.has(rId) || roomToUnread.has(rId) || rId === selectedRoomId
+      );
     }
     return items;
-  }, [mx, rooms, closedCategories, roomToUnread, selectedRoomId]);
+  }, [mx, rooms, pinned, roomToUnread, selectedRoomId, unreadOnly]);
 
   const virtualizer = useVirtualizer({
     count: sortedRooms.length,
@@ -227,10 +248,6 @@ export function Home() {
     estimateSize: () => 38,
     overscan: 10,
   });
-
-  const handleCategoryClick = useCategoryHandler(setClosedCategories, (categoryId) =>
-    closedCategories.has(categoryId)
-  );
 
   return (
     <PageNav resizable>
@@ -314,13 +331,12 @@ export function Home() {
             </NavCategory>
             <NavCategory>
               <NavCategoryHeader>
-                <RoomNavCategoryButton
-                  closed={closedCategories.has(DEFAULT_CATEGORY_ID)}
-                  data-category-id={DEFAULT_CATEGORY_ID}
-                  onClick={handleCategoryClick}
-                >
-                  Rooms
-                </RoomNavCategoryButton>
+                {/*
+                  See the matching note in Direct.tsx: the chevron here filtered
+                  rather than collapsed, and this nav has only the one category.
+                  "Show unread only" in the header menu is now the sole filter.
+                */}
+                <RoomNavCategoryLabel>Rooms</RoomNavCategoryLabel>
               </NavCategoryHeader>
               <div
                 style={{
@@ -343,6 +359,7 @@ export function Home() {
                       <RoomNavItem
                         room={room}
                         selected={selected}
+                        pinnable
                         linkPath={getHomeRoomPath(getCanonicalAliasOrRoomId(mx, roomId))}
                         notificationMode={getRoomNotificationMode(
                           notificationPreferences,

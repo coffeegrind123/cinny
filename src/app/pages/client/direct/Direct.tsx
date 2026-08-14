@@ -1,5 +1,5 @@
 import { MouseEventHandler, forwardRef, useMemo, useRef, useState } from 'react';
-import { useAtom, useAtomValue } from 'jotai';
+import { useAtomValue } from 'jotai';
 import {
   Avatar,
   Box,
@@ -19,7 +19,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { FocusTrap } from 'focus-trap-react';
 import { useNavigate } from 'react-router-dom';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
-import { factoryRoomIdByActivity } from '../../../utils/sort';
+import { factoryRoomIdByActivity, factoryRoomIdByPinned } from '../../../utils/sort';
 import {
   NavButton,
   NavCategory,
@@ -33,15 +33,13 @@ import { getDirectCreatePath, getDirectRoomPath } from '../../pathUtils';
 import { getCanonicalAliasOrRoomId } from '../../../utils/matrix';
 import { useSelectedRoom } from '../../../hooks/router/useSelectedRoom';
 import { VirtualTile } from '../../../components/virtualizer';
-import { RoomNavCategoryButton, RoomNavItem } from '../../../features/room-nav';
-import { makeNavCategoryId } from '../../../state/closedNavCategories';
+import { RoomNavCategoryLabel, RoomNavItem } from '../../../features/room-nav';
 import { roomToUnreadAtom } from '../../../state/room/roomToUnread';
-import { useCategoryHandler } from '../../../hooks/useCategoryHandler';
 import { useNavToActivePathMapper } from '../../../hooks/useNavToActivePathMapper';
 import { useDirectRooms } from './useDirectRooms';
 import { PageNav, PageNavContent, PageNavHeader } from '../../../components/page';
-import { useClosedNavCategoriesAtom } from '../../../state/hooks/closedNavCategories';
 import { useRoomsUnread } from '../../../state/hooks/unread';
+import { useRoomFavourites } from '../../../hooks/useRoomFavourites';
 import { markAsRead } from '../../../utils/notifications';
 import { stopPropagation } from '../../../utils/keyboard';
 import { useSetting } from '../../../state/hooks/settings';
@@ -178,7 +176,6 @@ function DirectEmpty() {
   );
 }
 
-const DEFAULT_CATEGORY_ID = makeNavCategoryId('direct', 'direct');
 export function Direct() {
   const mx = useMatrixClient();
   useNavToActivePathMapper('direct');
@@ -188,23 +185,27 @@ export function Direct() {
   const roomToUnread = useAtomValue(roomToUnreadAtom);
   const navigate = useNavigate();
   const [unreadOnly] = useSetting(settingsAtom, 'unreadDirectsOnly');
+  const pinned = useRoomFavourites();
 
   const createDirectSelected = useDirectCreateSelected();
 
   const selectedRoomId = useSelectedRoom();
   const noRoomToDisplay = directs.length === 0;
-  const [closedCategories, setClosedCategories] = useAtom(useClosedNavCategoriesAtom());
 
   const sortedDirects = useMemo(() => {
-    const items = Array.from(directs).sort(factoryRoomIdByActivity(mx));
+    const items = Array.from(directs).sort(
+      factoryRoomIdByPinned(pinned, factoryRoomIdByActivity(mx))
+    );
     if (unreadOnly) {
-      return items.filter((rId) => roomToUnread.has(rId) || rId === selectedRoomId);
-    }
-    if (closedCategories.has(DEFAULT_CATEGORY_ID)) {
-      return items.filter((rId) => roomToUnread.has(rId) || rId === selectedRoomId);
+      // A pin survives the filter by design: the point of pinning someone is to
+      // keep them reachable, which a filter that hides read chats would
+      // otherwise undo for exactly the chats you care most about.
+      return items.filter(
+        (rId) => pinned.has(rId) || roomToUnread.has(rId) || rId === selectedRoomId
+      );
     }
     return items;
-  }, [mx, directs, closedCategories, roomToUnread, selectedRoomId, unreadOnly]);
+  }, [mx, directs, pinned, roomToUnread, selectedRoomId, unreadOnly]);
 
   const virtualizer = useVirtualizer({
     count: sortedDirects.length,
@@ -212,10 +213,6 @@ export function Direct() {
     estimateSize: () => 38,
     overscan: 10,
   });
-
-  const handleCategoryClick = useCategoryHandler(setClosedCategories, (categoryId) =>
-    closedCategories.has(categoryId)
-  );
 
   return (
     <PageNav resizable>
@@ -245,13 +242,15 @@ export function Direct() {
             </NavCategory>
             <NavCategory>
               <NavCategoryHeader>
-                <RoomNavCategoryButton
-                  closed={closedCategories.has(DEFAULT_CATEGORY_ID)}
-                  data-category-id={DEFAULT_CATEGORY_ID}
-                  onClick={handleCategoryClick}
-                >
-                  Chats
-                </RoomNavCategoryButton>
+                {/*
+                  No collapse chevron here. There is only ever one category in
+                  this nav, and "collapsing" it did not hide anything — it
+                  filtered the list down to unread chats, which is precisely what
+                  "Show unread only" in the header menu does. Two controls, one
+                  behaviour, independent states, and nothing to say which was in
+                  charge. The menu item is now the only unread filter.
+                */}
+                <RoomNavCategoryLabel>Chats</RoomNavCategoryLabel>
               </NavCategoryHeader>
               <div
                 style={{
@@ -276,6 +275,7 @@ export function Direct() {
                         selected={selected}
                         showAvatar
                         direct
+                        pinnable
                         linkPath={getDirectRoomPath(getCanonicalAliasOrRoomId(mx, roomId))}
                         notificationMode={getRoomNotificationMode(
                           notificationPreferences,

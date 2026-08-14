@@ -119,11 +119,25 @@ const AutoCollapse = style({
  * "started from the left", and why it only bit one-line messages: a taller
  * message leaves most of its right-hand blank space below the overlay.
  *
- * Reserving this strip moves the bar OUT of every message's box (it is pulled
- * into the margin by the matching negative `right` in
- * `features/room/message/styles.css.ts`), so no message content is ever
- * underneath it. Keep the two values in step — and raise this if a sixth button
- * is ever added to the bar.
+ * The strip is reserved as PADDING, not margin, so it stays part of the row's
+ * box: text stops short of it, so no message content is ever underneath the
+ * bar, but the row still owns the region the bar sits in.
+ *
+ * That distinction is the whole point. It was a margin first, with a matching
+ * negative `right` pulling the bar out of the row entirely — which fixed the
+ * selection bug and broke the toolbar. The bar renders only while the row is
+ * hovered (`Message.tsx`: `hover || menuAnchor || emojiBoardAnchor`), and
+ * `useHover` tracks DOM containment, not geometry, so an absolutely positioned
+ * child keeps the row hovered no matter where it sits — PROVIDED the pointer
+ * can get there without crossing anything else. With the bar in the margin, the
+ * only contact between the row (`y 0..H` at its right edge) and the bar
+ * (`y -30..4`, starting where the row ends) was a 4px-tall corner. Aiming for a
+ * button meant leaving the row through dead margin, so the bar unmounted before
+ * the pointer arrived. As padding the strip belongs to the row for its full
+ * height, and the bar is reachable by moving right and then up, never leaving.
+ *
+ * Keep this in step with the bar's actual width — raise it if a sixth button is
+ * ever added.
  *
  * Scoped to hover-capable input: a phone never renders the toolbar, so it keeps
  * the full width. The test is `any-hover`, NOT `hover: hover` — the latter asks
@@ -145,7 +159,7 @@ export const MessageBase = recipe({
       borderRadius: `0 ${config.radii.R400} ${config.radii.R400} 0`,
       '@media': {
         [OPTIONS_GUTTER_QUERY]: {
-          marginRight: OPTIONS_GUTTER,
+          paddingRight: `calc(${config.space.S200} + ${OPTIONS_GUTTER})`,
         },
       },
     },
