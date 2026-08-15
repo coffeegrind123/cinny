@@ -22,6 +22,7 @@ import {
   IThumbnailContent,
   IVideoContent,
   IVideoInfo,
+  MATRIX_GIF_PROPERTY_NAME,
   MATRIX_SPOILER_PROPERTY_NAME,
   MATRIX_SPOILER_REASON_PROPERTY_NAME,
 } from '../../../types/matrix/common';
@@ -234,6 +235,8 @@ type RenderVideoContentProps = {
   mimeType: string;
   url: string;
   encInfo?: IEncryptedFile;
+  /** The sender marked this as a GIF, so it should loop rather than be played. */
+  gif: boolean;
   markedAsSpoiler?: boolean;
   spoilerReason?: string;
 };
@@ -282,6 +285,10 @@ export function MVideo({ content, renderAsFile, renderVideoContent, outlined }: 
       >
         {renderVideoContent({
           body: content.body || 'Video',
+          // Written by the GIF picker on send. Until now nothing read it back
+          // when rendering, so a GIF arrived as an ordinary video: a Watch
+          // button, then autoplay-and-loop — the loop being right by accident.
+          gif: content[MATRIX_GIF_PROPERTY_NAME] === true,
           info: videoInfo,
           mimeType: safeMimeType,
           url: mxcUrl,

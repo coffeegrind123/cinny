@@ -27,7 +27,7 @@ import {
   VoiceContent,
 } from './message';
 import { UrlPreviewCard, UrlPreviewHolder } from './url-preview';
-import { Image, Video } from './media';
+import { Image } from './media';
 import { ImageViewer } from './image-viewer';
 import { PdfViewer } from './Pdf-viewer';
 import { TextViewer } from './text-viewer';
@@ -255,7 +255,6 @@ export function RenderMessageContent({
                     )
                   : undefined
               }
-              renderVideo={({ videoRef, ...p }) => <Video {...p} ref={videoRef} />}
             />
           )}
           outlined={outlineAttachment}

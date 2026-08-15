@@ -12,7 +12,50 @@ import {
   stopForegroundService,
 } from '../utils/mobile-push';
 
-const UP_APP_ID = 'in.cinny.app.unifiedpush';
+const UP_APP_ID = 'in.prinny.app.unifiedpush';
+
+/** The one path the Matrix Push Gateway API defines. */
+const GATEWAY_PATH = '/_matrix/push/v1/notify';
+/** Used when the distributor does not host a gateway of its own. */
+const PUBLIC_GATEWAY = `https://matrix.gateway.unifiedpush.org${GATEWAY_PATH}`;
+
+/**
+ * Find a Matrix push gateway that will accept pushes for this endpoint.
+ *
+ * A distributor's endpoint is an arbitrary URL — `https://ntfy.sh/UPabc123` and
+ * the like. A homeserver cannot POST Matrix pushes straight at it: the Push
+ * Gateway API defines exactly one endpoint, `POST /_matrix/push/v1/notify`, and
+ * Synapse enforces that path when the pusher is registered, rejecting anything
+ * else outright. Handing it the raw endpoint — which is what this used to do —
+ * means `/pushers/set` fails, no pusher is ever created, and the homeserver has
+ * nowhere to send anything. That is why Android had no notifications at all
+ * while other clients worked with the same distributor: they do this step.
+ *
+ * UnifiedPush's answer is discovery. A distributor that speaks Matrix answers
+ * `GET <origin>/_matrix/push/v1/notify` with `{"unifiedpush":{"gateway":"matrix"}}`,
+ * and that URL is then the gateway. ntfy and Sunup both do. Anything else goes
+ * through the public gateway, which forwards to the endpoint carried in the
+ * pushkey.
+ */
+async function resolveGateway(endpoint: string): Promise<string> {
+  let origin: string;
+  try {
+    origin = new URL(endpoint).origin;
+  } catch {
+    return PUBLIC_GATEWAY;
+  }
+  const candidate = `${origin}${GATEWAY_PATH}`;
+  try {
+    const res = await fetch(candidate, { method: 'GET' });
+    if (res.ok) {
+      const body = await res.json();
+      if (body?.unifiedpush?.gateway === 'matrix') return candidate;
+    }
+  } catch {
+    // Offline, blocked, or not a gateway — the public one still works.
+  }
+  return PUBLIC_GATEWAY;
+}
 
 /**
  * Registers the UnifiedPush endpoint as a Matrix HTTP pusher.
@@ -31,16 +74,19 @@ async function registerMatrixPusher(mx: MatrixClient, endpoint: string) {
     );
     return;
   }
+  const gateway = await resolveGateway(endpoint);
   try {
     await mx.setPusher({
       kind: 'http',
       app_id: UP_APP_ID,
+      // The endpoint identifies this device to the gateway, which forwards
+      // there. It is the pushkey, never the gateway URL itself.
       pushkey: endpoint,
-      app_display_name: 'Cinny',
-      device_display_name: 'Cinny Android',
+      app_display_name: 'Prinny',
+      device_display_name: 'Prinny Android',
       lang: 'en',
       data: {
-        url: endpoint,
+        url: gateway,
         // Deliberately NOT 'event_id_only'.
         //
         // With event_id_only the push carries just a room id and an event id,
@@ -60,7 +106,21 @@ async function registerMatrixPusher(mx: MatrixClient, endpoint: string) {
       append: false,
     });
   } catch (err) {
-    console.warn('[UnifiedPush] Failed to register Matrix pusher:', err);
+    // Loudly, and with the values that decide whether it works. This failing
+    // quietly is half of why the Android side looked like it had no push
+    // support rather than a broken pusher: the only trace was a warning inside
+    // a WebView, with none of the inputs that would have identified the fault.
+    console.error(
+      '[UnifiedPush] Pusher registration REJECTED by the homeserver.',
+      '\n  gateway :',
+      gateway,
+      '\n  pushkey :',
+      endpoint,
+      '\n  app_id  :',
+      UP_APP_ID,
+      '\n  error   :',
+      err
+    );
   }
 }
 
@@ -141,5 +201,7 @@ export function useUnifiedPush(mx: MatrixClient | undefined) {
         stopForegroundService().catch(() => {});
       }
     };
-  }, [mx?.clientRunning]);
+  // `mx` as well as its running flag: a re-login swaps the client instance,
+  // and push setup belongs to whichever client is actually connected.
+  }, [mx, mx?.clientRunning]);
 }

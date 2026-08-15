@@ -1,17 +1,5 @@
-import { ReactNode, Ref, useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Badge,
-  Box,
-  Button,
-  Chip,
-  Icon,
-  Icons,
-  Spinner,
-  Text,
-  Tooltip,
-  TooltipProvider,
-  as,
-} from 'folds';
+import { ReactNode, useEffect, useRef, useState } from 'react';
+import { Box, Chip, Spinner, Text, Tooltip, TooltipProvider, as } from 'folds';
 import classNames from 'classnames';
 import { BlurhashCanvas } from '../../BlurhashCanvas';
 import { EncryptedAttachmentInfo } from 'browser-encrypt-attachment';
@@ -21,41 +9,47 @@ import {
   MATRIX_BLUR_HASH_PROPERTY_NAME,
 } from '../../../../types/matrix/common';
 import * as css from './style.css';
-import { useMatrixClient } from '../../../hooks/useMatrixClient';
-import { AsyncStatus, useAsyncCallback } from '../../../hooks/useAsyncCallback';
-import { bytesToSize, millisecondsToMinutesAndSeconds } from '../../../utils/common';
-import {
-  decryptFile,
-  downloadEncryptedMedia,
-  downloadMedia,
-  mxcUrlToHttp,
-} from '../../../utils/matrix';
-import { useMediaAuthentication } from '../../../hooks/useMediaAuthentication';
+import { AsyncStatus } from '../../../hooks/useAsyncCallback';
+import { useMediaSrc } from '../../../hooks/useMediaSrc';
 import { useHoverPlay } from '../../../hooks/useHoverPlay';
 import { validBlurHash } from '../../../utils/blurHash';
+import { Video } from '../../media';
 
-type RenderVideoProps = {
-  title: string;
-  src: string;
-  onLoadedMetadata: () => void;
-  onError: () => void;
-  autoPlay: boolean;
-  controls: boolean;
-  loop: boolean;
-  videoRef?: Ref<HTMLVideoElement>;
-};
 type VideoContentProps = {
   body: string;
   mimeType: string;
   url: string;
   info: IVideoInfo & IThumbnailContent;
   encInfo?: EncryptedAttachmentInfo;
-  autoPlay?: boolean;
+  /**
+   * Sent from the GIF picker, or otherwise marked as a GIF by the sender.
+   *
+   * A GIF is a moving image, not a video someone chose to watch: it loops, it
+   * is silent, and a transport bar under it is furniture. Everything else gets
+   * ordinary player controls and stays paused until asked.
+   */
+  gif?: boolean;
   markedAsSpoiler?: boolean;
   spoilerReason?: string;
   renderThumbnail?: () => ReactNode;
-  renderVideo: (props: RenderVideoProps) => ReactNode;
 };
+
+/**
+ * A video attachment, played by the browser's own video element.
+ *
+ * This used to drive a hand-built player: a "Watch" button that had to be
+ * pressed before anything loaded, a manual fetch of the whole file into a blob,
+ * duration and size badges painted over the corner, and autoplay-with-loop once
+ * it finally started — which is GIF behaviour, applied to every video including
+ * hour-long ones. Meanwhile the audio side had already been reduced to a native
+ * element over `useMediaSrc`, and video simply never followed.
+ *
+ * It follows now, and inherits what that hook already gets right: plain media
+ * streams from a URL instead of being downloaded in full before it can start,
+ * and only encrypted or authenticated media takes the blob path. `preload` is
+ * "metadata", so a timeline full of videos costs a few headers rather than the
+ * files themselves — which is what the Watch gate was really for.
+ */
 export const VideoContent = as<'div', VideoContentProps>(
   (
     {
@@ -65,73 +59,65 @@ export const VideoContent = as<'div', VideoContentProps>(
       url,
       info,
       encInfo,
-      autoPlay,
+      gif,
       markedAsSpoiler,
       spoilerReason,
       renderThumbnail,
-      renderVideo,
       ...props
     },
-    ref,
+    ref
   ) => {
-    const mx = useMatrixClient();
-    const useAuthentication = useMediaAuthentication();
+    const { src, state, needsBlob } = useMediaSrc(url, mimeType, encInfo);
     const blurHash = validBlurHash(info.thumbnail_info?.[MATRIX_BLUR_HASH_PROPERTY_NAME]);
-    // In low animation mode the video plays only while pointed at or focused.
+    // In low animation mode a GIF holds still until pointed at or focused.
     // `hoverProps` is empty when the mode is off, so this costs nothing then.
     const { lowAnimationMode, hovered, hoverProps } = useHoverPlay();
     const videoRef = useRef<HTMLVideoElement>(null);
 
-    const [load, setLoad] = useState(false);
-    const [error, setError] = useState(false);
     const [blurred, setBlurred] = useState(markedAsSpoiler ?? false);
+    // Set when the browser refuses to autoplay. Linux and Android both do, and
+    // a looping GIF has no play button of its own, so without this it sits
+    // there as a dead still frame with no way to start it.
+    const [playbackRefused, setPlaybackRefused] = useState(false);
 
-    const [srcState, loadSrc] = useAsyncCallback(
-      useCallback(async () => {
-        const mediaUrl = mxcUrlToHttp(mx, url, useAuthentication);
-        if (!mediaUrl) throw new Error('Invalid media URL');
-        const fileContent = encInfo
-          ? await downloadEncryptedMedia(mediaUrl, (encBuf) =>
-              decryptFile(encBuf, mimeType, encInfo),
-            )
-          : await downloadMedia(mediaUrl);
-        return URL.createObjectURL(fileContent);
-      }, [mx, url, useAuthentication, mimeType, encInfo]),
-    );
+    const autoPlay = !!gif && !lowAnimationMode;
 
-    const handleLoad = () => {
-      setLoad(true);
-    };
-    const handleError = () => {
-      setLoad(false);
-      setError(true);
-    };
-
-    const handleRetry = () => {
-      setError(false);
-      loadSrc();
-    };
-
-    useEffect(() => {
-      if (autoPlay) loadSrc();
-    }, [autoPlay, loadSrc]);
-
-    // Drive playback from hover in low animation mode. The <video> has no
-    // autoplay there, so without this it would sit on its first frame.
     useEffect(() => {
       const video = videoRef.current;
-      if (!lowAnimationMode || !video) return;
+      if (!gif || !lowAnimationMode || !video) return;
       if (hovered) {
-        video.play().catch(() => undefined);
+        video.play().catch(() => setPlaybackRefused(true));
       } else {
         video.pause();
         video.currentTime = 0;
       }
-    }, [lowAnimationMode, hovered]);
+    }, [gif, lowAnimationMode, hovered]);
+
+    useEffect(() => {
+      const video = videoRef.current;
+      if (!autoPlay || !video || !src) return;
+      video.play().catch(() => setPlaybackRefused(true));
+    }, [autoPlay, src]);
+
+    if (needsBlob && state.status === AsyncStatus.Error) {
+      return (
+        <Box
+          className={classNames(css.RelativeBase, className)}
+          alignItems="Center"
+          justifyContent="Center"
+          {...props}
+          ref={ref}
+        >
+          <Text size="T200" priority="300">
+            Failed to load video.
+          </Text>
+        </Box>
+      );
+    }
 
     return (
       <Box className={classNames(css.RelativeBase, className)} {...hoverProps} {...props} ref={ref}>
-        {typeof blurHash === 'string' && !load && (
+        {typeof blurHash === 'string' && (
           <BlurhashCanvas
             style={{ width: '100%', height: '100%' }}
             width={32}
@@ -140,7 +126,7 @@ export const VideoContent = as<'div', VideoContentProps>(
             punch={1}
           />
         )}
-        {renderThumbnail && !load && (
+        {renderThumbnail && (
           <Box
             className={classNames(css.AbsoluteContainer, blurred && css.Blur)}
             alignItems="Center"
@@ -149,37 +135,28 @@ export const VideoContent = as<'div', VideoContentProps>(
             {renderThumbnail()}
           </Box>
         )}
-        {!autoPlay && !blurred && srcState.status === AsyncStatus.Idle && (
+        {needsBlob && state.status !== AsyncStatus.Success ? (
           <Box className={css.AbsoluteContainer} alignItems="Center" justifyContent="Center">
-            <Button
-              variant="Secondary"
-              fill="Solid"
-              radii="300"
-              size="300"
-              onClick={loadSrc}
-              before={<Icon size="Inherit" src={Icons.Play} filled />}
-            >
-              <Text size="B300">Watch</Text>
-            </Button>
+            <Spinner variant="Secondary" />
           </Box>
-        )}
-        {srcState.status === AsyncStatus.Success && (
+        ) : (
           <Box className={classNames(css.AbsoluteContainer, blurred && css.Blur)}>
-            {renderVideo({
-              title: body,
-              src: srcState.data,
-              onLoadedMetadata: handleLoad,
-              onError: handleError,
-              // In low animation mode the video is paused until pointed at,
-              // so it must not autoplay itself.
-              autoPlay: !lowAnimationMode,
-              controls: true,
-              loop: true,
-              videoRef,
-            })}
+            <Video
+              ref={videoRef}
+              title={body}
+              src={src}
+              // A GIF shows controls only once the browser has refused to play
+              // it, which is the one case where the user has no other way in.
+              controls={!gif || playbackRefused}
+              autoPlay={autoPlay}
+              loop={!!gif}
+              muted={!!gif}
+              playsInline
+              preload="metadata"
+            />
           </Box>
         )}
-        {blurred && !error && srcState.status !== AsyncStatus.Error && (
+        {blurred && (
           <Box className={css.AbsoluteContainer} alignItems="Center" justifyContent="Center">
             <TooltipProvider
               tooltip={
@@ -199,9 +176,7 @@ export const VideoContent = as<'div', VideoContentProps>(
                   radii="Pill"
                   size="500"
                   outlined
-                  onClick={() => {
-                    setBlurred(false);
-                  }}
+                  onClick={() => setBlurred(false)}
                 >
                   <Text size="B300">Spoiler</Text>
                 </Chip>
@@ -209,57 +184,7 @@ export const VideoContent = as<'div', VideoContentProps>(
             </TooltipProvider>
           </Box>
         )}
-        {(srcState.status === AsyncStatus.Loading || srcState.status === AsyncStatus.Success) &&
-          !load &&
-          !blurred && (
-            <Box className={css.AbsoluteContainer} alignItems="Center" justifyContent="Center">
-              <Spinner variant="Secondary" />
-            </Box>
-          )}
-        {(error || srcState.status === AsyncStatus.Error) && (
-          <Box className={css.AbsoluteContainer} alignItems="Center" justifyContent="Center">
-            <TooltipProvider
-              tooltip={
-                <Tooltip variant="Critical">
-                  <Text>Failed to load video!</Text>
-                </Tooltip>
-              }
-              position="Top"
-              align="Center"
-            >
-              {(triggerRef) => (
-                <Button
-                  ref={triggerRef}
-                  size="300"
-                  variant="Critical"
-                  fill="Soft"
-                  outlined
-                  radii="300"
-                  onClick={handleRetry}
-                  before={<Icon size="Inherit" src={Icons.Warning} filled />}
-                >
-                  <Text size="B300">Retry</Text>
-                </Button>
-              )}
-            </TooltipProvider>
-          </Box>
-        )}
-        {!load && typeof info.size === 'number' && (
-          <Box
-            className={css.AbsoluteFooter}
-            justifyContent="SpaceBetween"
-            alignContent="Center"
-            gap="200"
-          >
-            <Badge variant="Secondary" fill="Soft">
-              <Text size="L400">{millisecondsToMinutesAndSeconds(info.duration ?? 0)}</Text>
-            </Badge>
-            <Badge variant="Secondary" fill="Soft">
-              <Text size="L400">{bytesToSize(info.size)}</Text>
-            </Badge>
-          </Box>
-        )}
       </Box>
     );
-  },
+  }
 );

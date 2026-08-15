@@ -50,6 +50,7 @@ import {
   EmojiGroup,
   EmojiBoardLayout,
 } from './components';
+import { isEmojiSupported } from '../../plugins/emojiSupport';
 import { EmojiBoardTab, EmojiType } from './types';
 import { VirtualTile } from '../virtualizer';
 import { GifPicker } from './GifPicker';
@@ -102,10 +103,17 @@ const useGroups = (
     });
 
     emojiGroups.forEach((group) => {
+      // Anything the platform's font cannot draw is dropped rather than offered
+      // as an empty box — see plugins/emojiSupport. `emojibase-data` is pinned
+      // at Unicode 17 and the fonts trail it, so a handful of the newest emoji
+      // (orca, distorted face, fingerprint, face with bags under eyes, …) had
+      // no glyph anywhere and were pickable regardless.
+      const items = group.emojis.filter((emoji) => isEmojiSupported(emoji.unicode));
+      if (items.length === 0) return;
       g.push({
         id: group.id,
         name: labels[group.id],
-        items: group.emojis,
+        items,
       });
     });
 
@@ -400,7 +408,9 @@ export function EmojiBoard({
   const searchList = useMemo(() => {
     let list: Array<PackImageReader | IEmoji> = [];
     list = list.concat(imagePacks.flatMap((pack) => pack.getImages(usage)));
-    if (emojiTab) list = list.concat(emojis);
+    // The same filter on the search index: searching "orca" should not turn up
+    // a box either.
+    if (emojiTab) list = list.concat(emojis.filter((emoji) => isEmojiSupported(emoji.unicode)));
     return list;
   }, [emojiTab, usage, imagePacks]);
 

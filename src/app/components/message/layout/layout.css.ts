@@ -106,48 +106,23 @@ const AutoCollapse = style({
 });
 
 /**
- * Width reserved at the right of every message for the hover options toolbar.
+ * No width is reserved at the right of a message for the hover toolbar.
  *
- * `MessageOptionsBase` is absolutely positioned against the row with a NEGATIVE
- * top offset, so a message's toolbar floats up and sits over the *previous*
- * message. Measured: the bar is 154px at its widest (5 IconButtons at 26px plus
- * gaps) and 34px tall, while a collapsed one-line row is only ~18px tall — so it
- * covered such a row's right-hand region completely. A pointer-down there hit a
- * `<button>`, the caret resolved to `<BUTTON> off=0` rather than into the
- * message text, and with no text anchor inside the message the engine fell back
- * to the start of the container. That is why a selection begun on the right
- * "started from the left", and why it only bit one-line messages: a taller
- * message leaves most of its right-hand blank space below the overlay.
+ * There used to be 154px of it, added to stop the toolbar covering text. Two
+ * rounds of that — first as margin, then as padding — cost real width on every
+ * message and never fixed what they were aimed at: the toolbar was not covering
+ * text, it was RECEIVING THE PRESS, and a press on a `<button>` cannot anchor a
+ * selection, so a drag begun there started from the beginning of the message.
+ * That is fixed at the source now (`preventSelectionAnchor` in Message.tsx),
+ * which leaves the strip doing nothing but taking space.
  *
- * The strip is reserved as PADDING, not margin, so it stays part of the row's
- * box: text stops short of it, so no message content is ever underneath the
- * bar, but the row still owns the region the bar sits in.
+ * It was also charged to phones, which never show the toolbar at all: the query
+ * was `any-hover`, and Android WebViews commonly report hover, so the allowance
+ * for a pointer nobody had was eating the narrowest screens.
  *
- * That distinction is the whole point. It was a margin first, with a matching
- * negative `right` pulling the bar out of the row entirely — which fixed the
- * selection bug and broke the toolbar. The bar renders only while the row is
- * hovered (`Message.tsx`: `hover || menuAnchor || emojiBoardAnchor`), and
- * `useHover` tracks DOM containment, not geometry, so an absolutely positioned
- * child keeps the row hovered no matter where it sits — PROVIDED the pointer
- * can get there without crossing anything else. With the bar in the margin, the
- * only contact between the row (`y 0..H` at its right edge) and the bar
- * (`y -30..4`, starting where the row ends) was a 4px-tall corner. Aiming for a
- * button meant leaving the row through dead margin, so the bar unmounted before
- * the pointer arrived. As padding the strip belongs to the row for its full
- * height, and the bar is reachable by moving right and then up, never leaving.
- *
- * Keep this in step with the bar's actual width — raise it if a sixth button is
- * ever added.
- *
- * Scoped to hover-capable input: a phone never renders the toolbar, so it keeps
- * the full width. The test is `any-hover`, NOT `hover: hover` — the latter asks
- * about the *primary* pointer, so a touchscreen laptop (primary pointer coarse,
- * mouse also attached) would report no hover, lose the gutter, and keep the bug
- * even though the toolbar still appears there. `any-hover` asks whether any
- * attached input can hover, which is exactly the condition for the bar existing.
+ * The toolbar now floats over the end of the message, as it does in Discord.
+ * A press on it starts no selection rather than the wrong one.
  */
-export const OPTIONS_GUTTER = toRem(154);
-export const OPTIONS_GUTTER_QUERY = '(any-hover: hover)';
 
 export const MessageBase = recipe({
   base: [
@@ -157,11 +132,6 @@ export const MessageBase = recipe({
       marginTop: SpacingVar,
       padding: `${config.space.S100} ${config.space.S200} ${config.space.S100} ${config.space.S400}`,
       borderRadius: `0 ${config.radii.R400} ${config.radii.R400} 0`,
-      '@media': {
-        [OPTIONS_GUTTER_QUERY]: {
-          paddingRight: `calc(${config.space.S200} + ${OPTIONS_GUTTER})`,
-        },
-      },
     },
   ],
   variants: {

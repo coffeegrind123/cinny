@@ -982,13 +982,19 @@ export const Message = as<'div', MessageProps>(
     const gutterTimeJSX = collapse &&
       messageLayout !== MessageLayout.Compact &&
       (hover || !!menuAnchor) && (
-        <Time
-          className={css.MessageGutterTime}
-          ts={mEvent.getTs()}
-          compact
-          hour24Clock={hour24Clock}
-          dateFormatString={dateFormatString}
-        />
+        // The wrapper carries the positioning and the line box; Time keeps its
+        // own smaller type. Putting both on one element would pit
+        // `line-height: inherit` against the size token folds sets on the very
+        // same class, and which of two equally specific rules wins is settled
+        // by stylesheet order — not something to hang alignment on.
+        <div className={css.MessageGutterTime}>
+          <Time
+            ts={mEvent.getTs()}
+            compact
+            hour24Clock={hour24Clock}
+            dateFormatString={dateFormatString}
+          />
+        </div>
       );
 
     const avatarJSX = !collapse && messageLayout !== MessageLayout.Compact && (
@@ -1046,12 +1052,29 @@ export const Message = as<'div', MessageProps>(
             onCancel={() => onEditId()}
           />
         ) : (
-          <Box grow="Yes" gap="200" alignItems="Start" style={{ maxWidth: '100%' }}>
-            <Box grow="Yes">{children}</Box>
+          /*
+           * Receipts sit at the end of the message, not at the end of the
+           * widest thing above it.
+           *
+           * The body used to `grow`, which sounds harmless but is what put them
+           * in the wrong place: this row lives inside a column that shrink-wraps
+           * (`alignSelf="Start"` on msgContentJSX), so the column is as wide as
+           * its widest child — often the reply preview. A growing body then
+           * filled that width and pushed the receipts out to the REPLY's right
+           * edge, leaving them floating past the end of a message that might be
+           * two words long.
+           *
+           * Without the grow, the row is only as wide as the message plus the
+           * receipts, so they land where the message actually ends. `End`
+           * aligns them to the last line rather than the first, which is where
+           * they belong on a message that wraps.
+           */
+          <Box gap="200" alignItems="End" style={{ maxWidth: '100%' }}>
+            <Box style={{ minWidth: 0 }}>{children}</Box>
             {receiptUserIds.length > 0 && (
               <Box
                 shrink="No"
-                style={{ cursor: 'pointer', marginTop: '2px' }}
+                style={{ cursor: 'pointer' }}
                 onClick={() => setReadReceiptOpen(true)}
               >
                 <ReadReceiptAvatars room={room} userIds={receiptUserIds} />

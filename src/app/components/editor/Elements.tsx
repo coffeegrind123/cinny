@@ -48,7 +48,9 @@ function RenderMentionElement({
       contentEditable={false}
     >
       {element.name}
+      <InlineChromiumBugfix />
       {children}
+      <InlineChromiumBugfix />
     </span>
   );
 }
@@ -71,7 +73,11 @@ function RenderCommandElement({
       contentEditable={false}
     >
       {`/${element.command}`}
+      {/* See InlineChromiumBugfix: without these the caret cannot land
+          after a void inline and Chromium puts it before instead. */}
+      <InlineChromiumBugfix />
       {children}
+      <InlineChromiumBugfix />
     </span>
   );
 }
@@ -103,7 +109,9 @@ function RenderEmoticonElement({
         ) : (
           element.key
         )}
+        <InlineChromiumBugfix />
         {children}
+        <InlineChromiumBugfix />
       </span>
     </span>
   );
