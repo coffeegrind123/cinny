@@ -1,5 +1,4 @@
 import React, {
-  CSSProperties,
   KeyboardEventHandler,
   RefObject,
   forwardRef,
@@ -141,15 +140,6 @@ import { BotReplyKeyboard } from './BotReplyKeyboard';
 import { BotMenuButton } from './BotMenuButton';
 import { usePowerLevelTags } from '../../hooks/usePowerLevelTags';
 import { useComposingCheck } from '../../hooks/useComposingCheck';
-
-const gifIconStyles: CSSProperties = {
-  border: '1.5px solid currentColor',
-  borderRadius: toRem(3),
-  fontSize: toRem(9),
-  fontWeight: 700,
-  lineHeight: 1,
-  padding: `${toRem(3)} ${toRem(2)}`,
-};
 
 // Bridges the global `toggle-emoji-picker` keybind into the emoji
 // board's per-instance UseStateProvider scope. Lives as a child of
@@ -385,7 +375,6 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
     );
     const dropZoneVisible = useFileDropZone(fileDropContainerRef, handleFiles);
     const [hideStickerBtn, setHideStickerBtn] = useState(document.body.clientWidth < 500);
-    const [gifPicker] = useSetting(settingsAtom, 'gifPicker');
 
     const isComposing = useComposingCheck();
 
@@ -1202,23 +1191,15 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
                         />
                       }
                     >
-                      {!hideStickerBtn && gifPicker && (
-                        <IconButton
-                          aria-label="Open GIF picker"
-                          aria-pressed={emojiBoardTab === EmojiBoardTab.Gif}
-                          onClick={() => setEmojiBoardTab(EmojiBoardTab.Gif)}
-                          variant="SurfaceVariant"
-                          size="300"
-                          radii="300"
-                        >
-                          {/* folds has no GIF glyph, and the picker is named by
-                            the three letters everywhere else, so the label is
-                            the icon. */}
-                          <Text as="span" size="L400" style={gifIconStyles}>
-                            GIF
-                          </Text>
-                        </IconButton>
-                      )}
+                      {/*
+                        No GIF button here. GIFs are a tab on the board the
+                        sticker and emoji buttons already open — one surface for
+                        every kind of thing you can insert, rather than a third
+                        button beside them that opens the same board on a
+                        different tab. The `gifPicker` setting still decides
+                        whether that tab exists at all; it is read where the tab
+                        strip is built (emoji-board/components/Tabs.tsx).
+                      */}
                       {!hideStickerBtn && (
                         <IconButton
                           aria-pressed={emojiBoardTab === EmojiBoardTab.Sticker}

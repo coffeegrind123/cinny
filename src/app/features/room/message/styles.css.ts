@@ -48,6 +48,28 @@ export const MessageOptionsBar = style([
   },
 ]);
 
+/**
+ * The time of a collapsed message, shown in the avatar slot while the row is
+ * hovered.
+ *
+ * A grouped message hides its own timestamp: the one in the group header
+ * belongs to the FIRST message of the group, so every message after it has no
+ * time on screen at all. The avatar gutter is already empty on exactly those
+ * rows, which makes it the natural place to put it.
+ *
+ * Absolutely positioned, and right-aligned against the gutter's inner edge so
+ * it reads as a column with the header times above it. In flow it would widen
+ * the slot — `hh:mm A` is wider than the 36px the avatar reserves — and the
+ * message body would jog sideways as the pointer moved down the timeline.
+ * Overflow goes left into the row's own padding, which is blank.
+ */
+export const MessageGutterTime = style({
+  position: 'absolute',
+  right: 0,
+  top: 0,
+  whiteSpace: 'nowrap',
+});
+
 export const BubbleAvatarBase = style({
   paddingTop: 0,
 });

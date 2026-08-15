@@ -233,8 +233,13 @@ const defaultSettings: Settings = {
   useSoundcloak: false,
   useBlueskyEmbeds: true,
   notificationContentMode: DEFAULT_NOTIFICATION_CONTENT_MODE,
-  usePiped: false,
-  pipedInstance: '',
+  // On by default, pinned to gmach. Piped is the privacy-preserving option
+  // here, not the risky one: without it a YouTube link embeds youtube.com
+  // directly, which is the disclosure the other embed toggles exist to avoid.
+  // Pinned rather than left on auto so the instance is predictable; if it is
+  // unreachable, resolvePipedInstance still falls back to the auto probe.
+  usePiped: true,
+  pipedInstance: 'https://piped.gmach.online',
   // Same reasoning: the client-side OG fallback fetches an arbitrary
   // message-supplied URL straight from the user's own machine.
   clientPreviewFallback: false,

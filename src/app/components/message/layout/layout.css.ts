@@ -206,12 +206,18 @@ export const AvatarBase = style({
   },
 });
 
+// `position: relative` is what lets the hover timestamp on a collapsed message
+// (MessageGutterTime) sit in this slot without being able to widen it. The slot
+// is a min-width, not a width, so an in-flow child would push the whole message
+// body right — and only on the rows that happen to be hovered.
 export const ModernBefore = style({
   minWidth: toRem(36),
+  position: 'relative',
 });
 
 export const BubbleBefore = style({
   minWidth: toRem(36),
+  position: 'relative',
 });
 
 export const BubbleContent = style({

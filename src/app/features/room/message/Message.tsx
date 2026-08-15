@@ -95,6 +95,43 @@ import { getPowerTagIconSrc } from '../../../hooks/useMemberPowerTag';
 
 export type ReactionHandler = (keyOrMxc: string, shortcode: string) => void;
 
+/**
+ * Stop a press on the hover options bar from starting a text selection.
+ *
+ * The bar floats 30px above its own row, which puts it over the blank
+ * right-hand end of the message ABOVE it. Pressing there and dragging left is
+ * an ordinary way to select a message, and it landed on a `<button>` — which
+ * cannot hold a text caret, so the browser anchored the selection at the start
+ * of the block instead and the highlight painted from the left of the message
+ * rather than following the pointer. A one-line message is shorter than the
+ * bar is tall, so its whole right-hand end sits under the bar and it failed
+ * every time; a multi-line message only lost its first line, to the ~6px the
+ * bar reaches back down into its own row.
+ *
+ * `preventDefault` on mousedown cancels precisely that default — beginning a
+ * selection, and moving focus — and nothing else. `click` still fires, so
+ * every button in the bar keeps working.
+ *
+ * This was arrived at by reproducing the bug in a standalone page and testing
+ * candidates against it, NOT by reasoning about the CSS. Two earlier attempts
+ * (2f11ee87, d883df63) moved the reserved gutter between margin and padding on
+ * the theory that the bar was covering text; both cost layout width and
+ * neither fixed it. Moving the bar after the text in DOM order and marking it
+ * `user-select: none` were both tried in that harness too, and changed
+ * nothing — the anchor comes from the block containing the button, not from
+ * the button's own position or selectability.
+ *
+ * It hangs on the `Menu` rather than the positioning wrapper around it. The
+ * wrapper is absolutely positioned with no size of its own, so it shrink-wraps
+ * to exactly the Menu and the two cover the same pixels; but a mouse handler on
+ * a bare `<div>` reads as an undeclared interactive element, which is a real
+ * a11y complaint and not one worth silencing for a box that only exists to
+ * position another one.
+ */
+const preventSelectionAnchor: MouseEventHandler<HTMLDivElement> = (evt) => {
+  evt.preventDefault();
+};
+
 type MessageQuickReactionsProps = {
   onReaction: ReactionHandler;
 };
@@ -933,6 +970,27 @@ export const Message = as<'div', MessageProps>(
       </Box>
     );
 
+    /**
+     * A collapsed message shows no time of its own — the one in the group
+     * header is the first message's — and its avatar slot is empty for the same
+     * reason. Hovering fills that slot with this message's own time.
+     *
+     * Compact layout is excluded because it already puts a timestamp at the
+     * start of every row, collapsed or not; there is nothing missing to
+     * restore, and it has no avatar slot to put it in.
+     */
+    const gutterTimeJSX = collapse &&
+      messageLayout !== MessageLayout.Compact &&
+      (hover || !!menuAnchor) && (
+        <Time
+          className={css.MessageGutterTime}
+          ts={mEvent.getTs()}
+          compact
+          hour24Clock={hour24Clock}
+          dateFormatString={dateFormatString}
+        />
+      );
+
     const avatarJSX = !collapse && messageLayout !== MessageLayout.Compact && (
       <AvatarBase
         className={messageLayout === MessageLayout.Bubble ? css.BubbleAvatarBase : undefined}
@@ -1144,7 +1202,11 @@ export const Message = as<'div', MessageProps>(
       >
         {!edit && (hover || !!menuAnchor || !!emojiBoardAnchor) && (
           <div className={css.MessageOptionsBase}>
-            <Menu className={css.MessageOptionsBar} variant="SurfaceVariant">
+            <Menu
+              className={css.MessageOptionsBar}
+              variant="SurfaceVariant"
+              onMouseDown={preventSelectionAnchor}
+            >
               <Box gap="100">
                 {canSendReaction && (
                   <PopOut
@@ -1420,12 +1482,16 @@ export const Message = as<'div', MessageProps>(
           </CompactLayout>
         )}
         {messageLayout === MessageLayout.Bubble && (
-          <BubbleLayout before={avatarJSX} header={headerJSX} onContextMenu={handleContextMenu}>
+          <BubbleLayout
+            before={avatarJSX || gutterTimeJSX}
+            header={headerJSX}
+            onContextMenu={handleContextMenu}
+          >
             {msgContentJSX}
           </BubbleLayout>
         )}
         {messageLayout !== MessageLayout.Compact && messageLayout !== MessageLayout.Bubble && (
-          <ModernLayout before={avatarJSX} onContextMenu={handleContextMenu}>
+          <ModernLayout before={avatarJSX || gutterTimeJSX} onContextMenu={handleContextMenu}>
             {headerJSX}
             {msgContentJSX}
           </ModernLayout>
@@ -1504,7 +1570,11 @@ export const Event = as<'div', EventProps>(
       >
         {(hover || !!menuAnchor) && (
           <div className={css.MessageOptionsBase}>
-            <Menu className={css.MessageOptionsBar} variant="SurfaceVariant">
+            <Menu
+              className={css.MessageOptionsBar}
+              variant="SurfaceVariant"
+              onMouseDown={preventSelectionAnchor}
+            >
               <Box gap="100">
                 <PopOut
                   anchor={menuAnchor}

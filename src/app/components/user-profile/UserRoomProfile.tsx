@@ -1,5 +1,6 @@
 import { Box, config, Text } from 'folds';
 import { UserHero, UserHeroName } from './UserHero';
+import * as css from './styles.css';
 import { mxcUrlToHttp } from '../../utils/matrix';
 import { getMemberAvatarMxc, getMemberDisplayName } from '../../utils/room';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
@@ -78,6 +79,7 @@ export function UserRoomProfile({ userId }: UserRoomProfileProps) {
         bannerUrl={bannerUrl}
         profileLoaded={profile.loaded}
         presence={presence && presence.lastActiveTs !== 0 ? presence : undefined}
+        status={presence?.status}
       />
       <Box direction="Column" gap="500" style={{ padding: config.space.S400 }}>
         <Box direction="Column" gap="400">
@@ -100,9 +102,12 @@ export function UserRoomProfile({ userId }: UserRoomProfileProps) {
           </Box>
         </Box>
         {biography && (
-          <Text style={{ whiteSpace: 'pre-wrap' }} priority="300">
-            {biography}
-          </Text>
+          <Box direction="Column" gap="100">
+            <Text size="L400">About Me</Text>
+            <Text className={css.Biography} size="T300" priority="300">
+              {biography}
+            </Text>
+          </Box>
         )}
         {richPresence && <UserRichPresence presence={richPresence} />}
         {ignored && <IgnoredUserAlert />}

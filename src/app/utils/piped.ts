@@ -1,25 +1,19 @@
 import { useEffect, useState } from 'react';
 
 // Curated Piped instances (origins only; the embed path is appended per video).
-// HTTPS entries first on purpose: the hosted web app is served over https, so an
-// http:// iframe is blocked there as mixed content and only loads inside the
-// desktop shell. The reachability probe below simply skips whatever the current
-// context can't reach — a mixed-content-blocked origin, a bad cert, or a dead
-// host — so the list degrades gracefully instead of showing a blank player.
+//
+// Both entries are real domains with valid TLS, so both load in the web app and
+// in the desktop shell alike. The bare-IP and http:// instances this list used
+// to carry are gone: none of them could ever be embedded from the hosted web
+// app — http is blocked as mixed content and no CA issues certificates for a
+// bare IP — so they were desktop-only entries that mostly served to make the
+// picker look longer than it was.
+//
+// Order matters: the first entry is {@link DEFAULT_INSTANCE}, which is both the
+// value used before the probe answers and the fallback when every probe fails.
 export const PIPED_INSTANCES: string[] = [
-  // Real domains with valid TLS — usable from the web app.
-  'https://piped.private.coffee',
   'https://piped.gmach.online', // = 87.184.81.212 (cert SAN); embed + API verified
-  // Raw IPs: no valid-cert https front exists for these (the operators front
-  // other services — itcorp.mooo.com, fairydust.ch, arity8.com — but run Piped
-  // on a bare IP:port). They only load in the desktop shell; the web app blocks
-  // http as mixed content and rejects the IP https certs. The probe skips them.
-  'https://183.179.57.169:7000',
-  'http://130.12.171.163:8080',
-  'http://82.24.19.217:8083', // host: itcorp.mooo.com
-  'http://51.154.9.70:8080', // host: fairydust.ch
-  'http://77.110.101.50',
-  'http://51.68.180.170:8090',
+  'https://piped.private.coffee',
 ];
 
 const DEFAULT_INSTANCE = PIPED_INSTANCES[0];
@@ -27,18 +21,17 @@ const DEFAULT_INSTANCE = PIPED_INSTANCES[0];
 /**
  * Origins this context can even attempt.
  *
- * On an https page the browser blocks an http subresource outright, and it
- * reports each one as a "Mixed Content ... has been blocked" console error
- * before the request leaves. Probing them was therefore not "degrading
- * gracefully" — it was five guaranteed console errors on every load that
- * touched a YouTube link, for candidates that could never have been used.
- * A bare-IP https origin is the same story with a different message: no
- * certificate authority issues for an IP these operators control, so the probe
- * dies on a cert error the console also reports.
+ * A no-op against the current list, which is all https and all real domains —
+ * and kept precisely so it stays that way. On an https page the browser blocks
+ * an http subresource outright and reports a "Mixed Content ... has been
+ * blocked" console error before the request leaves; a bare-IP https origin dies
+ * on a cert error instead, since no CA issues certificates for a bare IP. Both
+ * used to be in this list, and probing them was not "degrading gracefully" — it
+ * was a guaranteed console error per candidate on every load that touched a
+ * YouTube link, for origins the web app could never have embedded.
  *
- * Filtering both out up front costs nothing — neither could have been embedded
- * from a browser anyway — and the desktop shell, which is not on https and
- * accepts these, keeps the full list.
+ * Re-adding such an origin therefore costs nothing here: it is filtered out on
+ * the web and kept in the desktop shell, which is not on https and accepts it.
  */
 const BARE_IP_HOST = /^\d{1,3}(\.\d{1,3}){3}$/;
 const reachableInstances = (): string[] => {

@@ -4,7 +4,6 @@ import {
   Box,
   Icon,
   Icons,
-  Modal,
   Overlay,
   OverlayBackdrop,
   OverlayCenter,
@@ -28,8 +27,23 @@ type UserHeroProps = {
   bannerUrl?: string;
   profileLoaded: boolean;
   presence?: UserPresence;
+  /**
+   * The free-text status message ("what I'm doing"), shown in a thought bubble
+   * beside the avatar. Separate from `presence`, which only decides the badge:
+   * a status is worth showing whether or not the account is currently active,
+   * and an idle account with something to say is exactly the case where it is
+   * the more useful of the two.
+   */
+  status?: string;
 };
-export function UserHero({ userId, avatarUrl, bannerUrl, profileLoaded, presence }: UserHeroProps) {
+export function UserHero({
+  userId,
+  avatarUrl,
+  bannerUrl,
+  profileLoaded,
+  presence,
+  status,
+}: UserHeroProps) {
   const [viewAvatar, setViewAvatar] = useState<string>();
   const coverUrl = bannerUrl ?? (profileLoaded ? avatarUrl : undefined);
 
@@ -73,6 +87,13 @@ export function UserHero({ userId, avatarUrl, bannerUrl, profileLoaded, presence
             />
           </Avatar>
         </AvatarPresence>
+        {status && (
+          <div className={css.UserHeroStatus} title={status}>
+            <Text size="T200" truncate>
+              {status}
+            </Text>
+          </div>
+        )}
         {viewAvatar && (
           <Overlay open backdrop={<OverlayBackdrop />}>
             <OverlayCenter>
@@ -84,13 +105,25 @@ export function UserHero({ userId, avatarUrl, bannerUrl, profileLoaded, presence
                   escapeDeactivates: stopPropagation,
                 }}
               >
-                <Modal size="500" onContextMenu={(evt: any) => evt.stopPropagation()}>
-                  <ImageViewer
-                    src={viewAvatar}
-                    alt={userId}
-                    requestClose={() => setViewAvatar(undefined)}
-                  />
-                </Modal>
+                {/*
+                  No Modal around this. ImageViewer is already a lightbox — it
+                  sizes the image to 80vw/80vh and floats its own toolbar over
+                  the backdrop — so a Modal put a second, fixed-width surface
+                  around something built to fill the screen, which is why an
+                  avatar opened smaller and more boxed-in than any other image
+                  in the app. Every other viewer in the client (timeline,
+                  search, pins, notifications, link previews) renders it bare
+                  inside OverlayCenter; this was the one that did not.
+                */}
+                <ImageViewer
+                  src={viewAvatar}
+                  alt={userId}
+                  requestClose={() => setViewAvatar(undefined)}
+                  // The profile card is itself inside a context menu, so a
+                  // right-click here would otherwise reach it and close the
+                  // thing the viewer was opened from.
+                  onContextMenu={(evt) => evt.stopPropagation()}
+                />
               </FocusTrap>
             </OverlayCenter>
           </Overlay>
