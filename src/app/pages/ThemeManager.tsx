@@ -31,6 +31,7 @@ export function UnAuthRouteThemeManager() {
 export function AuthRouteThemeManager({ children }: { children: ReactNode }) {
   const activeTheme = useActiveTheme();
   const [monochromeMode] = useSetting(settingsAtom, 'monochromeMode');
+  const [lowAnimationMode] = useSetting(settingsAtom, 'lowAnimationMode');
 
   useEffect(() => {
     document.body.className = '';
@@ -38,12 +39,18 @@ export function AuthRouteThemeManager({ children }: { children: ReactNode }) {
 
     document.body.classList.add(...activeTheme.classNames);
 
+    // Class rather than a style, because the rules it enables are descendant
+    // selectors over the whole tree (see index.css).
+    if (lowAnimationMode) {
+      document.body.classList.add('low-animation-mode');
+    }
+
     if (monochromeMode) {
       document.body.style.filter = 'grayscale(1)';
     } else {
       document.body.style.filter = '';
     }
-  }, [activeTheme, monochromeMode]);
+  }, [activeTheme, monochromeMode, lowAnimationMode]);
 
   return <ThemeContextProvider value={activeTheme}>{children}</ThemeContextProvider>;
 }

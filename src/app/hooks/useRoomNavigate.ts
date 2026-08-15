@@ -5,6 +5,7 @@ import { getCanonicalAliasOrRoomId } from '../utils/matrix';
 import {
   getDirectRoomPath,
   getHomeRoomPath,
+  getRoomsRoomPath,
   getSpacePath,
   getSpaceRoomPath,
 } from '../pages/pathUtils';
@@ -15,6 +16,7 @@ import { mDirectAtom } from '../state/mDirectList';
 import { useSelectedSpace } from './router/useSelectedSpace';
 import { settingsAtom } from '../state/settings';
 import { useSetting } from '../state/hooks/settings';
+import { useShellLayout } from './useShellLayout';
 
 export const useRoomNavigate = () => {
   const navigate = useNavigate();
@@ -23,6 +25,7 @@ export const useRoomNavigate = () => {
   const mDirects = useAtomValue(mDirectAtom);
   const spaceSelectedId = useSelectedSpace();
   const [developerTools] = useSetting(settingsAtom, 'developerTools');
+  const { roomsPseudoSpace } = useShellLayout();
 
   const navigateSpace = useCallback(
     (roomId: string) => {
@@ -60,9 +63,17 @@ export const useRoomNavigate = () => {
         return;
       }
 
-      navigate(getHomeRoomPath(roomIdOrAlias, eventId), opts);
+      // Spaceless rooms live under /rooms once they have their own rail entry,
+      // so landing on /home would leave the nav pointing at a list that no
+      // longer holds the room you just opened.
+      navigate(
+        roomsPseudoSpace
+          ? getRoomsRoomPath(roomIdOrAlias, eventId)
+          : getHomeRoomPath(roomIdOrAlias, eventId),
+        opts
+      );
     },
-    [mx, navigate, spaceSelectedId, roomToParents, mDirects, developerTools]
+    [mx, navigate, spaceSelectedId, roomToParents, mDirects, developerTools, roomsPseudoSpace]
   );
 
   return {

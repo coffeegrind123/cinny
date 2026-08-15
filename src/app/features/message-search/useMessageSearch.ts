@@ -16,12 +16,19 @@ export type ResultItem = {
 };
 
 export type ResultGroup = {
+  /**
+   * Stable, unique key. Results stay in server order, so the same room can appear
+   * in several groups when rooms interleave; roomId alone is not a usable key.
+   */
+  key: string;
   roomId: string;
   items: ResultItem[];
 };
 
 export type SearchResult = {
   nextToken?: string;
+  /** total matches known to the server, not the amount loaded so far */
+  count?: number;
   highlights: string[];
   groups: ResultGroup[];
 };
@@ -43,6 +50,7 @@ const groupSearchResult = (results: ISearchResult[]): ResultGroup[] => {
       return;
     }
     groups.push({
+      key: `${roomId}/${item.result.event_id}`,
       roomId,
       items: [resultItem],
     });
@@ -56,6 +64,7 @@ const parseSearchResult = (result: ISearchResponse): SearchResult => {
 
   const searchResult: SearchResult = {
     nextToken: roomEvents?.next_batch,
+    count: roomEvents?.count,
     highlights: roomEvents?.highlights ?? [],
     groups: groupSearchResult(roomEvents?.results ?? []),
   };
@@ -79,7 +88,7 @@ export const useMessageSearch = (params: MessageSearchParams) => {
   // or the panel unmounts. Without it a superseded `/search` keeps a request
   // in flight for every keystroke.
   const searchMessages = useCallback(
-    async (nextBatch?: string, signal?: AbortSignal) => {
+    async (nextBatch?: string, signal?: AbortSignal): Promise<SearchResult> => {
       if (!term)
         return {
           highlights: [],
@@ -91,9 +100,9 @@ export const useMessageSearch = (params: MessageSearchParams) => {
         search_categories: {
           room_events: {
             event_context: {
-              before_limit: 0,
-              after_limit: 0,
-              include_profile: false,
+              before_limit: 1,
+              after_limit: 1,
+              include_profile: true,
             },
             filter: {
               limit,
@@ -112,11 +121,11 @@ export const useMessageSearch = (params: MessageSearchParams) => {
           body: requestBody,
           next_batch: nextBatch === '' ? undefined : nextBatch,
         },
-        signal
+        signal,
       );
       return parseSearchResult(r);
     },
-    [mx, term, order, rooms, senders]
+    [mx, term, order, rooms, senders],
   );
 
   return searchMessages;

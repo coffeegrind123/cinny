@@ -12,6 +12,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
+  Badge,
+  color,
   Icon,
   IconButton,
   Icons,
@@ -20,6 +22,7 @@ import {
   MenuItem,
   PopOut,
   RectCords,
+  Spinner,
   Text,
   config,
   toRem,
@@ -80,12 +83,14 @@ import { useOpenedSidebarFolderAtom } from '../../../state/hooks/openedSidebarFo
 import { usePowerLevels } from '../../../hooks/usePowerLevels';
 import { useRoomsUnread } from '../../../state/hooks/unread';
 import { roomToUnreadAtom } from '../../../state/room/roomToUnread';
+import { useSpaceHasCall } from '../../../hooks/useCall';
+import { useCallEmbed, useCallJoined } from '../../../hooks/useCallEmbed';
 import { markAsRead } from '../../../utils/notifications';
 import { copyToClipboard } from '../../../utils/dom';
 import { stopPropagation } from '../../../utils/keyboard';
 import { getMatrixToRoom } from '../../../plugins/matrix-to';
 import { getViaServers } from '../../../plugins/via-servers';
-import { getRoomAvatarUrl } from '../../../utils/room';
+import { getRoomAvatarUrl, getSpaceChildren } from '../../../utils/room';
 import { useMediaAuthentication } from '../../../hooks/useMediaAuthentication';
 import { useSetting } from '../../../state/hooks/settings';
 import { settingsAtom } from '../../../state/settings';
@@ -93,6 +98,8 @@ import { useOpenSpaceSettings } from '../../../state/hooks/spaceSettings';
 import { useRoomCreators } from '../../../hooks/useRoomCreators';
 import { useRoomPermissions } from '../../../hooks/useRoomPermissions';
 import { InviteUserPrompt } from '../../../components/invite-user-prompt';
+import { useRoomsNotificationPreferencesContext } from '../../../hooks/useRoomsNotificationPreferences';
+import { SpaceNotificationModeSwitcher } from '../../../components/SpaceNotificationSwitcher';
 
 type SpaceMenuProps = {
   room: Room;
@@ -118,6 +125,7 @@ const SpaceMenu = forwardRef<HTMLDivElement, SpaceMenuProps>(
       room.roomId,
       useRecursiveChildScopeFactory(mx, roomToParents)
     );
+    const notificationPreferences = useRoomsNotificationPreferencesContext();
     const unread = useRoomsUnread(allChild, roomToUnreadAtom);
 
     const handleMarkAsRead = () => {
@@ -169,6 +177,27 @@ const SpaceMenu = forwardRef<HTMLDivElement, SpaceMenuProps>(
               Mark as Read
             </Text>
           </MenuItem>
+          <SpaceNotificationModeSwitcher roomIds={allChild} preferences={notificationPreferences}>
+            {(handleOpen, opened, changing) => (
+              <MenuItem
+                size="300"
+                after={
+                  changing ? (
+                    <Spinner size="100" variant="Secondary" />
+                  ) : (
+                    <Icon size="100" src={Icons.Bell} />
+                  )
+                }
+                radii="300"
+                aria-pressed={opened}
+                onClick={handleOpen}
+              >
+                <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+                  Notifications
+                </Text>
+              </MenuItem>
+            )}
+          </SpaceNotificationModeSwitcher>
           {onUnpin && (
             <MenuItem
               size="300"
@@ -385,6 +414,7 @@ const useDnDMonitor = (
 type SpaceTabProps = {
   space: Room;
   selected: boolean;
+  activeCallRoomId?: string;
   onClick: MouseEventHandler<HTMLButtonElement>;
   folder?: ISidebarFolder;
   onDragging: (dragItem?: SidebarDraggable) => void;
@@ -394,6 +424,7 @@ type SpaceTabProps = {
 function SpaceTab({
   space,
   selected,
+  activeCallRoomId,
   onClick,
   folder,
   onDragging,
@@ -418,6 +449,10 @@ function SpaceTab({
   useDraggableItem(spaceDraggable, targetRef, onDragging);
   const dropState = useDropTarget(spaceDraggable, targetRef);
   const dropType = dropState?.type;
+
+  const hasCall = useSpaceHasCall(space);
+  const currentCallInSpace =
+    !!activeCallRoomId && getSpaceChildren(space).includes(activeCallRoomId);
 
   const [menuAnchor, setMenuAnchor] = useState<RectCords>();
 
@@ -467,6 +502,31 @@ function SpaceTab({
             <SidebarItemBadge hasCount={unread.total > 0}>
               <UnreadBadge highlight={unread.highlight > 0} count={unread.total} />
             </SidebarItemBadge>
+          )}
+          {hasCall && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                transform: 'translate(30%, -30%)',
+                zIndex: 1,
+                display: 'flex',
+                padding: config.borderWidth.B300,
+                backgroundColor: color.Background.Container,
+                borderRadius: config.radii.Pill,
+              }}
+            >
+              <Badge
+                aria-label={currentCallInSpace ? 'Current call' : 'Call in progress'}
+                variant={currentCallInSpace ? 'Success' : 'Secondary'}
+                fill="Solid"
+                radii="Pill"
+                size={folder ? '200' : '300'}
+              >
+                <Icon size="50" src={Icons.VolumeHigh} />
+              </Badge>
+            </div>
           )}
           {menuAnchor && (
             <PopOut
@@ -618,6 +678,9 @@ export function SpaceTabs({ scrollRef }: SpaceTabsProps) {
   const navToActivePath = useAtomValue(useNavToActivePathAtom());
   const [openedFolder, setOpenedFolder] = useAtom(useOpenedSidebarFolderAtom());
   const [draggingItem, setDraggingItem] = useState<SidebarDraggable>();
+  const callEmbed = useCallEmbed();
+  const callJoined = useCallJoined(callEmbed);
+  const activeCallRoomId = callJoined ? callEmbed?.roomId : undefined;
 
   useDnDMonitor(
     scrollRef,
@@ -815,6 +878,7 @@ export function SpaceTabs({ scrollRef }: SpaceTabsProps) {
                         key={space.roomId}
                         space={space}
                         selected={space.roomId === selectedSpaceId}
+                        activeCallRoomId={activeCallRoomId}
                         onClick={handleSpaceClick}
                         folder={item}
                         onDragging={setDraggingItem}
@@ -853,6 +917,7 @@ export function SpaceTabs({ scrollRef }: SpaceTabsProps) {
               key={space.roomId}
               space={space}
               selected={space.roomId === selectedSpaceId}
+              activeCallRoomId={activeCallRoomId}
               onClick={handleSpaceClick}
               onDragging={setDraggingItem}
               disabled={typeof draggingItem === 'string' ? draggingItem === space.roomId : false}

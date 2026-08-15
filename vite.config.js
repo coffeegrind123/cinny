@@ -9,6 +9,7 @@ import topLevelAwait from 'vite-plugin-top-level-await';
 import { VitePWA } from 'vite-plugin-pwa';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import buildConfig from './build.config';
 
 const copyFiles = {
@@ -108,6 +109,18 @@ export default defineConfig({
   appType: 'spa',
   publicDir: false,
   base: buildConfig.base,
+  resolve: {
+    // Bare `folds` resolves to our shim (src/folds/index.ts), which re-exports
+    // the real package but overrides the `Icons` enum with lucide-react icons.
+    // The regex matches only the exact specifier; `folds/dist/*` subpaths (CSS,
+    // types) still resolve to the package itself.
+    alias: [
+      {
+        find: /^folds$/,
+        replacement: fileURLToPath(new URL('./src/folds/index.ts', import.meta.url)),
+      },
+    ],
+  },
   server: {
     port: 8080,
     // Loopback only by default. `host: true` bound every interface, which —

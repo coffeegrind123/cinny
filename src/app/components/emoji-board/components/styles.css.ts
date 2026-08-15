@@ -6,9 +6,9 @@ import { toRem, color, config, DefaultReset, FocusOutline } from 'folds';
  */
 
 export const Base = style({
-  maxWidth: toRem(432),
+  maxWidth: toRem(498),
   width: `calc(100vw - 2 * ${config.space.S400})`,
-  height: toRem(450),
+  height: toRem(440),
   backgroundColor: color.Surface.Container,
   color: color.Surface.OnContainer,
   border: `${config.borderWidth.B300} solid ${color.Surface.ContainerLine}`,
@@ -159,3 +159,162 @@ export const StickerImg = style([
     objectFit: 'contain',
   },
 ]);
+
+/**
+ * GIF Picker
+ */
+
+export const GifPicker = style({
+  display: 'flex',
+  flexDirection: 'column',
+  width: '100%',
+  height: '100%',
+  // Allow the picker to shrink below its content so the inner scroll area can
+  // scroll instead of overflowing the fixed-height board.
+  minHeight: 0,
+});
+
+export const GifSearch = style({
+  padding: `${config.space.S200} ${config.space.S300} ${config.space.S200}`,
+});
+
+export const GifScrollWrap = style({
+  minHeight: 0,
+});
+
+// Masonry-style grid using CSS columns. Two columns with 12px gaps match
+// Discord's GIF picker layout within the 498px picker width.
+export const GifGrid = style({
+  columnCount: 2,
+  columnGap: config.space.S300,
+  padding: `0 ${config.space.S300} ${config.space.S100}`,
+  width: '100%',
+});
+
+export const GifTile = style([
+  DefaultReset,
+  FocusOutline,
+  {
+    // Anchor the absolutely-positioned favourite star to each tile.
+    position: 'relative',
+    // Avoid a tile being split across columns.
+    breakInside: 'avoid',
+    display: 'block',
+    width: '100%',
+    marginBottom: config.space.S100,
+    padding: 0,
+    border: 'none',
+    background: 'transparent',
+    borderRadius: config.radii.R300,
+    overflow: 'hidden',
+    cursor: 'pointer',
+
+    ':hover': {
+      backgroundColor: color.Surface.ContainerHover,
+    },
+  },
+]);
+
+export const GifTileImg = style([
+  DefaultReset,
+  {
+    display: 'block',
+    width: '100%',
+    height: 'auto',
+    objectFit: 'contain',
+  },
+]);
+
+export const GifStatus = style({
+  padding: `${config.space.S500} ${config.space.S400}`,
+});
+
+/**
+ * GIF Categories
+ */
+
+export const GifCategories = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: config.space.S100,
+  padding: `0 ${config.space.S300} ${config.space.S200}`,
+  flexShrink: 0,
+  overflowX: 'auto',
+  scrollbarWidth: 'none',
+  '::-webkit-scrollbar': {
+    display: 'none',
+  },
+});
+
+export const GifCategoryTab = style([
+  DefaultReset,
+  FocusOutline,
+  {
+    flexShrink: 0,
+    display: 'flex',
+    alignItems: 'center',
+    gap: config.space.S100,
+    padding: `${config.space.S100} ${config.space.S200}`,
+    borderRadius: config.radii.Pill,
+    border: `${config.borderWidth.B300} solid ${color.Surface.ContainerLine}`,
+    backgroundColor: color.SurfaceVariant.Container,
+    color: color.SurfaceVariant.OnContainer,
+    cursor: 'pointer',
+    fontSize: toRem(13),
+    whiteSpace: 'nowrap',
+
+    ':hover': {
+      backgroundColor: color.Surface.ContainerHover,
+    },
+  },
+]);
+
+export const GifCategoryTabActive = style({
+  backgroundColor: color.Primary.Container,
+  color: color.Primary.OnContainer,
+  borderColor: color.Primary.ContainerLine,
+});
+
+/**
+ * GIF Favorite button
+ */
+
+export const GifFavBtn = style([
+  DefaultReset,
+  FocusOutline,
+  {
+    position: 'absolute',
+    top: config.space.S100,
+    left: config.space.S100,
+    zIndex: 2,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: toRem(24),
+    height: toRem(24),
+    padding: 0,
+    border: 'none',
+    borderRadius: config.radii.Pill,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    color: color.Secondary.OnContainer,
+    cursor: 'pointer',
+    opacity: 0,
+    transition: 'opacity 150ms ease',
+
+    selectors: {
+      '&:hover': {
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      },
+    },
+  },
+]);
+
+export const GifFavBtnVisible = style({
+  opacity: 1,
+});
+
+export const GifFavBtnActive = style({
+  opacity: 1,
+  color: color.Primary.OnContainer,
+  backgroundColor: 'rgba(0, 0, 0, 0.55)',
+});

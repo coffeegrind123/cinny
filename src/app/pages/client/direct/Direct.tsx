@@ -1,101 +1,48 @@
-import { MouseEventHandler, forwardRef, useMemo, useRef, useState } from 'react';
-import { useAtomValue } from 'jotai';
+import { MouseEventHandler, forwardRef, useRef, useState } from 'react';
 import {
-  Avatar,
   Box,
   Button,
   Icon,
   IconButton,
   Icons,
   Menu,
-  MenuItem,
   PopOut,
   RectCords,
   Text,
   config,
   toRem,
 } from 'folds';
-import { useVirtualizer } from '@tanstack/react-virtual';
 import { FocusTrap } from 'focus-trap-react';
 import { useNavigate } from 'react-router-dom';
-import { useMatrixClient } from '../../../hooks/useMatrixClient';
-import { factoryRoomIdByActivity, factoryRoomIdByPinned } from '../../../utils/sort';
-import {
-  NavButton,
-  NavCategory,
-  NavCategoryHeader,
-  NavEmptyCenter,
-  NavEmptyLayout,
-  NavItem,
-  NavItemContent,
-} from '../../../components/nav';
-import { getDirectCreatePath, getDirectRoomPath } from '../../pathUtils';
-import { getCanonicalAliasOrRoomId } from '../../../utils/matrix';
-import { useSelectedRoom } from '../../../hooks/router/useSelectedRoom';
-import { VirtualTile } from '../../../components/virtualizer';
-import { RoomNavCategoryLabel, RoomNavItem } from '../../../features/room-nav';
-import { roomToUnreadAtom } from '../../../state/room/roomToUnread';
+import { NavCategory, NavEmptyCenter, NavEmptyLayout } from '../../../components/nav';
+import { getDirectCreatePath } from '../../pathUtils';
 import { useNavToActivePathMapper } from '../../../hooks/useNavToActivePathMapper';
 import { useDirectRooms } from './useDirectRooms';
 import { PageNav, PageNavContent, PageNavHeader } from '../../../components/page';
-import { useRoomsUnread } from '../../../state/hooks/unread';
-import { useRoomFavourites } from '../../../hooks/useRoomFavourites';
-import { markAsRead } from '../../../utils/notifications';
 import { stopPropagation } from '../../../utils/keyboard';
-import { useSetting } from '../../../state/hooks/settings';
-import { settingsAtom } from '../../../state/settings';
+import { useShellLayout } from '../../../hooks/useShellLayout';
 import {
-  getRoomNotificationMode,
-  useRoomsNotificationPreferencesContext,
-} from '../../../hooks/useRoomsNotificationPreferences';
-import { useDirectCreateSelected } from '../../../hooks/router/useDirectSelected';
+  DirectsNavActions,
+  DirectsNavList,
+  MarkAsReadMenuItem,
+  UnreadOnlyMenuItem,
+} from '../nav';
+import { Home } from '../home/Home';
 
 type DirectMenuProps = {
+  rooms: string[];
   requestClose: () => void;
 };
-const DirectMenu = forwardRef<HTMLDivElement, DirectMenuProps>(({ requestClose }, ref) => {
-  const mx = useMatrixClient();
-  const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
-  const [unreadOnly, setUnreadOnly] = useSetting(settingsAtom, 'unreadDirectsOnly');
-  const orphanRooms = useDirectRooms();
-  const unread = useRoomsUnread(orphanRooms, roomToUnreadAtom);
+const DirectMenu = forwardRef<HTMLDivElement, DirectMenuProps>(({ rooms, requestClose }, ref) => (
+  <Menu ref={ref} style={{ maxWidth: toRem(200), width: '100vw' }}>
+    <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
+      <UnreadOnlyMenuItem setting="unreadDirectsOnly">Show unread only</UnreadOnlyMenuItem>
+      <MarkAsReadMenuItem rooms={rooms} requestClose={requestClose} />
+    </Box>
+  </Menu>
+));
 
-  const handleMarkAsRead = () => {
-    if (!unread) return;
-    orphanRooms.forEach((rId) => markAsRead(mx, rId, hideActivity));
-    requestClose();
-  };
-
-  return (
-    <Menu ref={ref} style={{ maxWidth: toRem(200), width: '100vw' }}>
-      <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
-        <MenuItem
-          onClick={() => setUnreadOnly((v) => !v)}
-          size="300"
-          after={unreadOnly ? <Icon size="100" src={Icons.Check} /> : undefined}
-          radii="300"
-        >
-          <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
-            Show unread only
-          </Text>
-        </MenuItem>
-        <MenuItem
-          onClick={handleMarkAsRead}
-          size="300"
-          after={<Icon size="100" src={Icons.CheckTwice} />}
-          radii="300"
-          aria-disabled={!unread}
-        >
-          <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
-            Mark as Read
-          </Text>
-        </MenuItem>
-      </Box>
-    </Menu>
-  );
-});
-
-function DirectHeader() {
+function DirectHeader({ rooms }: { rooms: string[] }) {
   const [menuAnchor, setMenuAnchor] = useState<RectCords>();
 
   const handleOpenMenu: MouseEventHandler<HTMLButtonElement> = (evt) => {
@@ -139,7 +86,7 @@ function DirectHeader() {
               escapeDeactivates: stopPropagation,
             }}
           >
-            <DirectMenu requestClose={() => setMenuAnchor(undefined)} />
+            <DirectMenu rooms={rooms} requestClose={() => setMenuAnchor(undefined)} />
           </FocusTrap>
         }
       />
@@ -176,120 +123,41 @@ function DirectEmpty() {
   );
 }
 
-export function Direct() {
-  const mx = useMatrixClient();
+function DirectNav() {
   useNavToActivePathMapper('direct');
   const scrollRef = useRef<HTMLDivElement>(null);
   const directs = useDirectRooms();
-  const notificationPreferences = useRoomsNotificationPreferencesContext();
-  const roomToUnread = useAtomValue(roomToUnreadAtom);
-  const navigate = useNavigate();
-  const [unreadOnly] = useSetting(settingsAtom, 'unreadDirectsOnly');
-  const pinned = useRoomFavourites();
-
-  const createDirectSelected = useDirectCreateSelected();
-
-  const selectedRoomId = useSelectedRoom();
   const noRoomToDisplay = directs.length === 0;
-
-  const sortedDirects = useMemo(() => {
-    const items = Array.from(directs).sort(
-      factoryRoomIdByPinned(pinned, factoryRoomIdByActivity(mx))
-    );
-    if (unreadOnly) {
-      // A pin survives the filter by design: the point of pinning someone is to
-      // keep them reachable, which a filter that hides read chats would
-      // otherwise undo for exactly the chats you care most about.
-      return items.filter(
-        (rId) => pinned.has(rId) || roomToUnread.has(rId) || rId === selectedRoomId
-      );
-    }
-    return items;
-  }, [mx, directs, pinned, roomToUnread, selectedRoomId, unreadOnly]);
-
-  const virtualizer = useVirtualizer({
-    count: sortedDirects.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => 38,
-    overscan: 10,
-  });
 
   return (
     <PageNav resizable>
-      <DirectHeader />
+      <DirectHeader rooms={directs} />
       {noRoomToDisplay ? (
         <DirectEmpty />
       ) : (
         <PageNavContent scrollRef={scrollRef}>
           <Box direction="Column" gap="300">
             <NavCategory>
-              <NavItem variant="Background" radii="400" aria-selected={createDirectSelected}>
-                <NavButton onClick={() => navigate(getDirectCreatePath())}>
-                  <NavItemContent>
-                    <Box as="span" grow="Yes" alignItems="Center" gap="200">
-                      <Avatar size="200" radii="400">
-                        <Icon src={Icons.Plus} size="100" />
-                      </Avatar>
-                      <Box as="span" grow="Yes">
-                        <Text as="span" size="Inherit" truncate>
-                          Create Chat
-                        </Text>
-                      </Box>
-                    </Box>
-                  </NavItemContent>
-                </NavButton>
-              </NavItem>
+              <DirectsNavActions />
             </NavCategory>
-            <NavCategory>
-              <NavCategoryHeader>
-                {/*
-                  No collapse chevron here. There is only ever one category in
-                  this nav, and "collapsing" it did not hide anything — it
-                  filtered the list down to unread chats, which is precisely what
-                  "Show unread only" in the header menu does. Two controls, one
-                  behaviour, independent states, and nothing to say which was in
-                  charge. The menu item is now the only unread filter.
-                */}
-                <RoomNavCategoryLabel>Chats</RoomNavCategoryLabel>
-              </NavCategoryHeader>
-              <div
-                style={{
-                  position: 'relative',
-                  height: virtualizer.getTotalSize(),
-                }}
-              >
-                {virtualizer.getVirtualItems().map((vItem) => {
-                  const roomId = sortedDirects[vItem.index];
-                  const room = mx.getRoom(roomId);
-                  if (!room) return null;
-                  const selected = selectedRoomId === roomId;
-
-                  return (
-                    <VirtualTile
-                      virtualItem={vItem}
-                      key={vItem.index}
-                      ref={virtualizer.measureElement}
-                    >
-                      <RoomNavItem
-                        room={room}
-                        selected={selected}
-                        showAvatar
-                        direct
-                        pinnable
-                        linkPath={getDirectRoomPath(getCanonicalAliasOrRoomId(mx, roomId))}
-                        notificationMode={getRoomNotificationMode(
-                          notificationPreferences,
-                          room.roomId
-                        )}
-                      />
-                    </VirtualTile>
-                  );
-                })}
-              </div>
-            </NavCategory>
+            <DirectsNavList scrollRef={scrollRef} />
           </Box>
         </PageNavContent>
       )}
     </PageNav>
   );
+}
+
+/**
+ * `/direct` keeps its routes whichever way the shell is configured — deep
+ * links, `lastOpenedRoom` and the mobile swipe branching all address it — so
+ * merging the two navs is a question of what this route renders, not of
+ * removing it. Under `unifiedHomeSidebar` that is the Home nav, which lists
+ * these same chats.
+ */
+export function Direct() {
+  const layout = useShellLayout();
+
+  if (layout.directsInHome) return <Home />;
+  return <DirectNav />;
 }

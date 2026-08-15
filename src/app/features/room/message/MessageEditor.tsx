@@ -45,6 +45,7 @@ import {
   trimCustomHtml,
   useEditor,
   getMentions,
+  replaceShortcodeWithEmoji,
 } from '../../../components/editor';
 import { useSetting } from '../../../state/hooks/settings';
 import { settingsAtom } from '../../../state/settings';
@@ -55,6 +56,7 @@ import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { getEditedEvent, getMentionContent, trimReplyFromFormattedBody } from '../../../utils/room';
 import { mobileOrTablet } from '../../../utils/user-agent';
 import { useComposingCheck } from '../../../hooks/useComposingCheck';
+import { useEmojiShortcodeMap } from '../../../hooks/useEmojiShortcodeMap';
 
 type MessageEditorProps = {
   roomId: string;
@@ -75,6 +77,20 @@ export const MessageEditor = as<'div', MessageEditorProps>(
 
     const [autocompleteQuery, setAutocompleteQuery] =
       useState<AutocompleteQuery<AutocompletePrefix>>();
+
+    const emojiShortcodeMap = useEmojiShortcodeMap(imagePackRooms ?? []);
+
+    const [emojiShortcodeReplace] = useSetting(settingsAtom, 'emojiShortcodeReplace');
+    const handleEditorChange = useCallback(() => {
+      if (!emojiShortcodeReplace) return;
+      // Only look when the change actually introduced a ':'.
+      const hasColonInsert = editor.operations.some(
+        (op) => op.type === 'insert_text' && op.text.includes(':')
+      );
+      if (hasColonInsert) {
+        replaceShortcodeWithEmoji(editor, emojiShortcodeMap);
+      }
+    }, [editor, emojiShortcodeMap, emojiShortcodeReplace]);
 
     const getPrevBodyAndFormattedBody = useCallback((): [
       string | undefined,
@@ -265,6 +281,7 @@ export const MessageEditor = as<'div', MessageEditorProps>(
           placeholder="Edit message..."
           onKeyDown={handleKeyDown}
           onKeyUp={handleKeyUp}
+          onChange={handleEditorChange}
           bottom={
             <>
               <Box

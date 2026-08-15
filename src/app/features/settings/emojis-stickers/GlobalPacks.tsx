@@ -107,7 +107,7 @@ function GlobalPackSelector({
       <Header size="400" variant="Surface" style={{ padding: `0 ${config.space.S300}` }}>
         <Box grow="Yes">
           <Text size="L400" truncate>
-            Room Packs
+            Room Sets
           </Text>
         </Box>
         <Box shrink="No">
@@ -232,10 +232,10 @@ function GlobalPackSelector({
                   }}
                 >
                   <Text size="H5" align="Center">
-                    No Packs
+                    No Sets
                   </Text>
                   <Text size="T200" align="Center">
-                    Pack from rooms will appear here. You do not have any room with packs yet.
+                    Set from rooms will appear here. You do not have any room with sets yet.
                   </Text>
                 </Box>
               </SequenceCard>
@@ -420,7 +420,7 @@ export function GlobalPacks({ onViewPack }: GlobalPacksProps) {
   return (
     <>
       <Box direction="Column" gap="100">
-        <Text size="L400">Favorite Packs</Text>
+        <Text size="L400">Favorite Sets</Text>
         <SequenceCard
           className={SequenceCardStyle}
           variant="SurfaceVariant"
@@ -428,8 +428,8 @@ export function GlobalPacks({ onViewPack }: GlobalPacksProps) {
           gap="400"
         >
           <SettingTile
-            title="Select Pack"
-            description="Pick emojis and stickers pack from rooms to use in all rooms."
+            title="Select Set"
+            description="Pick emojis and stickers set from rooms to use in all rooms."
             after={
               <>
                 <Button

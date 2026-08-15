@@ -23,6 +23,7 @@ import {
   Header,
   config,
   Spinner,
+  TextArea,
 } from 'folds';
 import { FocusTrap } from 'focus-trap-react';
 import { SequenceCard } from '../../../components/sequence-card';
@@ -43,6 +44,18 @@ import { ModalWide } from '../../../styles/Modal.css';
 import { createUploadAtom, UploadSuccess } from '../../../state/upload';
 import { CompactUploadCardRenderer } from '../../../components/upload-card';
 import { useCapabilities } from '../../../hooks/useCapabilities';
+import {
+  getProfilePronouns,
+  getProfileBanner,
+  getProfileBiography,
+  MSC4247_PRONOUNS,
+  MSC4427_BANNER,
+  MSC4440_BIOGRAPHY,
+  ProfilePronoun,
+} from '../../../../types/matrix/profile';
+import { ProfilePreview } from './ProfilePreview';
+import * as previewCss from './ProfilePreview.css';
+import { useUserPresence } from '../../../hooks/useUserPresence';
 
 type ProfileProps = {
   profile: UserProfile;
@@ -57,7 +70,7 @@ function ProfileAvatar({ profile, userId }: ProfileProps) {
 
   const defaultDisplayName = profile.displayName ?? getMxIdLocalPart(userId) ?? userId;
   const avatarUrl = profile.avatarUrl
-    ? (mxcUrlToHttp(mx, profile.avatarUrl, useAuthentication, 96, 96, 'crop') ?? undefined)
+    ? mxcUrlToHttp(mx, profile.avatarUrl, useAuthentication, 96, 96, 'crop') ?? undefined
     : undefined;
 
   const [imageFile, setImageFile] = useState<File>();
@@ -79,7 +92,7 @@ function ProfileAvatar({ profile, userId }: ProfileProps) {
       mx.setAvatarUrl(mxc);
       handleRemoveUpload();
     },
-    [mx, handleRemoveUpload],
+    [mx, handleRemoveUpload]
   );
 
   const handleRemoveAvatar = () => {
@@ -205,6 +218,132 @@ function ProfileAvatar({ profile, userId }: ProfileProps) {
   );
 }
 
+type ProfileBannerProps = {
+  bannerMxc?: string;
+  onBannerChange: (bannerMxc: string | undefined) => void;
+};
+
+function ProfileBanner({ bannerMxc, onBannerChange }: ProfileBannerProps) {
+  const mx = useMatrixClient();
+  const useAuthentication = useMediaAuthentication();
+  const bannerUrl = bannerMxc
+    ? mxcUrlToHttp(mx, bannerMxc, useAuthentication) ?? undefined
+    : undefined;
+  const [imageFile, setImageFile] = useState<File>();
+  const imageFileUrl = useObjectURL(imageFile);
+  const [croppedFile, setCroppedFile] = useState<File>();
+  const croppedFileUrl = useObjectURL(croppedFile);
+  const uploadAtom = useMemo(
+    () => (croppedFile ? createUploadAtom(croppedFile) : undefined),
+    [croppedFile]
+  );
+  const pickFile = useFilePicker(setImageFile, false);
+
+  const handleUploaded = useCallback(
+    async (upload: UploadSuccess) => {
+      await mx.setExtendedProfileProperty(MSC4427_BANNER, upload.mxc);
+      onBannerChange(upload.mxc);
+      setImageFile(undefined);
+      setCroppedFile(undefined);
+    },
+    [mx, onBannerChange]
+  );
+
+  const handleRemove = async () => {
+    await mx.deleteExtendedProfileProperty(MSC4427_BANNER);
+    onBannerChange(undefined);
+  };
+
+  return (
+    <SettingTile
+      title={
+        <Text as="span" size="L400">
+          Banner
+        </Text>
+      }
+    >
+      <Box direction="Column" gap="200" grow="Yes">
+        <Box
+          style={{
+            aspectRatio: '3 / 1',
+            overflow: 'hidden',
+            borderRadius: config.radii.R300,
+          }}
+        >
+          {croppedFileUrl || imageFileUrl || bannerUrl ? (
+            <img
+              src={croppedFileUrl ?? imageFileUrl ?? bannerUrl}
+              alt="Banner preview"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : (
+            <Box justifyContent="Center" alignItems="Center" style={{ height: '100%' }}>
+              <Text size="T200" priority="300">
+                No banner set
+              </Text>
+            </Box>
+          )}
+        </Box>
+        {uploadAtom ? (
+          <CompactUploadCardRenderer
+            uploadAtom={uploadAtom}
+            onRemove={() => {
+              setImageFile(undefined);
+              setCroppedFile(undefined);
+            }}
+            onComplete={handleUploaded}
+          />
+        ) : (
+          <Box gap="200">
+            <Button
+              size="300"
+              variant="Secondary"
+              fill="Soft"
+              radii="300"
+              onClick={() => pickFile('image/*')}
+            >
+              <Text size="B300">{bannerUrl ? 'Change' : 'Upload'}</Text>
+            </Button>
+            {bannerUrl && (
+              <Button size="300" variant="Critical" fill="None" radii="300" onClick={handleRemove}>
+                <Text size="B300">Remove</Text>
+              </Button>
+            )}
+          </Box>
+        )}
+      </Box>
+      {imageFileUrl && (
+        <Overlay open backdrop={<OverlayBackdrop />}>
+          <OverlayCenter>
+            <FocusTrap
+              focusTrapOptions={{
+                initialFocus: false,
+                onDeactivate: () => setImageFile(undefined),
+                clickOutsideDeactivates: true,
+                escapeDeactivates: stopPropagation,
+              }}
+            >
+              <Modal className={ModalWide} variant="Surface" size="500">
+                <ImageEditor
+                  name={imageFile?.name ?? 'banner'}
+                  url={imageFileUrl}
+                  aspectRatio={3}
+                  outputWidth={1200}
+                  requestClose={() => setImageFile(undefined)}
+                  onApply={(file) => {
+                    setCroppedFile(file);
+                    setImageFile(undefined);
+                  }}
+                />
+              </Modal>
+            </FocusTrap>
+          </OverlayCenter>
+        </Overlay>
+      )}
+    </SettingTile>
+  );
+}
+
 function ProfileDisplayName({ profile, userId }: ProfileProps) {
   const mx = useMatrixClient();
   const capabilities = useCapabilities();
@@ -214,7 +353,7 @@ function ProfileDisplayName({ profile, userId }: ProfileProps) {
   const [displayName, setDisplayName] = useState<string>(defaultDisplayName);
 
   const [changeState, changeDisplayName] = useAsyncCallback(
-    useCallback((name: string) => mx.setDisplayName(name), [mx]),
+    useCallback((name: string) => mx.setDisplayName(name), [mx])
   );
   const changingDisplayName = changeState.status === AsyncStatus.Loading;
 
@@ -303,23 +442,262 @@ function ProfileDisplayName({ profile, userId }: ProfileProps) {
   );
 }
 
-export function Profile() {
+function ProfilePronouns({ profile }: { profile: UserProfile }) {
   const mx = useMatrixClient();
-  const userId = mx.getUserId()!;
-  const profile = useUserProfile(userId);
+  const current = getProfilePronouns(profile.extended);
+  const currentValue = current.map((pronoun) => pronoun.summary).join(', ');
+  const [value, setValue] = useState(currentValue);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => setValue(currentValue), [currentValue]);
+
+  const handleSubmit: FormEventHandler<HTMLFormElement> = async (event) => {
+    event.preventDefault();
+    const pronouns: ProfilePronoun[] = value
+      .split(',')
+      .map((summary) => summary.trim())
+      .filter(Boolean)
+      .map((summary) => ({ summary, language: 'en' }));
+    setSaving(true);
+    try {
+      await mx.setExtendedProfileProperty(
+        MSC4247_PRONOUNS,
+        pronouns.map(({ summary, language, grammaticalGender }) => ({
+          summary,
+          language,
+          ...(grammaticalGender ? { grammatical_gender: grammaticalGender } : {}),
+        }))
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
-    <Box direction="Column" gap="100">
-      <Text size="L400">Profile</Text>
-      <SequenceCard
-        className={SequenceCardStyle}
-        variant="SurfaceVariant"
-        direction="Column"
-        gap="400"
-      >
-        <ProfileAvatar userId={userId} profile={profile} />
-        <ProfileDisplayName userId={userId} profile={profile} />
-      </SequenceCard>
+    <SettingTile
+      title={
+        <Text as="span" size="L400">
+          Pronouns
+        </Text>
+      }
+      description="Separate multiple pronoun sets with commas."
+    >
+      <Box as="form" onSubmit={handleSubmit} gap="200" grow="Yes">
+        <Box grow="Yes" direction="Column">
+          <Input
+            aria-label="Pronouns"
+            value={value}
+            onChange={(event) => setValue(event.currentTarget.value)}
+            placeholder="they/them, she/her"
+            maxLength={128}
+            size="400"
+            variant="Secondary"
+            radii="300"
+          />
+        </Box>
+        <Button
+          type="submit"
+          size="400"
+          variant="Success"
+          fill="Solid"
+          radii="300"
+          disabled={saving || value === currentValue}
+        >
+          {saving && <Spinner variant="Success" fill="Solid" size="300" />}
+          <Text size="B400">Save</Text>
+        </Button>
+      </Box>
+    </SettingTile>
+  );
+}
+
+function ProfileStatus({ userId }: { userId: string }) {
+  const mx = useMatrixClient();
+  const presence = useUserPresence(userId);
+  const currentValue = presence?.status ?? '';
+  const [value, setValue] = useState(currentValue);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string>();
+
+  useEffect(() => setValue(currentValue), [currentValue]);
+
+  const handleSubmit: FormEventHandler<HTMLFormElement> = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+    setError(undefined);
+    try {
+      await mx.setPresence({
+        presence: presence?.presence ?? 'online',
+        status_msg: value.trim(),
+      });
+    } catch {
+      setError('Could not save your status. Try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <SettingTile
+      title={
+        <Text as="span" size="L400">
+          Status
+        </Text>
+      }
+      description="A short message shown with your presence."
+    >
+      <Box as="form" onSubmit={handleSubmit} direction="Column" gap="100" grow="Yes">
+        <Box gap="200" grow="Yes">
+          <Box grow="Yes" direction="Column">
+            <Input
+              aria-label="Status message"
+              value={value}
+              onChange={(event) => setValue(event.currentTarget.value)}
+              placeholder="What are you up to?"
+              maxLength={256}
+              size="400"
+              variant="Secondary"
+              radii="300"
+            />
+          </Box>
+          <Button
+            type="submit"
+            size="400"
+            variant="Success"
+            fill="Solid"
+            radii="300"
+            disabled={saving || value === currentValue}
+          >
+            {saving && <Spinner variant="Success" fill="Solid" size="300" />}
+            <Text size="B400">Save</Text>
+          </Button>
+        </Box>
+        {error && (
+          <Text role="alert" size="T200">
+            {error}
+          </Text>
+        )}
+      </Box>
+    </SettingTile>
+  );
+}
+
+function ProfileBiography({ profile }: { profile: UserProfile }) {
+  const mx = useMatrixClient();
+  const currentValue = getProfileBiography(profile.extended) ?? '';
+  const [value, setValue] = useState(currentValue);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => setValue(currentValue), [currentValue]);
+
+  const handleSubmit: FormEventHandler<HTMLFormElement> = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      if (value.trim()) {
+        await mx.setExtendedProfileProperty(MSC4440_BIOGRAPHY, {
+          'm.text': [{ body: value.trim() }],
+        });
+      } else {
+        await mx.deleteExtendedProfileProperty(MSC4440_BIOGRAPHY);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <SettingTile
+      title={
+        <Text as="span" size="L400">
+          Biography
+        </Text>
+      }
+      description="Public information shown on your profile."
+    >
+      <Box as="form" onSubmit={handleSubmit} direction="Column" gap="200" grow="Yes">
+        <TextArea
+          aria-label="Biography"
+          value={value}
+          onChange={(event) => setValue(event.currentTarget.value)}
+          placeholder="Tell people about yourself"
+          maxLength={1024}
+          rows={4}
+          resize="Vertical"
+          variant="Secondary"
+          radii="300"
+        />
+        <Box justifyContent="End" alignItems="Center" gap="200">
+          <Text size="T200" priority="300">
+            {value.length} / 1024
+          </Text>
+          <Button
+            type="submit"
+            size="300"
+            variant="Success"
+            fill="Solid"
+            radii="300"
+            disabled={saving || value === currentValue}
+          >
+            {saving && <Spinner variant="Success" fill="Solid" size="300" />}
+            <Text size="B300">Save</Text>
+          </Button>
+        </Box>
+      </Box>
+    </SettingTile>
+  );
+}
+
+export function Profile() {
+  const mx = useMatrixClient();
+  const userId = mx.getSafeUserId();
+  const profile = useUserProfile(userId);
+  const serverBannerMxc = getProfileBanner(profile.extended);
+  const [bannerOverride, setBannerOverride] = useState<{ value?: string }>();
+  const bannerMxc = bannerOverride ? bannerOverride.value : serverBannerMxc;
+
+  useEffect(() => {
+    if (bannerOverride && serverBannerMxc === bannerOverride.value) {
+      setBannerOverride(undefined);
+    }
+  }, [bannerOverride, serverBannerMxc]);
+
+  const handleBannerChange = useCallback((value: string | undefined) => {
+    setBannerOverride({ value });
+  }, []);
+  const requestEdit = () => {
+    document
+      .getElementById('profile-editor')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  return (
+    <Box className={previewCss.ProfilePage} direction="Column" gap="300">
+      <Text size="H3">Profile</Text>
+      <div className={previewCss.ProfileLayout}>
+        <ProfilePreview
+          profile={profile}
+          bannerMxc={bannerMxc}
+          userId={userId}
+          requestEdit={requestEdit}
+        />
+        <Box id="profile-editor" className={previewCss.EditorColumn} direction="Column" gap="200">
+          <Text size="L400">Edit Profile</Text>
+          <SequenceCard
+            className={SequenceCardStyle}
+            variant="SurfaceVariant"
+            direction="Column"
+            gap="400"
+          >
+            <ProfileAvatar userId={userId} profile={profile} />
+            <ProfileBanner bannerMxc={bannerMxc} onBannerChange={handleBannerChange} />
+            <ProfileDisplayName userId={userId} profile={profile} />
+            <ProfileStatus userId={userId} />
+            <ProfilePronouns profile={profile} />
+            <ProfileBiography profile={profile} />
+          </SequenceCard>
+        </Box>
+      </div>
     </Box>
   );
 }

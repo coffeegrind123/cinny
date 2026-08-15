@@ -30,7 +30,7 @@ import {
   getBlobSafeMimeType,
   getImageSafeMimeType,
 } from '../../utils/mimeTypes';
-import { parseGeoUri, scaleYDimension } from '../../utils/common';
+import { fitWithin, parseGeoUri, scaleYDimension } from '../../utils/common';
 import { Attachment, AttachmentBox, AttachmentContent, AttachmentHeader } from './attachment';
 import { FileHeader, FileDownloadButton } from './FileHeader';
 
@@ -199,12 +199,18 @@ export function MImage({ content, renderImageContent, outlined }: MImageProps) {
   if (typeof mxcUrl !== 'string') {
     return <BrokenContent />;
   }
-  const height = scaleYDimension(imgInfo?.w || 400, 400, imgInfo?.h || 400);
+  // Size the box to the image's own ratio rather than fixing the width and
+  // deriving a height: with `object-fit: cover` any mismatch between the two
+  // was resolved by cropping the image, so portrait attachments lost their top
+  // and bottom. Both dimensions come from `fitWithin`, and the CSS now uses
+  // `contain`, so nothing is cut off.
+  const [width, height] = fitWithin(imgInfo?.w, imgInfo?.h, 400, 600);
 
   return (
-    <Attachment outlined={outlined}>
+    <Attachment outlined={outlined} style={{ width: toRem(width) }}>
       <AttachmentBox
         style={{
+          width: toRem(width),
           height: toRem(height < 48 ? 48 : height),
         }}
       >

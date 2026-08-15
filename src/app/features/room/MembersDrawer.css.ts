@@ -75,3 +75,10 @@ export const DrawerVirtualItem = style({
   left: 0,
   width: '100%',
 });
+
+// Pulls the status line up against the name above it. Two stacked Text rows
+// leave more gap than the design wants, and the row height is fixed by the
+// virtualizer, so this is a nudge rather than a layout change.
+export const MemberStatus = style({
+  transform: `translateY(calc(-1 * ${config.space.S100}))`,
+});

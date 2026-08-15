@@ -161,7 +161,7 @@ export const createMentionElement = (
   name: string,
   highlight: boolean,
   eventId?: string,
-  viaServers?: string[]
+  viaServers?: string[],
 ): MentionElement => ({
   type: BlockType.Mention,
   id,
@@ -181,7 +181,7 @@ export const createEmoticonElement = (key: string, shortcode: string): EmoticonE
 
 export const createLinkElement = (
   href: string,
-  children: string | FormattedText[]
+  children: string | FormattedText[],
 ): LinkElement => ({
   type: BlockType.Link,
   href,
@@ -267,7 +267,7 @@ interface PointUntilCharOptions {
 export const getPointUntilChar = (
   editor: Editor,
   cursorPoint: BasePoint,
-  options: PointUntilCharOptions
+  options: PointUntilCharOptions,
 ): BasePoint | undefined => {
   let targetPoint: BasePoint | undefined;
   let prevPoint: BasePoint | undefined;
@@ -326,4 +326,66 @@ export const getBeginCommand = (editor: Editor): string | undefined => {
   if (Element.isElement(secondInline) && secondInline.type === BlockType.Command)
     return secondInline.command;
   return undefined;
+};
+
+export type EmojiReplacement = {
+  key: string;
+  shortcode: string;
+};
+
+const SHORTCODE_PATTERN = /:([a-zA-Z0-9_+-]+):$/;
+
+/**
+ * Checks if the text immediately before the cursor forms a `:shortcode:`
+ * pattern and, if the shortcode is found in the provided map, replaces
+ * that text range with an inline EmoticonElement.
+ *
+ * Returns true when a replacement was made.
+ */
+export const replaceShortcodeWithEmoji = (
+  editor: Editor,
+  emojiMap: Map<string, EmojiReplacement>,
+): boolean => {
+  const { selection } = editor;
+  if (!selection || !Range.isCollapsed(selection)) return false;
+
+  const [cursor] = Range.edges(selection);
+
+  // Skip when inside a code block or inline code
+  const codeBlockEntry = Editor.above(editor, {
+    at: cursor,
+    match: (n) => Element.isElement(n) && n.type === BlockType.CodeBlock,
+  });
+  if (codeBlockEntry) return false;
+
+  const marks = Editor.marks(editor);
+  if (marks?.code) return false;
+
+  // Get the text node at the cursor
+  const [node] = Editor.node(editor, cursor.path);
+  if (!Text.isText(node)) return false;
+
+  const text = node.text;
+  const offset = cursor.offset;
+
+  // Look for :shortcode: pattern ending at the cursor
+  const beforeCursor = text.slice(0, offset);
+  const match = beforeCursor.match(SHORTCODE_PATTERN);
+  if (!match) return false;
+
+  const shortcode = match[1].toLowerCase();
+  const emoji = emojiMap.get(shortcode);
+  if (!emoji) return false;
+
+  // Replace the :shortcode: text with an emoticon element
+  const startOffset = offset - match[0].length;
+  const range: BaseRange = {
+    anchor: { path: cursor.path, offset: startOffset },
+    focus: { path: cursor.path, offset },
+  };
+
+  replaceWithElement(editor, range, createEmoticonElement(emoji.key, emoji.shortcode));
+  moveCursor(editor, true);
+
+  return true;
 };

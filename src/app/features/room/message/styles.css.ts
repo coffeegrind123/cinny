@@ -3,6 +3,14 @@ import { DefaultReset, config, toRem } from 'folds';
 
 export const MessageBase = style({
   position: 'relative',
+  transition: 'opacity 200ms ease-out',
+});
+
+// Applied while the local echo is in flight. Fading back in on delivery is the
+// feedback: on a fast connection it is a flicker, and on a slow one it is the
+// difference between "sending" and "sent" without reading anything.
+export const MessageSending = style({
+  opacity: config.opacity.Disabled,
 });
 
 export const MessageReplyHighlight = style({
@@ -71,3 +79,17 @@ export const ReactionsContainer = style({
 export const ReactionsTooltipText = style({
   wordBreak: 'break-word',
 });
+
+// Dims the message while its local echo is still in flight, so a slow or
+// stalled send is visible as it happens rather than only once it fails.
+export const MessageStatusSending = style({
+  opacity: 0.5,
+});
+
+export const MessageFailedBar = style([
+  DefaultReset,
+  {
+    padding: `${config.space.S100} ${config.space.S200}`,
+    cursor: 'default',
+  },
+]);

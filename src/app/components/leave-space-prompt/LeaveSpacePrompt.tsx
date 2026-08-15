@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { FocusTrap } from 'focus-trap-react';
 import {
   Dialog,
@@ -15,11 +15,15 @@ import {
   color,
   Button,
   Spinner,
+  Checkbox,
 } from 'folds';
 import { MatrixError } from 'matrix-js-sdk';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { AsyncStatus, useAsyncCallback } from '../../hooks/useAsyncCallback';
 import { stopPropagation } from '../../utils/keyboard';
+import { getSpaceChildren } from '../../utils/room';
+import { Membership } from '../../../types/matrix/room';
+import { rateLimitedActions } from '../../utils/matrix';
 
 type LeaveSpacePromptProps = {
   roomId: string;
@@ -28,11 +32,28 @@ type LeaveSpacePromptProps = {
 };
 export function LeaveSpacePrompt({ roomId, onDone, onCancel }: LeaveSpacePromptProps) {
   const mx = useMatrixClient();
+  // Unchecked by default: leaving a space is one click, and leaving every room
+  // inside it is not undoable — an invite-only room you leave by accident may
+  // not be rejoinable at all. The user opts in per leave.
+  const [leaveRooms, setLeaveRooms] = useState(false);
 
   const [leaveState, leaveRoom] = useAsyncCallback<undefined, MatrixError, []>(
     useCallback(async () => {
-      mx.leave(roomId);
-    }, [mx, roomId])
+      if (leaveRooms) {
+        const space = mx.getRoom(roomId);
+        if (space) {
+          const childIds = getSpaceChildren(space).filter((childId) => {
+            const room = mx.getRoom(childId);
+            if (!room || room.isSpaceRoom()) return false;
+            return room.getMyMembership() === Membership.Join;
+          });
+          await rateLimitedActions(childIds, async (childId) => {
+            await mx.leave(childId);
+          });
+        }
+      }
+      await mx.leave(roomId);
+    }, [mx, roomId, leaveRooms])
   );
 
   const handleLeave = () => {
@@ -73,8 +94,22 @@ export function LeaveSpacePrompt({ roomId, onDone, onCancel }: LeaveSpacePromptP
               </IconButton>
             </Header>
             <Box style={{ padding: config.space.S400 }} direction="Column" gap="400">
-              <Box direction="Column" gap="200">
+              <Box direction="Column" gap="300">
                 <Text priority="400">Are you sure you want to leave this space?</Text>
+                <Box
+                  alignItems="Center"
+                  gap="200"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => setLeaveRooms((v) => !v)}
+                >
+                  <Checkbox
+                    size="300"
+                    variant="Primary"
+                    checked={leaveRooms}
+                    disabled={leaveState.status === AsyncStatus.Loading}
+                  />
+                  <Text size="T300">Also leave all rooms in this space</Text>
+                </Box>
                 {leaveState.status === AsyncStatus.Error && (
                   <Text style={{ color: color.Critical.Main }} size="T300">
                     Failed to leave space! {leaveState.error.message}

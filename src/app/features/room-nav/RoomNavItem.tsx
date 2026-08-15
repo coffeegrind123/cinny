@@ -23,13 +23,20 @@ import { useAtom, useAtomValue } from 'jotai';
 import { NavItem, NavItemContent, NavItemOptions, NavLink } from '../../components/nav';
 import { UnreadBadge, UnreadBadgeCenter } from '../../components/unread-badge';
 import { RoomAvatar, RoomIcon } from '../../components/room-avatar';
-import { getDirectRoomAvatarUrl, getRoomAvatarUrl, getStateEvent } from '../../utils/room';
+import { CallMembership } from 'matrix-js-sdk/lib/matrixrtc/CallMembership';
+import {
+  getDirectRoomAvatarUrl,
+  getMemberAvatarMxc,
+  getMemberDisplayName,
+  getRoomAvatarUrl,
+  getStateEvent,
+} from '../../utils/room';
 import { nameInitials } from '../../utils/common';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { useRoomUnread } from '../../state/hooks/unread';
 import { roomToUnreadAtom } from '../../state/room/roomToUnread';
 import { getPowersLevelFromMatrixEvent, usePowerLevels } from '../../hooks/usePowerLevels';
-import { copyToClipboard } from '../../utils/dom';
+import { copyToClipboard, getMouseEventCords } from '../../utils/dom';
 import { markAsRead } from '../../utils/notifications';
 import { UseStateProvider } from '../../components/UseStateProvider';
 import { LeaveRoomPrompt } from '../../components/leave-room-prompt';
@@ -37,9 +44,17 @@ import { useRoomTypingMember } from '../../hooks/useRoomTypingMembers';
 import { TypingIndicator } from '../../components/typing-indicator';
 import { stopPropagation } from '../../utils/keyboard';
 import { getMatrixToRoom } from '../../plugins/matrix-to';
-import { getCanonicalAliasOrRoomId, guessDmRoomUserId, isRoomAlias } from '../../utils/matrix';
+import {
+  getCanonicalAliasOrRoomId,
+  getMxIdLocalPart,
+  guessDmRoomUserId,
+  isRoomAlias,
+  mxcUrlToHttp,
+} from '../../utils/matrix';
 import { getViaServers } from '../../plugins/via-servers';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
+import { UserAvatar } from '../../components/user-avatar';
+import { useOpenUserRoomProfile } from '../../state/hooks/userRoomProfile';
 import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
 import { useOpenRoomSettings } from '../../state/hooks/roomSettings';
@@ -64,6 +79,7 @@ import { AvatarPresence, PresenceBadge } from '../../components/presence';
 import { StateEvent } from '../../../types/matrix/room';
 import { webRTCSupported } from '../../utils/rtc';
 import { useRoomFavourite, useToggleRoomFavourite } from '../../hooks/useRoomFavourites';
+import * as css from './styles.css';
 
 type RoomNavItemMenuProps = {
   room: Room;
@@ -253,7 +269,7 @@ const RoomNavItemMenu = forwardRef<HTMLDivElement, RoomNavItemMenuProps>(
         </Box>
       </Menu>
     );
-  }
+  },
 );
 
 function CallChatToggle() {
@@ -271,6 +287,66 @@ function CallChatToggle() {
     >
       <Icon size="50" src={Icons.Message} filled={chat} />
     </IconButton>
+  );
+}
+
+type CallNavItemMembersProps = {
+  room: Room;
+  members: CallMembership[];
+};
+function CallNavItemMembers({ room, members }: CallNavItemMembersProps) {
+  const mx = useMatrixClient();
+  const useAuthentication = useMediaAuthentication();
+  const openUserProfile = useOpenUserRoomProfile();
+
+  return (
+    <Box
+      direction="Column"
+      gap="100"
+      style={{ padding: `${config.space.S100} 0 ${config.space.S100} ${config.space.S500}` }}
+    >
+      {members.map((callMember) => {
+        const userId = callMember.sender;
+        if (!userId) return null;
+        const name = getMemberDisplayName(room, userId) ?? getMxIdLocalPart(userId) ?? userId;
+        const avatarMxc = getMemberAvatarMxc(room, userId);
+        const avatarUrl = avatarMxc
+          ? (mxcUrlToHttp(mx, avatarMxc, useAuthentication, 96, 96) ?? undefined)
+          : undefined;
+
+        return (
+          <Box
+            key={callMember.memberId}
+            as="button"
+            className={css.CallNavItemMember}
+            alignItems="Center"
+            gap="200"
+            shrink="No"
+            onClick={(evt: React.MouseEvent<HTMLButtonElement>) =>
+              openUserProfile(
+                room.roomId,
+                undefined,
+                userId,
+                getMouseEventCords(evt.nativeEvent),
+                'Right',
+              )
+            }
+          >
+            <Avatar size="200" radii="400">
+              <UserAvatar
+                userId={userId}
+                src={avatarUrl}
+                alt={name}
+                renderFallback={() => <Icon size="50" src={Icons.User} filled />}
+              />
+            </Avatar>
+            <Text size="T300" priority="300" truncate>
+              {name}
+            </Text>
+          </Box>
+        );
+      })}
+    </Box>
   );
 }
 
@@ -309,7 +385,7 @@ export function RoomNavItem({
   const [menuAnchor, setMenuAnchor] = useState<RectCords>();
   const unread = useRoomUnread(room.roomId, roomToUnreadAtom);
   const typingMember = useRoomTypingMember(room.roomId).filter(
-    (receipt) => receipt.userId !== mx.getUserId()
+    (receipt) => receipt.userId !== mx.getUserId(),
   );
 
   const roomName = useRoomName(room);
@@ -347,7 +423,7 @@ export function RoomNavItem({
 
     const hasCallPermission = permissions.stateEvent(
       StateEvent.GroupCallMemberPrefix,
-      mx.getSafeUserId()
+      mx.getSafeUserId(),
     );
 
     // Do not join if missing permissions or no livekit support or no webRTC support
@@ -374,6 +450,7 @@ export function RoomNavItem({
       aria-selected={selected}
       data-hover={!!menuAnchor}
       onContextMenu={handleContextMenu}
+      style={callMembers.length > 0 ? { flexWrap: 'wrap' } : undefined}
       {...hoverProps}
       {...focusWithinProps}
     >
@@ -383,9 +460,11 @@ export function RoomNavItem({
             <AvatarPresence
               badge={
                 dmUserPresence ? (
-                  <PresenceBadge presence={
-                    dmUserPresence.presence
-                  } status={dmUserPresence.status} size="200" />
+                  <PresenceBadge
+                    presence={dmUserPresence.presence}
+                    status={dmUserPresence.status}
+                    size="200"
+                  />
                 ) : null
               }
             >
@@ -443,13 +522,6 @@ export function RoomNavItem({
                 aria-label={notificationMode}
               />
             )}
-            {callMembers.length > 0 && (
-              <Badge variant="Critical" fill="Solid" size="400">
-                <Text as="span" size="L400" truncate>
-                  {callMembers.length} Live
-                </Text>
-              </Badge>
-            )}
           </Box>
         </NavItemContent>
       </NavLink>
@@ -501,6 +573,11 @@ export function RoomNavItem({
             </IconButton>
           </PopOut>
         </NavItemOptions>
+      )}
+      {callMembers.length > 0 && (
+        <Box style={{ flexBasis: '100%', width: '100%' }}>
+          <CallNavItemMembers room={room} members={callMembers} />
+        </Box>
       )}
     </NavItem>
   );

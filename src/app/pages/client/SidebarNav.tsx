@@ -9,7 +9,9 @@ import {
 } from '../../components/sidebar';
 import {
   DirectTab,
+  DirectRailButtons,
   HomeTab,
+  RoomsTab,
   SpaceTabs,
   InboxTab,
   ExploreTab,
@@ -18,9 +20,11 @@ import {
   SearchTab,
 } from './sidebar';
 import { CreateTab } from './sidebar/CreateTab';
+import { useShellLayout } from '../../hooks/useShellLayout';
 
 export function SidebarNav() {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const layout = useShellLayout();
 
   return (
     <Sidebar>
@@ -29,8 +33,10 @@ export function SidebarNav() {
           <Scroll ref={scrollRef} variant="Background" size="0">
             <SidebarStack>
               <HomeTab />
-              <DirectTab />
+              {layout.roomsPseudoSpace && <RoomsTab />}
+              {layout.directTab && <DirectTab />}
             </SidebarStack>
+            {layout.dmRailButtons && <DirectRailButtons />}
             <SpaceTabs scrollRef={scrollRef} />
             <SidebarStackSeparator />
             <SidebarStack>
@@ -45,8 +51,9 @@ export function SidebarNav() {
             <SidebarStack>
               <SearchTab />
               <UnverifiedTab />
-              <InboxTab />
-              <SettingsTab />
+              {/* Both move into the top bar when there is one to move into. */}
+              {!layout.topBar && <InboxTab />}
+              {!layout.topBarProfile && <SettingsTab />}
             </SidebarStack>
           </>
         }

@@ -65,7 +65,7 @@ export function RoomMessageResults({ room, term, onOpen }: RoomMessageResultsPro
       order: SearchOrderBy.Recent,
       rooms: [room.roomId],
     }),
-    [term, room.roomId]
+    [term, room.roomId],
   );
 
   const serverSearchMessages = useMessageSearch(msgSearchParams);
@@ -110,7 +110,7 @@ export function RoomMessageResults({ room, term, onOpen }: RoomMessageResultsPro
   const autoBudgetLeft = autoPagesRef.current < MAX_AUTO_SEARCH_PAGES;
   const resultCount = useMemo(
     () => groups.reduce((total, group) => total + group.items.length, 0),
-    [groups]
+    [groups],
   );
   const stillScanning = resultCount < MIN_RESULTS_BEFORE_PAUSE && hasNextPage && autoBudgetLeft;
   useEffect(() => {

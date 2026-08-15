@@ -1,8 +1,16 @@
 import { style } from '@vanilla-extract/css';
 import { color, config, toRem } from 'folds';
 
-export const LiveChipText = style({
-  color: color.Critical.Main,
+export const LiveSpeakerIcon = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  color: color.Success.Main,
+});
+
+export const LiveTimer = style({
+  color: color.Success.Main,
+  fontVariantNumeric: 'tabular-nums',
 });
 
 export const CallStatus = style([

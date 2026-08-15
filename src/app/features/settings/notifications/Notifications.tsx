@@ -4,6 +4,7 @@ import { SystemNotification } from './SystemNotification';
 import { AllMessagesNotifications } from './AllMessages';
 import { SpecialMessagesNotifications } from './SpecialMessages';
 import { KeywordMessagesNotifications } from './KeywordMessages';
+import { ResetNotification } from './ResetNotification';
 import { SequenceCard } from '../../../components/sequence-card';
 import { SequenceCardStyle } from '../styles.css';
 import { SettingTile } from '../../../components/setting-tile';
@@ -37,6 +38,7 @@ export function Notifications({ requestClose }: NotificationsProps) {
                 <AllMessagesNotifications />
                 <SpecialMessagesNotifications />
                 <KeywordMessagesNotifications />
+                <ResetNotification />
                 <Box direction="Column" gap="100">
                   <Text size="L400">Block Messages</Text>
                   <SequenceCard

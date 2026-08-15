@@ -17,5 +17,5 @@ export const useEmojiGroupIcons = (): IEmojiGroupIcons =>
       [EmojiGroupId.Symbol]: Icons.Peace,
       [EmojiGroupId.Flag]: Icons.Flag,
     }),
-    []
+    [],
   );

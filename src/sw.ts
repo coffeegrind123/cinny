@@ -150,11 +150,17 @@ function validMediaRequest(url: string, baseUrl: string): boolean {
   });
 }
 
-function fetchConfig(token: string): RequestInit {
+function fetchConfig(token: string, request: Request): RequestInit {
+  // Carry the original request's headers over and add Authorization on top,
+  // rather than sending Authorization alone. Range is the one that matters:
+  // dropping it made the server answer 200 with the whole file instead of 206
+  // with the requested slice, so seeking inside authenticated audio and video
+  // silently did nothing.
+  const headers = new Headers(request.headers);
+  headers.set('Authorization', `Bearer ${token}`);
+
   return {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
     cache: 'default',
   };
 }
@@ -320,12 +326,12 @@ async function handleMediaRequest(request: Request, clientId: string): Promise<R
     invalidateSession(clientId);
     const late = await requestSessionWithTimeout(clientId);
     if (late && validMediaRequest(url, late.baseUrl)) {
-      return fetch(url, fetchConfig(late.accessToken));
+      return fetch(url, fetchConfig(late.accessToken, request));
     }
     return passthrough;
   }
 
-  const res = await fetch(url, fetchConfig(session.accessToken));
+  const res = await fetch(url, fetchConfig(session.accessToken, request));
 
   // A 401 here almost always means the cached token is stale: the client
   // refreshed its access token (or re-logged-in in the same tab) after we
@@ -346,7 +352,7 @@ async function handleMediaRequest(request: Request, clientId: string): Promise<R
       fresh.accessToken !== staleToken &&
       validMediaRequest(url, fresh.baseUrl)
     ) {
-      return fetch(url, fetchConfig(fresh.accessToken));
+      return fetch(url, fetchConfig(fresh.accessToken, request));
     }
   }
 

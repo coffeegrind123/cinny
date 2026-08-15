@@ -39,7 +39,7 @@ import {
   NavLink,
 } from '../../../components/nav';
 import { getSpaceLobbyPath, getSpaceRoomPath, getSpaceSearchPath } from '../../pathUtils';
-import { getCanonicalAliasOrRoomId, isRoomAlias } from '../../../utils/matrix';
+import { getCanonicalAliasOrRoomId, isRoomAlias, rateLimitedActions } from '../../../utils/matrix';
 import { useSelectedRoom } from '../../../hooks/router/useSelectedRoom';
 import {
   useSpaceLobbySelected,
@@ -47,16 +47,24 @@ import {
 } from '../../../hooks/router/useSelectedSpace';
 import { useSpace } from '../../../hooks/useSpace';
 import { VirtualTile } from '../../../components/virtualizer';
-import { RoomNavCategoryButton, RoomNavItem } from '../../../features/room-nav';
+import { RoomNavCategoryButton, SortableRoomNavItem } from '../../../features/room-nav';
 import { makeNavCategoryId } from '../../../state/closedNavCategories';
 import { roomToUnreadAtom } from '../../../state/room/roomToUnread';
 import { useCategoryHandler } from '../../../hooks/useCategoryHandler';
 import { useNavToActivePathMapper } from '../../../hooks/useNavToActivePathMapper';
 import { useRoomName } from '../../../hooks/useRoomMeta';
 import { useSpaceJoinedHierarchy } from '../../../hooks/useSpaceHierarchy';
+import {
+  useRoomOrderContent,
+  useReorderRoom,
+  useRoomSortMode,
+  getRoomSortMode,
+  setRoomSortMode,
+} from '../../../hooks/useRoomOrder';
+import { RoomSortMode } from '../../../../types/matrix/accountData';
 import { allRoomsAtom } from '../../../state/room-list/roomList';
 import { PageNav, PageNavContent, PageNavHeader } from '../../../components/page';
-import { usePowerLevels } from '../../../hooks/usePowerLevels';
+import { usePowerLevels, useRoomsPowerLevels } from '../../../hooks/usePowerLevels';
 import { useRecursiveChildScopeFactory, useSpaceChildren } from '../../../state/hooks/roomList';
 import { roomToParentsAtom } from '../../../state/room/roomToParents';
 import { markAsRead } from '../../../utils/notifications';
@@ -76,15 +84,17 @@ import {
   getRoomNotificationMode,
   useRoomsNotificationPreferencesContext,
 } from '../../../hooks/useRoomsNotificationPreferences';
+import { SpaceNotificationModeSwitcher } from '../../../components/SpaceNotificationSwitcher';
 import { useOpenSpaceSettings } from '../../../state/hooks/spaceSettings';
 import { useRoomNavigate } from '../../../hooks/useRoomNavigate';
-import { useRoomCreators } from '../../../hooks/useRoomCreators';
-import { useRoomPermissions } from '../../../hooks/useRoomPermissions';
+import { getRoomCreatorsForRoomId, useRoomCreators } from '../../../hooks/useRoomCreators';
+import { getRoomPermissionsAPI, useRoomPermissions } from '../../../hooks/useRoomPermissions';
 import { ContainerColor } from '../../../styles/ContainerColor.css';
 import { AsyncStatus, useAsyncCallback } from '../../../hooks/useAsyncCallback';
 import { BreakWord } from '../../../styles/Text.css';
 import { InviteUserPrompt } from '../../../components/invite-user-prompt';
 import { useCallEmbed } from '../../../hooks/useCallEmbed';
+import { ASCIILexicalTable, orderKeys } from '../../../utils/ASCIILexicalTable';
 
 type SpaceMenuProps = {
   room: Room;
@@ -97,6 +107,12 @@ const SpaceMenu = forwardRef<HTMLDivElement, SpaceMenuProps>(({ room, requestClo
   const roomToParents = useAtomValue(roomToParentsAtom);
   const powerLevels = usePowerLevels(room);
   const creators = useRoomCreators(room);
+  const sortMode = useRoomSortMode(room.roomId);
+
+  const handleSortChange = (mode: RoomSortMode) => {
+    setRoomSortMode(mx, room.roomId, mode);
+    requestClose();
+  };
 
   const permissions = useRoomPermissions(creators, powerLevels);
   const canInvite = permissions.action('invite', mx.getSafeUserId());
@@ -105,6 +121,7 @@ const SpaceMenu = forwardRef<HTMLDivElement, SpaceMenuProps>(({ room, requestClo
 
   const [invitePrompt, setInvitePrompt] = useState(false);
 
+  const notificationPreferences = useRoomsNotificationPreferencesContext();
   const allChild = useSpaceChildren(
     allRoomsAtom,
     room.roomId,
@@ -159,6 +176,63 @@ const SpaceMenu = forwardRef<HTMLDivElement, SpaceMenuProps>(({ room, requestClo
         >
           <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
             Mark as Read
+          </Text>
+        </MenuItem>
+        <SpaceNotificationModeSwitcher roomIds={allChild} preferences={notificationPreferences}>
+          {(handleOpen, opened, changing) => (
+            <MenuItem
+              size="300"
+              after={
+                changing ? (
+                  <Spinner size="100" variant="Secondary" />
+                ) : (
+                  <Icon size="100" src={Icons.Bell} />
+                )
+              }
+              radii="300"
+              aria-pressed={opened}
+              onClick={handleOpen}
+            >
+              <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+                Notifications
+              </Text>
+            </MenuItem>
+          )}
+        </SpaceNotificationModeSwitcher>
+      </Box>
+      <Line variant="Surface" size="300" />
+      <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
+        <Text size="L400">Sort by</Text>
+        <MenuItem
+          onClick={() => handleSortChange('default')}
+          size="300"
+          after={
+            <Icon
+              size="100"
+              src={Icons.Check}
+              style={{ visibility: sortMode === 'default' ? 'visible' : 'hidden' }}
+            />
+          }
+          radii="300"
+        >
+          <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+            Default
+          </Text>
+        </MenuItem>
+        <MenuItem
+          onClick={() => handleSortChange('custom')}
+          size="300"
+          after={
+            <Icon
+              size="100"
+              src={Icons.Check}
+              style={{ visibility: sortMode === 'custom' ? 'visible' : 'hidden' }}
+            />
+          }
+          radii="300"
+        >
+          <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+            Custom
           </Text>
         </MenuItem>
       </Box>
@@ -386,6 +460,7 @@ export function Space() {
   const allRooms = useAtomValue(allRoomsAtom);
   const allJoinedRooms = useMemo(() => new Set(allRooms), [allRooms]);
   const notificationPreferences = useRoomsNotificationPreferencesContext();
+  const lex = useMemo(() => new ASCIILexicalTable(' '.charCodeAt(0), '~'.charCodeAt(0), 6), []);
 
   const tombstoneEvent = useStateEvent(space, StateEvent.RoomTombstone);
   const selectedRoomId = useSelectedRoom();
@@ -405,6 +480,12 @@ export function Space() {
     [mx, allJoinedRooms]
   );
 
+  const roomOrderContent = useRoomOrderContent();
+  const sortMode = getRoomSortMode(roomOrderContent, space.roomId);
+  const { orders } = roomOrderContent;
+  const customOrders = useMemo(() => orders ?? {}, [orders]);
+  const reorderRoom = useReorderRoom(space.roomId);
+
   const hierarchy = useSpaceJoinedHierarchy(
     space.roomId,
     getRoom,
@@ -422,6 +503,83 @@ export function Space() {
     useCallback(
       (sId) => closedCategories.has(makeNavCategoryId(space.roomId, sId)),
       [closedCategories, space.roomId]
+    ),
+    sortMode,
+    customOrders
+  );
+
+  const parentRooms = useMemo(
+    () =>
+      hierarchy
+        .filter((item) => 'space' in item)
+        .map((item) => getRoom(item.roomId))
+        .filter((room): room is Room => room !== undefined),
+    [hierarchy, getRoom]
+  );
+  const roomsPowerLevels = useRoomsPowerLevels(parentRooms);
+
+  const canReorderInParent = useCallback(
+    (parentId: string): boolean => {
+      if (sortMode === 'custom') return true;
+
+      const powerLevels = roomsPowerLevels.get(parentId);
+      if (!powerLevels || !getRoom(parentId)) return false;
+
+      const creators = getRoomCreatorsForRoomId(mx, parentId);
+      const permissions = getRoomPermissionsAPI(creators, powerLevels);
+      return permissions.stateEvent(StateEvent.SpaceChild, mx.getSafeUserId());
+    },
+    [mx, getRoom, roomsPowerLevels, sortMode]
+  );
+
+  const [reorderState, handleReorder] = useAsyncCallback(
+    useCallback(
+      async (parentId: string, fromRoomId: string, toRoomId: string) => {
+        const sectionRooms = hierarchy.filter(
+          (item) => !('space' in item) && item.parentId === parentId
+        );
+        const orderedRoomIds = sectionRooms.map((item) => item.roomId);
+        const filtered = orderedRoomIds.filter((roomId) => roomId !== fromRoomId);
+        const toIndex = filtered.indexOf(toRoomId);
+        if (toIndex === -1) return;
+        filtered.splice(toIndex, 0, fromRoomId);
+
+        if (sortMode === 'custom') {
+          reorderRoom(parentId, filtered);
+          return;
+        }
+
+        if (!canReorderInParent(parentId)) return;
+
+        const itemByRoomId = new Map(sectionRooms.map((item) => [item.roomId, item]));
+        const reorderedItems = filtered.flatMap((roomId) => {
+          const item = itemByRoomId.get(roomId);
+          return item ? [item] : [];
+        });
+        const currentOrders = reorderedItems.map((item) => {
+          if (item.roomId === fromRoomId) return undefined;
+          if (typeof item.content.order === 'string' && lex.has(item.content.order)) {
+            return item.content.order;
+          }
+          return undefined;
+        });
+        const newOrders = orderKeys(lex, currentOrders);
+        if (!newOrders) return;
+
+        const reorders = newOrders
+          .map((orderKey, index) => ({ item: reorderedItems[index], orderKey }))
+          .filter(({ orderKey }, index) => orderKey !== currentOrders[index]);
+
+        await rateLimitedActions(reorders, ({ item, orderKey }) =>
+          mx.sendStateEvent(
+            parentId,
+            StateEvent.SpaceChild as any,
+            { ...item.content, order: orderKey },
+            item.roomId
+          )
+        );
+      },
+      [mx, hierarchy, sortMode, reorderRoom, canReorderInParent, lex]
     )
   );
 
@@ -521,14 +679,29 @@ export function Space() {
 
               return (
                 <VirtualTile virtualItem={vItem} key={vItem.index} ref={virtualizer.measureElement}>
-                  <RoomNavItem
-                    room={room}
-                    selected={selectedRoomId === roomId}
-                    showAvatar={mDirects.has(roomId)}
-                    direct={mDirects.has(roomId)}
-                    linkPath={getToLink(roomId)}
-                    notificationMode={getRoomNotificationMode(notificationPreferences, room.roomId)}
-                  />
+                  {(() => {
+                    const item = hierarchy[vItem.index];
+                    const parentId = item && !('space' in item) ? item.parentId : space.roomId;
+                    return (
+                      <SortableRoomNavItem
+                        room={room}
+                        selected={selectedRoomId === roomId}
+                        showAvatar={mDirects.has(roomId)}
+                        direct={mDirects.has(roomId)}
+                        linkPath={getToLink(roomId)}
+                        notificationMode={getRoomNotificationMode(
+                          notificationPreferences,
+                          room.roomId
+                        )}
+                        parentId={parentId}
+                        onReorder={handleReorder}
+                        canReorder={
+                          reorderState.status !== AsyncStatus.Loading &&
+                          canReorderInParent(parentId)
+                        }
+                      />
+                    );
+                  })()}
                 </VirtualTile>
               );
             })}

@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { IContent, MsgType } from 'matrix-js-sdk';
 import { HTMLReactParserOptions } from 'html-react-parser';
 import { Opts } from 'linkifyjs';
-import { config } from 'folds';
+import { Box, config } from 'folds';
 import {
   AudioContent,
   DownloadFile,
@@ -35,6 +35,10 @@ import { testMatrixTo } from '../plugins/matrix-to';
 import { IAudioContent, IImageContent } from '../../types/matrix/common';
 import { getVoiceAudioBlock, isVoiceMessageContent } from '../utils/voice-message';
 import { effectForMsgType } from '../plugins/effects';
+import { isMediaAutoEmbedUrl } from '../utils/mediaAutoEmbed';
+import { MediaAutoEmbed } from './message/content';
+import { useSetting } from '../state/hooks/settings';
+import { settingsAtom } from '../state/settings';
 
 type RenderMessageContentProps = {
   displayName: string;
@@ -64,15 +68,34 @@ export function RenderMessageContent({
   outlineAttachment,
   renderLocationMap,
 }: RenderMessageContentProps) {
+  const [autoEmbedHosts] = useSetting(settingsAtom, 'mediaAutoEmbedHosts');
   const renderUrlsPreview = (urls: string[]) => {
     const filteredUrls = urls.filter((url) => !testMatrixTo(url));
     if (filteredUrls.length === 0) return undefined;
+
+    // A direct video link on a trusted host is played in place; everything else
+    // gets the usual preview card. The trusted list is empty by default, so
+    // this partition is a no-op until the user fills it in.
+    const mediaUrls = filteredUrls.filter((url) => isMediaAutoEmbedUrl(url, autoEmbedHosts));
+    const previewUrls = filteredUrls.filter((url) => !isMediaAutoEmbedUrl(url, autoEmbedHosts));
+
     return (
-      <UrlPreviewHolder>
-        {filteredUrls.map((url) => (
-          <UrlPreviewCard key={url} url={url} ts={ts} />
-        ))}
-      </UrlPreviewHolder>
+      <>
+        {mediaUrls.length > 0 && (
+          <Box direction="Column" gap="200" style={{ marginTop: config.space.S200 }}>
+            {mediaUrls.map((url) => (
+              <MediaAutoEmbed key={url} url={url} autoLoad={mediaAutoLoad} />
+            ))}
+          </Box>
+        )}
+        {previewUrls.length > 0 && (
+          <UrlPreviewHolder>
+            {previewUrls.map((url) => (
+              <UrlPreviewCard key={url} url={url} ts={ts} />
+            ))}
+          </UrlPreviewHolder>
+        )}
+      </>
     );
   };
   const renderCaption = () => {
@@ -232,7 +255,7 @@ export function RenderMessageContent({
                     )
                   : undefined
               }
-              renderVideo={(p) => <Video {...p} />}
+              renderVideo={({ videoRef, ...p }) => <Video {...p} ref={videoRef} />}
             />
           )}
           outlined={outlineAttachment}

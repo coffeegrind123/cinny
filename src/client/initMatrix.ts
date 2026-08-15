@@ -1,9 +1,16 @@
 import { createClient, MatrixClient, IndexedDBStore, IndexedDBCryptoStore } from 'matrix-js-sdk';
+import {
+  AllDevicesIsolationMode,
+  OnlySignedDevicesIsolationMode,
+} from 'matrix-js-sdk/lib/crypto-api';
 
 import { cryptoCallbacks } from './secretStorageKeys';
 import { clearNavToActivePathStore } from '../app/state/navToActivePath';
+import { getSettings } from '../app/state/settings';
 import { pushSessionToSW } from '../sw-session';
+import { reportClientStorageError, resetClientStorageError } from './storageStatus';
 import { isTauri } from '../app/utils/desktop-notifications';
+import { USER_PROFILE_FIELDS } from '../types/matrix/profile';
 
 type Session = {
   baseUrl: string;
@@ -39,8 +46,25 @@ export const initClient = async (session: Session): Promise<MatrixClient> => {
   // that question races the login it is waiting on.
   pushSessionToSW(session.baseUrl, session.accessToken);
 
+  // IndexedDB failing is not fatal — the SDK falls back to memory — but it is
+  // invisible: the client works and then loses everything on reload. Record the
+  // degradation so the UI can say so.
+  resetClientStorageError();
+  indexedDBStore.on('degraded', reportClientStorageError);
+
   await indexedDBStore.startup();
   await mx.initRustCrypto();
+
+  // Apply the user's device-isolation preference. The crypto store holds this
+  // only in memory, so we re-apply it on every client init from localStorage.
+  const crypto = mx.getCrypto();
+  if (crypto) {
+    crypto.setDeviceIsolationMode(
+      getSettings().onlySignedDevices
+        ? new OnlySignedDevicesIsolationMode()
+        : new AllDevicesIsolationMode(false)
+    );
+  }
 
   mx.setMaxListeners(50);
 
@@ -71,6 +95,12 @@ const registerHomeserverOriginWithShell = async (baseUrl: string): Promise<void>
 export const startClient = async (mx: MatrixClient) => {
   await mx.startClient({
     lazyLoadMembers: true,
+    // MSC4133 extended profile fields, delivered through /sync per MSC4429.
+    // Pronouns, banner, biography and rich presence all ride this one list —
+    // asking for them costs a field name each, and a homeserver that supports
+    // neither MSC simply never sends them, so the UI renders nothing rather
+    // than erroring.
+    unstableMSC4429SyncUserProfileFields: USER_PROFILE_FIELDS,
   });
 };
 

@@ -17,6 +17,7 @@ import {
   INBOX_PATH,
   REGISTER_PATH,
   RESET_PASSWORD_PATH,
+  ROOMS_PATH,
   SPACE_PATH,
   _CREATE_PATH,
   _FEATURED_PATH,
@@ -41,6 +42,7 @@ import {
 import { ClientBindAtoms, ClientLayout, ClientRoot } from './client';
 import { Home, HomeRouteRoomProvider, HomeSearch } from './client/home';
 import { Direct, DirectCreate, DirectRouteRoomProvider } from './client/direct';
+import { Rooms, RoomsRouteRoomProvider, RoomsSearch } from './client/rooms';
 import { RouteSpaceProvider, Space, SpaceRouteRoomProvider, SpaceSearch } from './client/space';
 import { Explore, FeaturedRooms, PublicRooms } from './client/explore';
 import { Notifications, Inbox, Invites } from './client/inbox';
@@ -210,6 +212,42 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
               <HomeRouteRoomProvider>
                 <Room />
               </HomeRouteRoomProvider>
+            }
+          />
+        </Route>
+        {/*
+          The Rooms pseudo-space. Registered whether or not `roomsPseudoSpace`
+          is on: the setting decides where links are made, not which links stay
+          valid, and one shared while it was on must keep resolving after it is
+          turned off.
+        */}
+        <Route
+          path={ROOMS_PATH}
+          element={
+            <PageRoot
+              resizableNav
+              nav={
+                <MobileFriendlyPageNav path={ROOMS_PATH}>
+                  <MobileSwipeOpen>
+                    <Rooms />
+                  </MobileSwipeOpen>
+                </MobileFriendlyPageNav>
+              }
+            >
+              <Outlet />
+            </PageRoot>
+          }
+        >
+          <Route index element={mobile ? <MobileRoomBackdrop /> : <WelcomePage />} />
+          <Route path={_CREATE_PATH} element={<HomeCreateRoom />} />
+          <Route path={_JOIN_PATH} element={<p>join</p>} />
+          <Route path={_SEARCH_PATH} element={<RoomsSearch />} />
+          <Route
+            path={_ROOM_PATH}
+            element={
+              <RoomsRouteRoomProvider>
+                <Room />
+              </RoomsRouteRoomProvider>
             }
           />
         </Route>

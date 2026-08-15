@@ -64,7 +64,8 @@ import { ContainerColor } from '../../styles/ContainerColor.css';
 import { useFlattenPowerTagMembers, useGetMemberPowerTag } from '../../hooks/useMemberPowerTag';
 import { useRoomCreators } from '../../hooks/useRoomCreators';
 import { useUserPresence } from '../../hooks/useUserPresence';
-import { AvatarPresence, PresenceBadge } from '../../components/presence';
+import { useUserRichPresence } from '../../hooks/useUserRichPresence';
+import { AvatarPresence, PresenceBadge, PresenceStatus } from '../../components/presence';
 import { useRoomNavigate } from '../../hooks/useRoomNavigate';
 import { useResizablePane } from '../../hooks/useResizablePane';
 import { ScreenSize, useScreenSizeContext } from '../../hooks/useScreenSize';
@@ -95,6 +96,12 @@ function MemberItem({
     ? mx.mxcUrlToHttp(avatarMxcUrl, 100, 100, 'crop', undefined, false, useAuthentication)
     : undefined;
   const userPresence = useUserPresence(member.userId);
+  // Second line under the name: the member's own status message when they set
+  // one, otherwise what they are listening to or playing. A custom status wins
+  // — it is the thing they chose to say — and the rich-presence icon still
+  // prefixes it so the activity is visible either way.
+  const statusMsg = userPresence?.status || undefined;
+  const richPresence = useUserRichPresence(member.userId);
 
   return (
     <MenuItem
@@ -130,11 +137,20 @@ function MemberItem({
         )
       }
     >
-      <Box grow="Yes" alignItems="Center" gap="200">
-        <Text size="T400" truncate>
-          {name}
-        </Text>
-        <BotBadge room={room} userId={member.userId} />
+      <Box grow="Yes" direction="Column">
+        <Box alignItems="Center" gap="200">
+          <Text size="T400" truncate>
+            {name}
+          </Text>
+          <BotBadge room={room} userId={member.userId} />
+        </Box>
+        {(statusMsg || richPresence) && (
+          <PresenceStatus
+            className={css.MemberStatus}
+            status={statusMsg}
+            richPresence={richPresence}
+          />
+        )}
       </Box>
     </MenuItem>
   );

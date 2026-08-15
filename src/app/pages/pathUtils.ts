@@ -11,6 +11,11 @@ import {
   HOME_PATH,
   HOME_ROOM_PATH,
   HOME_SEARCH_PATH,
+  ROOMS_CREATE_PATH,
+  ROOMS_JOIN_PATH,
+  ROOMS_PATH,
+  ROOMS_ROOM_PATH,
+  ROOMS_SEARCH_PATH,
   LOGIN_PATH,
   INBOX_INVITES_PATH,
   INBOX_NOTIFICATIONS_PATH,
@@ -98,6 +103,19 @@ export const getHomeRoomPath = (roomIdOrAlias: string, eventId?: string): string
   };
 
   return generatePath(HOME_ROOM_PATH, params);
+};
+
+export const getRoomsPath = (): string => ROOMS_PATH;
+export const getRoomsCreatePath = (): string => ROOMS_CREATE_PATH;
+export const getRoomsJoinPath = (): string => ROOMS_JOIN_PATH;
+export const getRoomsSearchPath = (): string => ROOMS_SEARCH_PATH;
+export const getRoomsRoomPath = (roomIdOrAlias: string, eventId?: string): string => {
+  const params = {
+    roomIdOrAlias,
+    eventId: eventId ?? null,
+  };
+
+  return generatePath(ROOMS_ROOM_PATH, params);
 };
 
 export const getDirectPath = (): string => DIRECT_PATH;

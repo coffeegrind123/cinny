@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useEffect, useState } from 'react';
+import { ReactNode, Ref, useCallback, useEffect, useRef, useState } from 'react';
 import {
   Badge,
   Box,
@@ -31,6 +31,7 @@ import {
   mxcUrlToHttp,
 } from '../../../utils/matrix';
 import { useMediaAuthentication } from '../../../hooks/useMediaAuthentication';
+import { useHoverPlay } from '../../../hooks/useHoverPlay';
 import { validBlurHash } from '../../../utils/blurHash';
 
 type RenderVideoProps = {
@@ -41,6 +42,7 @@ type RenderVideoProps = {
   autoPlay: boolean;
   controls: boolean;
   loop: boolean;
+  videoRef?: Ref<HTMLVideoElement>;
 };
 type VideoContentProps = {
   body: string;
@@ -70,11 +72,15 @@ export const VideoContent = as<'div', VideoContentProps>(
       renderVideo,
       ...props
     },
-    ref
+    ref,
   ) => {
     const mx = useMatrixClient();
     const useAuthentication = useMediaAuthentication();
     const blurHash = validBlurHash(info.thumbnail_info?.[MATRIX_BLUR_HASH_PROPERTY_NAME]);
+    // In low animation mode the video plays only while pointed at or focused.
+    // `hoverProps` is empty when the mode is off, so this costs nothing then.
+    const { lowAnimationMode, hovered, hoverProps } = useHoverPlay();
+    const videoRef = useRef<HTMLVideoElement>(null);
 
     const [load, setLoad] = useState(false);
     const [error, setError] = useState(false);
@@ -86,11 +92,11 @@ export const VideoContent = as<'div', VideoContentProps>(
         if (!mediaUrl) throw new Error('Invalid media URL');
         const fileContent = encInfo
           ? await downloadEncryptedMedia(mediaUrl, (encBuf) =>
-              decryptFile(encBuf, mimeType, encInfo)
+              decryptFile(encBuf, mimeType, encInfo),
             )
           : await downloadMedia(mediaUrl);
         return URL.createObjectURL(fileContent);
-      }, [mx, url, useAuthentication, mimeType, encInfo])
+      }, [mx, url, useAuthentication, mimeType, encInfo]),
     );
 
     const handleLoad = () => {
@@ -110,8 +116,21 @@ export const VideoContent = as<'div', VideoContentProps>(
       if (autoPlay) loadSrc();
     }, [autoPlay, loadSrc]);
 
+    // Drive playback from hover in low animation mode. The <video> has no
+    // autoplay there, so without this it would sit on its first frame.
+    useEffect(() => {
+      const video = videoRef.current;
+      if (!lowAnimationMode || !video) return;
+      if (hovered) {
+        video.play().catch(() => undefined);
+      } else {
+        video.pause();
+        video.currentTime = 0;
+      }
+    }, [lowAnimationMode, hovered]);
+
     return (
-      <Box className={classNames(css.RelativeBase, className)} {...props} ref={ref}>
+      <Box className={classNames(css.RelativeBase, className)} {...hoverProps} {...props} ref={ref}>
         {typeof blurHash === 'string' && !load && (
           <BlurhashCanvas
             style={{ width: '100%', height: '100%' }}
@@ -151,9 +170,12 @@ export const VideoContent = as<'div', VideoContentProps>(
               src: srcState.data,
               onLoadedMetadata: handleLoad,
               onError: handleError,
-              autoPlay: true,
+              // In low animation mode the video is paused until pointed at,
+              // so it must not autoplay itself.
+              autoPlay: !lowAnimationMode,
               controls: true,
               loop: true,
+              videoRef,
             })}
           </Box>
         )}
@@ -239,5 +261,5 @@ export const VideoContent = as<'div', VideoContentProps>(
         )}
       </Box>
     );
-  }
+  },
 );

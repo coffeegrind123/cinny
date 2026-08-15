@@ -130,3 +130,56 @@ export const specVersions = async (
   }
   throw new Error('Homeserver URL does not appear to be a valid Matrix homeserver');
 };
+
+export type ServerVersion = {
+  name: string;
+  version?: string;
+};
+const SERVER_VERSION_TIMEOUT = 5000;
+
+/**
+ * Homeserver implementation name and version, from the federation API.
+ *
+ * Best effort only. Federation is commonly served from a different host or port
+ * than the client API, so a 404, a blocked cross-origin request or a network
+ * failure is expected and must never surface as an error; the browser may log a
+ * CORS warning for it, which is harmless. Runs against a timeout because this
+ * shares a `Promise.allSettled` that gates app startup.
+ *
+ * Resolves to `undefined` whenever the implementation cannot be determined.
+ */
+export const serverVersion = async (
+  request: typeof fetch,
+  baseUrl: string
+): Promise<ServerVersion | undefined> => {
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => abortController.abort(), SERVER_VERSION_TIMEOUT);
+
+  const [err, res] = await to(
+    request(`${trimTrailingSlash(baseUrl)}/_matrix/federation/v1/version`, {
+      signal: abortController.signal,
+    })
+  );
+
+  if (err || !res.ok) {
+    clearTimeout(timeoutId);
+    return undefined;
+  }
+
+  // keep the timeout armed across the body read; aborting rejects it too
+  const [parseErr, data] = await to<unknown>(res.json());
+  clearTimeout(timeoutId);
+
+  if (parseErr || !data || typeof data !== 'object') return undefined;
+
+  const { server } = data as { server?: unknown };
+  if (!server || typeof server !== 'object') return undefined;
+
+  const { name, version } = server as { name?: unknown; version?: unknown };
+  if (typeof name !== 'string' || name.length === 0) return undefined;
+
+  return {
+    name,
+    version: typeof version === 'string' ? version : undefined,
+  };
+};

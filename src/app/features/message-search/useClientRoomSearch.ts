@@ -64,7 +64,11 @@ const groupMatches = (events: MatrixEvent[], roomId: string): ResultGroup[] => {
     },
   }));
 
-  return [{ roomId, items }];
+  // Same key scheme as the server-side path: roomId plus the first event id.
+  // A client-side search covers one room, so there is only ever one group and
+  // no interleaving to disambiguate — but the key still has to be stable across
+  // re-renders, and unique if these groups are ever rendered beside others.
+  return [{ key: `${roomId}/${items[0]?.event.event_id ?? 'empty'}`, roomId, items }];
 };
 
 const eventMatches = (mEvent: MatrixEvent, needle: string, words: string[]): boolean => {

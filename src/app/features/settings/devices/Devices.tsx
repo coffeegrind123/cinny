@@ -6,6 +6,7 @@ import { SettingTile } from '../../../components/setting-tile';
 import { useDeviceIds, useDeviceList, useSplitCurrentDevice } from '../../../hooks/useDeviceList';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { LocalBackup } from './LocalBackup';
+import { OnlyVerifiedDevicesTile } from './OnlyVerifiedDevices';
 import { DeviceLogoutBtn, DeviceKeyDetails, DeviceTile, DeviceTilePlaceholder } from './DeviceTile';
 import { OtherDevices } from './OtherDevices';
 import {
@@ -110,6 +111,7 @@ export function Devices({ requestClose }: DevicesProps) {
                         </>
                       }
                     />
+                    <OnlyVerifiedDevicesTile />
                   </SequenceCard>
                 </Box>
                 <Box direction="Column" gap="100">

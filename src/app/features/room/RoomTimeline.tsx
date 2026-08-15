@@ -1,5 +1,6 @@
 /* eslint-disable react/destructuring-assignment */
 import React, {
+  ClipboardEventHandler,
   Dispatch,
   MouseEventHandler,
   RefObject,
@@ -103,7 +104,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { getResizeObserverEntry, useResizeObserver } from '../../hooks/useResizeObserver';
 import * as css from './RoomTimeline.css';
 import { inSameDay, minuteDifference, timeDayMonthYear, today, yesterday } from '../../utils/time';
-import { createMentionElement, isEmptyEditor, moveCursor, safeFocusEditor } from '../../components/editor';
+import { isEmptyEditor, moveCursor, safeFocusEditor } from '../../components/editor';
 import { roomIdToReplyDraftAtomFamily } from '../../state/room/roomInputDrafts';
 import { usePowerLevelsContext } from '../../hooks/usePowerLevels';
 import { GetContentCallback, MessageEvent, StateEvent } from '../../../types/matrix/room';
@@ -141,6 +142,7 @@ import { useAccessiblePowerTagColors, useGetMemberPowerTag } from '../../hooks/u
 import { useTheme } from '../../hooks/useTheme';
 import { useRoomCreatorsTag } from '../../hooks/useRoomCreatorsTag';
 import { usePowerLevelTags } from '../../hooks/usePowerLevelTags';
+import { eventToTranscriptLine } from '../../utils/copyTranscript';
 
 const TimelineFloat = as<'div', css.TimelineFloatVariants>(
   ({ position, className, ...props }, ref) => (
@@ -436,6 +438,29 @@ const useLiveTimelineRefresh = (room: Room, onRefresh: () => void) => {
   }, [room, onRefresh]);
 };
 
+/**
+ * Fires when a local echo changes send status (SENDING -> SENT, or -> NOT_SENT).
+ * The event object is mutated in place, so nothing else in the render path
+ * notices; without this the failed-send bar would only appear on the next
+ * unrelated re-render, which in a quiet room may be never.
+ */
+const useLocalEchoUpdated = (room: Room, onUpdate: () => void) => {
+  useEffect(() => {
+    const handleLocalEchoUpdated: RoomEventHandlerMap[RoomEvent.LocalEchoUpdated] = (
+      mEvent,
+      eventRoom
+    ) => {
+      if (eventRoom?.roomId !== room.roomId) return;
+      onUpdate();
+    };
+
+    room.on(RoomEvent.LocalEchoUpdated, handleLocalEchoUpdated);
+    return () => {
+      room.removeListener(RoomEvent.LocalEchoUpdated, handleLocalEchoUpdated);
+    };
+  }, [room, onUpdate]);
+};
+
 const getInitialTimeline = (room: Room) => {
   const linkedTimelines = getLinkedTimelines(getLiveTimeline(room));
   const evLength = getTimelinesEventsCount(linkedTimelines);
@@ -538,8 +563,14 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
 
   const atBottomAnchorRef = useRef<HTMLElement>(null);
   const [atBottom, setAtBottom] = useState<boolean>(true);
-  const atBottomRef = useRef(atBottom);
-  atBottomRef.current = atBottom;
+  // Deliberately NOT mirroring `atBottom`. That state is set through a 1s
+  // debounce (it drives the jump-to-bottom button, which should not flicker on
+  // a stray wheel event), so a ref tracking it answered "are we pinned to the
+  // bottom?" with a value up to a second stale — long enough for an arriving
+  // message to scroll away from a user who had not moved. This ref is updated
+  // straight from the intersection observer instead, so every auto-scroll
+  // decision reads the current truth while the button keeps its debounce.
+  const atBottomRef = useRef(true);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollToBottomRef = useRef({
@@ -624,6 +655,8 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
   const [timeline, setTimeline] = useState<Timeline>(() =>
     eventId ? getEmptyTimeline() : getInitialTimeline(room)
   );
+  const timelineRef = useRef(timeline);
+  timelineRef.current = timeline;
   const eventsLength = getTimelinesEventsCount(timeline.linkedTimelines);
 
   const liveTimelineLinked =
@@ -812,6 +845,37 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
     }, [room, liveTimelineLinked])
   );
 
+  useLocalEchoUpdated(
+    room,
+    useCallback(() => {
+      setTimeline((ct) => ({ ...ct }));
+    }, [])
+  );
+
+  // Stay at bottom when the timeline's own content resizes. The composer
+  // observer below catches the editor growing; this catches everything that
+  // settles *after* layout — images and video getting their intrinsic size, a
+  // link preview arriving, a pane divider being dragged. Each of those grows
+  // the content under a user who was pinned to the bottom, pushing the newest
+  // message off-screen without them touching the scroll.
+  useResizeObserver(
+    useMemo(() => {
+      let mounted = false;
+      return () => {
+        if (!mounted) {
+          // Skip the initial mounting call.
+          mounted = true;
+          return;
+        }
+        const scrollElement = getScrollElement();
+        if (scrollElement && atBottomRef.current && atLiveEndRef.current) {
+          scrollToBottom(scrollElement);
+        }
+      };
+    }, [getScrollElement]),
+    useCallback(() => getScrollElement()?.firstElementChild ?? null, [getScrollElement])
+  );
+
   // Stay at bottom when room editor resize
   useResizeObserver(
     useMemo(() => {
@@ -864,8 +928,12 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
         const target = atBottomAnchorRef.current;
         if (!target) return;
         const targetEntry = getIntersectionObserverEntry(target, entries);
-        if (targetEntry) debounceSetAtBottom(targetEntry);
+        if (targetEntry) {
+          if (!targetEntry.isIntersecting) atBottomRef.current = false;
+          debounceSetAtBottom(targetEntry);
+        }
         if (targetEntry?.isIntersecting && atLiveEndRef.current) {
+          atBottomRef.current = true;
           setAtBottom(true);
           if (document.hasFocus()) {
             tryAutoMarkAsRead();
@@ -1067,27 +1135,11 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
     },
     [room, space, openUserRoomProfile]
   );
-  const handleUsernameClick: MouseEventHandler<HTMLButtonElement> = useCallback(
-    (evt) => {
-      evt.preventDefault();
-      const userId = evt.currentTarget.getAttribute('data-user-id');
-      if (!userId) {
-        console.warn('Button should have "data-user-id" attribute!');
-        return;
-      }
-      const name = getMemberDisplayName(room, userId) ?? getMxIdLocalPart(userId) ?? userId;
-      editor.insertNode(
-        createMentionElement(
-          userId,
-          name.startsWith('@') ? name : `@${name}`,
-          userId === mx.getUserId()
-        )
-      );
-      safeFocusEditor(editor);
-      moveCursor(editor);
-    },
-    [mx, room, editor]
-  );
+  // Clicking a sender's name opens their profile, the same as clicking their
+  // avatar, rather than inserting a mention into the composer. Mentioning is
+  // still a keystroke away through composer autocomplete, and is also an action
+  // on the profile card this now opens — whereas reading who someone is had no
+  // other one-click route from the timeline.
 
   // A bot's `switch_inline_query_current_chat` button: put its query in the
   // composer and let the user decide whether to send it. Never sends by
@@ -1223,7 +1275,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
             imagePackRooms={imagePackRooms}
             relations={hasReactions ? reactionRelations : undefined}
             onUserClick={handleUserClick}
-            onUsernameClick={handleUsernameClick}
+            onUsernameClick={handleUserClick}
             onReplyClick={handleReplyClick}
             onThreadClick={handleOpenThread}
             onReactionToggle={handleReactionToggle}
@@ -1330,7 +1382,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
             imagePackRooms={imagePackRooms}
             relations={hasReactions ? reactionRelations : undefined}
             onUserClick={handleUserClick}
-            onUsernameClick={handleUsernameClick}
+            onUsernameClick={handleUserClick}
             onReplyClick={handleReplyClick}
             onThreadClick={handleOpenThread}
             onReactionToggle={handleReactionToggle}
@@ -1431,6 +1483,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
         const reactionRelations = getEventReactions(timelineSet, mEventId);
         const reactions = reactionRelations && reactionRelations.getSortedAnnotationsByKey();
         const hasReactions = reactions && reactions.length > 0;
+        const { replyEventId, threadRootId } = mEvent;
         const highlighted = focusItem?.index === item && focusItem.highlight;
 
         return (
@@ -1450,10 +1503,24 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
             imagePackRooms={imagePackRooms}
             relations={hasReactions ? reactionRelations : undefined}
             onUserClick={handleUserClick}
-            onUsernameClick={handleUsernameClick}
+            onUsernameClick={handleUserClick}
             onReplyClick={handleReplyClick}
             onThreadClick={handleOpenThread}
             onReactionToggle={handleReactionToggle}
+            reply={
+              replyEventId && (
+                <Reply
+                  room={room}
+                  timelineSet={timelineSet}
+                  replyEventId={replyEventId}
+                  threadRootId={threadRootId}
+                  onClick={handleOpenReply}
+                  getMemberPowerTag={getMemberPowerTag}
+                  accessibleTagColors={accessiblePowerTagColors}
+                  legacyUsernameColor={legacyUsernameColor || direct}
+                />
+              )
+            }
             reactions={
               reactionRelations && (
                 <Reactions
@@ -1522,7 +1589,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
                 imagePackRooms={imagePackRooms}
                 relations={hasReactions ? reactionRelations : undefined}
                 onUserClick={handleUserClick}
-                onUsernameClick={handleUsernameClick}
+                onUsernameClick={handleUserClick}
                 onReplyClick={handleReplyClick}
             onThreadClick={handleOpenThread}
                 onReactionToggle={handleReactionToggle}
@@ -1886,6 +1953,108 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
     }
   );
 
+  // Fork-only: replaces the browser's messy selection copy with a clean,
+  // parseable transcript ([time] <sender> body, with reply context quoted).
+  // Falls back to native copy when the selection is not a transcript-shaped
+  // span of messages.
+  const handleCopy = useCallback<ClipboardEventHandler<HTMLDivElement>>(
+    (evt) => {
+      // Never hijack copy from the in-message (Slate) message editor.
+      if (editableActiveElement()) return;
+
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
+
+      const container = scrollRef.current;
+      if (!container) return;
+      const range = selection.getRangeAt(0);
+      if (!container.contains(range.commonAncestorContainer)) return;
+
+      const rootItem = (node: Node | null): HTMLElement | undefined => {
+        let el: Node | null = node;
+        while (el && el !== container) {
+          if (el instanceof HTMLElement && el.hasAttribute('data-message-item')) return el;
+          el = el.parentNode;
+        }
+        return undefined;
+      };
+
+      // Selection endpoints may sit on non-message nodes (day/unread
+      // dividers). Widen to the message the divider belongs to: a divider
+      // renders above the row it labels, so the start endpoint goes forward
+      // and the end endpoint goes backward.
+      const walk = (node: Node | null, forward: boolean): HTMLElement | undefined => {
+        let current: Node | null = node;
+        while (current && current !== container) {
+          const item = rootItem(current);
+          if (item) return item;
+          current = (forward ? current.nextSibling : current.previousSibling) ?? current.parentNode;
+        }
+        return undefined;
+      };
+
+      const startEl = rootItem(range.startContainer) ?? walk(range.startContainer, true);
+      const endEl = rootItem(range.endContainer) ?? walk(range.endContainer, false);
+      if (!startEl || !endEl) return;
+
+      const startAttr = startEl.getAttribute('data-message-item');
+      const endAttr = endEl.getAttribute('data-message-item');
+      if (startAttr === null || endAttr === null) return;
+      const start = Number(startAttr);
+      const end = Number(endAttr);
+      if (Number.isNaN(start) || Number.isNaN(end)) return;
+
+      const itemFrom = Math.min(start, end);
+      const itemTo = Math.max(start, end);
+
+      // Selecting inside a single message keeps native copy unless the whole
+      // message row is covered, so raw text snippets stay copyable. Selections
+      // spanning multiple messages always produce a transcript of every
+      // touched message in full.
+      if (itemFrom === itemTo) {
+        if (!rootItem(range.startContainer) || !rootItem(range.endContainer)) return;
+        // Whole-row check with false-positive margins: drags that begin a few
+        // pixels left/right of the body still count as covering the row.
+        const fullRange = document.createRange();
+        fullRange.selectNodeContents(startEl);
+        const coversWholeItem =
+          range.compareBoundaryPoints(Range.START_TO_START, fullRange) <= 0 &&
+          range.compareBoundaryPoints(Range.END_TO_END, fullRange) >= 0;
+        if (!coversWholeItem) return;
+      }
+
+      const { linkedTimelines } = timelineRef.current;
+      const transcript: string[] = [];
+      for (let item = itemFrom; item <= itemTo; item += 1) {
+        const [eventTimeline, baseIndex] = getTimelineAndBaseIndex(linkedTimelines, item);
+        const mEvent =
+          eventTimeline &&
+          getTimelineEvent(eventTimeline, getTimelineRelativeIndex(item, baseIndex));
+        // Match eventRenderer's visibility rules: never copy content the
+        // timeline hides (ignored senders, redacted-with-hidden-events).
+        const visible =
+          mEvent &&
+          eventTimeline &&
+          !(mEvent.getSender() && ignoredUsersSet.has(mEvent.getSender() ?? '')) &&
+          !(mEvent.isRedacted() && !showHiddenEvents);
+        if (visible && mEvent && eventTimeline) {
+          const line = eventToTranscriptLine(
+            room,
+            mEvent,
+            eventTimeline.getTimelineSet(),
+            hour24Clock
+          );
+          if (line) transcript.push(line);
+        }
+      }
+
+      if (transcript.length === 0) return;
+      evt.clipboardData.setData('text/plain', transcript.join('\n'));
+      evt.preventDefault();
+    },
+    [room, ignoredUsersSet, showHiddenEvents, hour24Clock]
+  );
+
   let prevEvent: MatrixEvent | undefined;
   let isPrevRendered = false;
   let newDivider = false;
@@ -2013,6 +2182,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
           direction="Column"
           justifyContent="End"
           style={{ minHeight: '100%', padding: `${config.space.S600} 0` }}
+          onCopy={handleCopy}
         >
           {!canPaginateBack && rangeAtStart && getItems().length > 0 && (
             <div

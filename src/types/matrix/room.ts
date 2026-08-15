@@ -46,6 +46,9 @@ export enum StateEvent {
    * MXID as the state key. See `src/types/matrix/bot/` and the protocol spec.
    */
   BotInfo = 'app.prinny.bot.info',
+
+  /** Per-space opt-in to joining every room the space lists. */
+  SpaceAutoJoin = 'app.prinny.space.auto_join',
 }
 
 export enum MessageEvent {
@@ -75,6 +78,10 @@ export type MSpaceChildContent = {
   via: string[];
   suggested?: boolean;
   order?: string;
+};
+
+export type SpaceAutoJoinContent = {
+  auto_join?: boolean;
 };
 
 export enum NotificationType {

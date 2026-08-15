@@ -1,7 +1,6 @@
-import { MouseEventHandler, useState } from 'react';
+import { MouseEventHandler, useEffect, useState } from 'react';
 import {
   Avatar,
-  Badge,
   Box,
   Chip,
   config,
@@ -31,12 +30,35 @@ import { getMouseEventCords } from '../../utils/dom';
 type LiveChipProps = {
   room: Room;
   members: CallMembership[];
-  count: number;
 };
-export function LiveChip({ count, room, members }: LiveChipProps) {
+
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+function useCallDuration(members: CallMembership[]): string {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+  if (members.length === 0) return '0:00';
+  const oldestStart = Math.min(...members.map((m) => m.createdTs()));
+  return formatDuration(now - oldestStart);
+}
+
+export function LiveChip({ room, members }: LiveChipProps) {
   const mx = useMatrixClient();
   const useAuthentication = useMediaAuthentication();
   const openUserProfile = useOpenUserRoomProfile();
+  const duration = useCallDuration(members);
 
   const [cords, setCords] = useState<RectCords>();
 
@@ -123,13 +145,17 @@ export function LiveChip({ count, room, members }: LiveChipProps) {
       <Chip
         variant="Surface"
         fill="Soft"
-        before={<Badge variant="Critical" fill="Solid" size="200" />}
+        before={
+          <span className={css.LiveSpeakerIcon}>
+            <Icon size="200" src={Icons.VolumeHigh} filled />
+          </span>
+        }
         after={<Icon size="50" src={cords ? Icons.ChevronBottom : Icons.ChevronTop} />}
         radii="Pill"
         onClick={handleOpenMenu}
       >
-        <Text className={css.LiveChipText} as="span" size="L400" truncate>
-          {count} Live
+        <Text className={css.LiveTimer} as="span" size="L400">
+          {duration}
         </Text>
       </Chip>
     </PopOut>

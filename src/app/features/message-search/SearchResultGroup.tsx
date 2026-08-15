@@ -28,7 +28,7 @@ import {
   makeMentionCustomProps,
   renderMatrixMention,
 } from '../../plugins/react-custom-html-parser';
-import { getMxIdLocalPart, mxcUrlToHttp } from '../../utils/matrix';
+import { mxcUrlToHttp } from '../../utils/matrix';
 import { useMatrixEventRenderer } from '../../hooks/useMatrixEventRenderer';
 import { GetContentCallback, MessageEvent, StateEvent } from '../../../types/matrix/room';
 import {
@@ -47,8 +47,10 @@ import { Image } from '../../components/media';
 import { ImageViewer } from '../../components/image-viewer';
 import * as customHtmlCss from '../../styles/CustomHtml.css';
 import { RoomAvatar, RoomIcon } from '../../components/room-avatar';
-import { getMemberAvatarMxc, getMemberDisplayName, getRoomAvatarUrl } from '../../utils/room';
+import { getRoomAvatarUrl } from '../../utils/room';
 import { ResultItem } from './useMessageSearch';
+import { getResultAvatarMxc, getResultDisplayName, getResultProfile } from './resultUtils';
+import { SearchResultContext } from './SearchResultContext';
 import { SequenceCard } from '../../components/sequence-card';
 import { UserAvatar } from '../../components/user-avatar';
 import { useMentionClickHandler } from '../../hooks/useMentionClickHandler';
@@ -124,10 +126,10 @@ export function SearchResultGroup({
     () => ({
       ...LINKIFY_OPTS,
       render: factoryRenderLinkifyWithMention((href) =>
-        renderMatrixMention(mx, room.roomId, href, makeMentionCustomProps(mentionClickHandler))
+        renderMatrixMention(mx, room.roomId, href, makeMentionCustomProps(mentionClickHandler)),
       ),
     }),
-    [mx, room, mentionClickHandler]
+    [mx, room, mentionClickHandler],
   );
   const htmlReactParserOptions = useMemo<HTMLReactParserOptions>(
     () =>
@@ -146,7 +148,7 @@ export function SearchResultGroup({
       mentionClickHandler,
       spoilerClickHandler,
       useAuthentication,
-    ]
+    ],
   );
 
   const renderMatrixEvent = useMatrixEventRenderer<[IEventWithRoomId, string, GetContentCallback]>(
@@ -213,7 +215,7 @@ export function SearchResultGroup({
           </Text>
         </Box>
       );
-    }
+    },
   );
 
   const handleOpenClick: MouseEventHandler = (evt) => {
@@ -287,11 +289,9 @@ export function SearchResultGroup({
         {items.map((item) => {
           const { event } = item;
 
-          const displayName =
-            getMemberDisplayName(room, event.sender) ??
-            getMxIdLocalPart(event.sender) ??
-            event.sender;
-          const senderAvatarMxc = getMemberAvatarMxc(room, event.sender);
+          const senderProfile = getResultProfile(item.context, event.sender);
+          const displayName = getResultDisplayName(room, event.sender, senderProfile);
+          const senderAvatarMxc = getResultAvatarMxc(room, event.sender, senderProfile);
 
           const relation = event.content['m.relates_to'];
           const mainEventId =
@@ -330,14 +330,14 @@ export function SearchResultGroup({
                         userId={event.sender}
                         src={
                           senderAvatarMxc
-                            ? mxcUrlToHttp(
+                            ? (mxcUrlToHttp(
                                 mx,
                                 senderAvatarMxc,
                                 useAuthentication,
                                 48,
                                 48,
-                                'crop'
-                              ) ?? undefined
+                                'crop',
+                              ) ?? undefined)
                             : undefined
                         }
                         alt={displayName}
@@ -385,7 +385,9 @@ export function SearchResultGroup({
                     legacyUsernameColor={legacyUsernameColor}
                   />
                 )}
+                <SearchResultContext room={room} context={item.context} position="before" />
                 {renderMatrixEvent(event.type, false, event, displayName, getContent)}
+                <SearchResultContext room={room} context={item.context} position="after" />
               </ModernLayout>
             </SequenceCard>
           );
@@ -419,12 +421,7 @@ export function SearchResultGroup({
                       closeMenu();
                     }}
                   >
-                    <Text
-                      className={messageCss.MessageMenuItemText}
-                      as="span"
-                      size="T300"
-                      truncate
-                    >
+                    <Text className={messageCss.MessageMenuItemText} as="span" size="T300" truncate>
                       Open in Room
                     </Text>
                   </MenuItem>

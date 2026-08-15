@@ -100,6 +100,28 @@ export const scaleYDimension = (x: number, scaledX: number, y: number): number =
   return Math.min(scaleFactor * y, MAX_SCALED_Y_DIMENSION);
 };
 
+/**
+ * Scales `w`x`h` to the largest size that fits inside `maxW`x`maxH`, keeping
+ * the aspect ratio. Returns both dimensions, which is the point: giving a
+ * container the image's own ratio means `object-fit` never has to crop.
+ *
+ * Dimensions we cannot trust (missing, non-finite, non-positive — all of which
+ * arrive routinely in `info` written by other clients) fall back to the full
+ * box, matching what the renderer did before it knew any better.
+ */
+export const fitWithin = (
+  w: number | undefined,
+  h: number | undefined,
+  maxW: number,
+  maxH: number
+): [number, number] => {
+  if (!w || !h || !Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) {
+    return [maxW, maxH];
+  }
+  const scale = Math.min(maxW / w, maxH / h);
+  return [w * scale, h * scale];
+};
+
 export const parseGeoUri = (location: string) => {
   try {
     const [, data] = location.split(':');

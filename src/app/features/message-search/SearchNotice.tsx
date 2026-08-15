@@ -1,0 +1,60 @@
+import { ReactNode } from 'react';
+import { Box, Icon, IconSrc, Icons, Text, config } from 'folds';
+import { MatrixError } from 'matrix-js-sdk';
+import { ContainerColor } from '../../styles/ContainerColor.css';
+
+type NoticeVariant = 'Warning' | 'Critical' | 'SurfaceVariant';
+
+type SearchNoticeProps = {
+  variant?: NoticeVariant;
+  icon?: IconSrc;
+  children: ReactNode;
+};
+export function SearchNotice({
+  variant = 'Warning',
+  icon = Icons.Info,
+  children,
+}: SearchNoticeProps) {
+  return (
+    <Box
+      className={ContainerColor({ variant })}
+      style={{ padding: config.space.S300, borderRadius: config.radii.R400 }}
+      alignItems="Start"
+      gap="200"
+      shrink="No"
+    >
+      <Icon style={{ flexShrink: 0 }} size="200" src={icon} />
+      <Box direction="Column" gap="100">
+        {children}
+      </Box>
+    </Box>
+  );
+}
+
+const describeSearchError = (error: Error): string => {
+  if (error instanceof MatrixError) {
+    if (error.errcode === 'M_UNRECOGNIZED') {
+      return 'This homeserver does not implement message search.';
+    }
+    if (error.errcode === 'M_LIMIT_EXCEEDED') {
+      return 'Too many searches in a short time. Wait a moment and try again.';
+    }
+    const message = error.data?.error;
+    if (typeof message === 'string' && message.toLowerCase().includes('search is disabled')) {
+      return 'Message search is disabled on this homeserver.';
+    }
+    if (typeof message === 'string') return message;
+  }
+  return error.message;
+};
+
+type SearchErrorNoticeProps = {
+  error: Error;
+};
+export function SearchErrorNotice({ error }: SearchErrorNoticeProps) {
+  return (
+    <SearchNotice variant="Critical" icon={Icons.Warning}>
+      <Text size="T300">{describeSearchError(error)}</Text>
+    </SearchNotice>
+  );
+}

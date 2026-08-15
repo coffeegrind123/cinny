@@ -33,7 +33,7 @@ import {
 } from 'react';
 import { FocusTrap } from 'focus-trap-react';
 import { useHover, useFocusWithin } from 'react-aria';
-import { MatrixEvent, Room } from 'matrix-js-sdk';
+import { EventStatus, MatrixEvent, Room } from 'matrix-js-sdk';
 import { Relations } from 'matrix-js-sdk/lib/models/relations';
 import classNames from 'classnames';
 import { RoomPinnedEventsEventContent } from 'matrix-js-sdk/lib/types';
@@ -853,6 +853,24 @@ export const Message = as<'div', MessageProps>(
     const senderAvatarMxc = getMemberAvatarMxc(room, senderId);
     const senderPresence = useUserPresence(senderId);
 
+    // Local echo status. Sends were fire-and-forget: a message that never
+    // reached the server looked exactly like one that did, and then vanished on
+    // the next reload with nothing to explain where it went. RoomTimeline
+    // subscribes to RoomEvent.LocalEchoUpdated so these transitions re-render.
+    const eventStatus = mEvent.status;
+    const isSending =
+      eventStatus === EventStatus.SENDING ||
+      eventStatus === EventStatus.QUEUED ||
+      eventStatus === EventStatus.ENCRYPTING;
+    const isFailed = eventStatus === EventStatus.NOT_SENT;
+
+    const [retryState, resendMessage] = useAsyncCallback(
+      useCallback(() => Promise.resolve(mx.resendEvent(mEvent, room)), [mx, mEvent, room])
+    );
+    const handleRemoveFailed = useCallback(() => {
+      mx.cancelPendingEvent(mEvent);
+    }, [mx, mEvent]);
+
     const tagColor = memberPowerTag?.color
       ? accessibleTagColors?.get(memberPowerTag.color)
       : undefined;
@@ -894,6 +912,14 @@ export const Message = as<'div', MessageProps>(
               hour24Clock={hour24Clock}
               dateFormatString={dateFormatString}
             />
+            {isSending && (
+              <Icon
+                className={css.MessageStatusSending}
+                size="50"
+                src={Icons.Clock}
+                aria-label="Sending"
+              />
+            )}
           </Box>
           {tagIconSrc && <PowerIcon size="100" iconSrc={tagIconSrc} />}
         </Box>
@@ -976,6 +1002,42 @@ export const Message = as<'div', MessageProps>(
           </Box>
         )}
         {reactions}
+        {isFailed && (
+          <Box className={css.MessageFailedBar} direction="Row" alignItems="Center" gap="200">
+            <Icon size="100" src={Icons.Warning} style={{ color: color.Critical.Main }} />
+            <Text size="T300" style={{ color: color.Critical.Main }}>
+              {retryState.status === AsyncStatus.Error
+                ? 'Failed to send. Retry failed.'
+                : 'Failed to send'}
+            </Text>
+            <Box shrink="No" grow="Yes" justifyContent="End" gap="100" alignItems="Center">
+              {retryState.status === AsyncStatus.Loading ? (
+                <Spinner size="100" variant="Critical" />
+              ) : (
+                <Button
+                  size="300"
+                  variant="Critical"
+                  fill="Soft"
+                  radii="300"
+                  onClick={() => resendMessage()}
+                  before={<Icon size="100" src={Icons.Reload} />}
+                >
+                  <Text size="B300">Retry</Text>
+                </Button>
+              )}
+              <IconButton
+                variant="Critical"
+                fill="Soft"
+                size="300"
+                radii="300"
+                onClick={handleRemoveFailed}
+                aria-label="Remove failed message"
+              >
+                <Icon size="100" src={Icons.Cross} />
+              </IconButton>
+            </Box>
+          </Box>
+        )}
         <Overlay open={readReceiptOpen} backdrop={<OverlayBackdrop />}>
           <OverlayCenter>
             <FocusTrap
@@ -1012,6 +1074,30 @@ export const Message = as<'div', MessageProps>(
       });
     };
 
+    /**
+     * Double-clicking a message stages a reply to it.
+     *
+     * Two things must keep working: interactive children (a double-click on a
+     * link or button belongs to that element), and selecting a word, which is
+     * what a double-click on text means everywhere else. The second is decided
+     * by the element under the pointer — if it directly contains text, the user
+     * was aiming at the text — rather than by inspecting the selection, which
+     * has not settled yet when this fires.
+     */
+    const handleDoubleClick: MouseEventHandler<HTMLDivElement> = useCallback(
+      (evt) => {
+        if (edit) return;
+        const target = evt.target as HTMLElement;
+        if (target.closest('a, button, input, textarea, [contenteditable]')) return;
+        const hasText = Array.from(target.childNodes).some(
+          (node) => node.nodeType === Node.TEXT_NODE && (node.textContent?.trim().length ?? 0) > 0
+        );
+        if (hasText) return;
+        onReplyClick(evt as unknown as Parameters<typeof onReplyClick>[0]);
+      },
+      [edit, onReplyClick]
+    );
+
     const handleOpenMenu: MouseEventHandler<HTMLButtonElement> = (evt) => {
       const target = evt.currentTarget.parentElement?.parentElement ?? evt.currentTarget;
       setMenuAnchor(target.getBoundingClientRect());
@@ -1043,12 +1129,14 @@ export const Message = as<'div', MessageProps>(
         className={classNames(css.MessageBase, className, {
           [css.MessageBaseBubbleCollapsed]: messageLayout === MessageLayout.Bubble && collapse,
           [css.MessageReplyHighlight]: repliedToMe,
+          [css.MessageSending]: isSending,
         })}
         tabIndex={0}
         space={messageSpacing}
         collapse={collapse}
         highlight={highlight}
         selected={!!menuAnchor || !!emojiBoardAnchor}
+        onDoubleClick={handleDoubleClick}
         {...props}
         {...hoverProps}
         {...focusWithinProps}

@@ -7,6 +7,7 @@ import { IgnoredUserList } from './IgnoredUserList';
 import { ChangePassword } from './ChangePassword';
 import { DeactivateAccount } from './DeactivateAccount';
 import { IdentityServer } from './IdentityServer';
+import { RichPresencePublish } from './RichPresencePublish';
 
 type AccountProps = {
   requestClose: () => void;
@@ -37,6 +38,7 @@ export function Account({ requestClose }: AccountProps) {
                 <MatrixId />
                 <ContactInformation />
                 <IdentityServer />
+                <RichPresencePublish />
                 <ChangePassword />
                 <IgnoredUserList />
                 <DeactivateAccount />

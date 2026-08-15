@@ -178,3 +178,14 @@ li p::before {
   content: '';
   display: inline-block;
 }
+
+/* Low animation mode: collapse non-essential animation and transitions rather
+   than removing them, so anything whose final state matters still lands on it. */
+body.low-animation-mode *,
+body.low-animation-mode *::before,
+body.low-animation-mode *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

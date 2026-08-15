@@ -32,8 +32,10 @@ import { SpecVersions } from './SpecVersions';
 import { AsyncStatus, useAsyncCallback } from '../../hooks/useAsyncCallback';
 import { useSyncState } from '../../hooks/useSyncState';
 import { stopPropagation } from '../../utils/keyboard';
+import { StorageStatus } from './StorageStatus';
 import { SyncStatus } from './SyncStatus';
 import { AuthMetadataProvider } from '../../hooks/useAuthMetadata';
+import { ServerSoftwareProvider } from '../../hooks/useServerSoftware';
 import { getFallbackSession } from '../../state/sessions';
 import { AutoDiscovery } from './AutoDiscovery';
 import { useUnifiedPush } from '../../hooks/useUnifiedPush';
@@ -192,6 +194,7 @@ export function ClientRoot({ children }: ClientRootProps) {
     <AutoDiscovery userId={userId!} baseUrl={baseUrl!}>
       <SpecVersions baseUrl={baseUrl!}>
         {mx && <SyncStatus mx={mx} />}
+        {mx && <StorageStatus />}
         {loading && <ClientRootOptions mx={mx} />}
         {(loadState.status === AsyncStatus.Error || startState.status === AsyncStatus.Error) && (
           <SplashScreen>
@@ -229,7 +232,9 @@ export function ClientRoot({ children }: ClientRootProps) {
                 <CapabilitiesProvider value={serverConfigs.capabilities ?? {}}>
                   <MediaConfigProvider value={serverConfigs.mediaConfig ?? {}}>
                     <AuthMetadataProvider value={serverConfigs.authMetadata}>
-                      {children}
+                      <ServerSoftwareProvider value={serverConfigs.serverSoftware}>
+                        {children}
+                      </ServerSoftwareProvider>
                     </AuthMetadataProvider>
                   </MediaConfigProvider>
                 </CapabilitiesProvider>

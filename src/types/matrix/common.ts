@@ -4,6 +4,9 @@ import { MsgType } from 'matrix-js-sdk';
 export const MATRIX_BLUR_HASH_PROPERTY_NAME = 'xyz.amorgan.blurhash';
 export const MATRIX_SPOILER_PROPERTY_NAME = 'page.codeberg.everypizza.msc4193.spoiler';
 export const MATRIX_SPOILER_REASON_PROPERTY_NAME = 'page.codeberg.everypizza.msc4193.spoiler.reason';
+// Marks an m.video we sent as a GIF, so it renders and favourites as one
+// rather than as a silent clip.
+export const MATRIX_GIF_PROPERTY_NAME = 'io.cinny.gif';
 
 export type IImageInfo = {
   w?: number;
@@ -60,6 +63,7 @@ export type IVideoContent = {
   url?: string;
   info?: IVideoInfo & IThumbnailContent;
   file?: IEncryptedFile;
+  [MATRIX_GIF_PROPERTY_NAME]?: boolean;
   [MATRIX_SPOILER_PROPERTY_NAME]?: boolean;
   [MATRIX_SPOILER_REASON_PROPERTY_NAME]?: string;
 };

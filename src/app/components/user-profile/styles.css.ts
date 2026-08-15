@@ -15,15 +15,27 @@ export const UserHero = style({
 });
 
 export const UserHeroCoverContainer = style({
-  height: toRem(96),
+  position: 'relative',
+  aspectRatio: '3 / 1',
   overflow: 'hidden',
 });
 export const UserHeroCover = style({
-  height: '100%',
+  position: 'absolute',
+  inset: 0,
   width: '100%',
+  height: '100%',
   objectFit: 'cover',
   filter: 'blur(16px)',
   transform: 'scale(2)',
+  display: 'block',
+});
+export const UserHeroBanner = style({
+  position: 'absolute',
+  inset: 0,
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover',
+  display: 'block',
 });
 
 export const UserHeroAvatarContainer = style({
@@ -51,4 +63,23 @@ export const UserHeroAvatarImg = style({
       filter: 'brightness(0.5)',
     },
   },
+});
+
+export const RichPresenceArtwork = style({
+  width: toRem(80),
+  height: toRem(80),
+  flexShrink: 0,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  overflow: 'hidden',
+  borderRadius: config.radii.R300,
+  color: color.SurfaceVariant.OnContainer,
+  backgroundColor: color.SurfaceVariant.ContainerActive,
+});
+
+export const RichPresenceImage = style({
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover',
 });

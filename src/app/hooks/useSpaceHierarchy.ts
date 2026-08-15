@@ -1,6 +1,6 @@
 import { atom, useAtom, useAtomValue } from 'jotai';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MatrixError, Room } from 'matrix-js-sdk';
+import { MatrixClient, MatrixError, Room } from 'matrix-js-sdk';
 import { IHierarchyRoom } from 'matrix-js-sdk/lib/@types/spaces';
 import { QueryFunction, useInfiniteQuery } from '@tanstack/react-query';
 import { useMatrixClient } from './useMatrixClient';
@@ -10,6 +10,8 @@ import { getAllParents, getStateEvents, isValidChild } from '../utils/room';
 import { isRoomId } from '../utils/matrix';
 import { SortFunc, byOrderKey, byTsOldToNew, factoryRoomIdByActivity } from '../utils/sort';
 import { useStateEventCallback } from './useStateEventCallback';
+import { useAccountDataCallback } from './useAccountDataCallback';
+import { AccountDataEvent, RoomSortMode } from '../../types/matrix/accountData';
 import { ErrorCode } from '../cs-errorcode';
 
 export type HierarchyItemSpace = {
@@ -34,6 +36,17 @@ type GetRoomCallback = (roomId: string) => Room | undefined;
 const hierarchyItemTs: SortFunc<HierarchyItem> = (a, b) => byTsOldToNew(a.ts, b.ts);
 const hierarchyItemByOrder: SortFunc<HierarchyItem> = (a, b) =>
   byOrderKey(a.content.order, b.content.order);
+
+const hierarchyItemByCustomOrder =
+  (orderIndex: Map<string, number>, byActivity: SortFunc<HierarchyItem>): SortFunc<HierarchyItem> =>
+  (a, b) => {
+    const ai = orderIndex.get(a.roomId);
+    const bi = orderIndex.get(b.roomId);
+    if (ai !== undefined && bi !== undefined) return ai - bi;
+    if (ai !== undefined) return -1;
+    if (bi !== undefined) return 1;
+    return byActivity(a, b);
+  };
 
 const getHierarchySpaces = (
   rootSpaceId: string,
@@ -171,11 +184,47 @@ export const useSpaceHierarchy = (
   return hierarchy;
 };
 
-const getSpaceJoinedHierarchy = (
+export type HierarchyRoomSorter = (parentId: string, items: HierarchyItem[]) => HierarchyItem[];
+
+/**
+ * Builds the sorter used for a space's room sections; activity sort wins over
+ * the custom/default modes because it is used for collapsed categories.
+ */
+export const createHierarchyRoomSorter = (
+  mx: MatrixClient,
+  sortByActivity: (spaceId: string) => boolean,
+  sortMode: RoomSortMode,
+  customOrders: Record<string, string[]>
+): HierarchyRoomSorter => {
+  const roomIdByActivity = factoryRoomIdByActivity(mx);
+  const byActivity: SortFunc<HierarchyItem> = (a, b) => roomIdByActivity(a.roomId, b.roomId);
+
+  return (sId, items) => {
+    if (sortByActivity(sId)) {
+      items.sort(byActivity);
+      return items;
+    }
+    if (sortMode === 'custom') {
+      const customOrder = customOrders[sId];
+      if (customOrder) {
+        const orderIndex = new Map(customOrder.map((rid, i) => [rid, i]));
+        items.sort(hierarchyItemByCustomOrder(orderIndex, byActivity));
+        return items;
+      }
+      // no custom order saved yet: fall back to activity
+      items.sort(byActivity);
+      return items;
+    }
+    items.sort(hierarchyItemTs).sort(hierarchyItemByOrder);
+    return items;
+  };
+};
+
+export const getSpaceJoinedHierarchy = (
   rootSpaceId: string,
   getRoom: GetRoomCallback,
   excludeRoom: (parentId: string, roomId: string) => boolean,
-  sortRoomItems: (parentId: string, items: HierarchyItem[]) => HierarchyItem[]
+  sortRoomItems: HierarchyRoomSorter
 ): HierarchyItem[] => {
   const spaceItems: HierarchyItemSpace[] = getHierarchySpaces(rootSpaceId, getRoom, new Set());
 
@@ -221,21 +270,16 @@ export const useSpaceJoinedHierarchy = (
   spaceId: string,
   getRoom: GetRoomCallback,
   excludeRoom: (parentId: string, roomId: string) => boolean,
-  sortByActivity: (spaceId: string) => boolean
+  sortByActivity: (spaceId: string) => boolean,
+  sortMode: RoomSortMode = 'default',
+  customOrders: Record<string, string[]> = {}
 ): HierarchyItem[] => {
   const mx = useMatrixClient();
   const roomToParents = useAtomValue(roomToParentsAtom);
 
-  const sortRoomItems = useCallback(
-    (sId: string, items: HierarchyItem[]) => {
-      if (sortByActivity(sId)) {
-        items.sort((a, b) => factoryRoomIdByActivity(mx)(a.roomId, b.roomId));
-        return items;
-      }
-      items.sort(hierarchyItemTs).sort(hierarchyItemByOrder);
-      return items;
-    },
-    [mx, sortByActivity]
+  const sortRoomItems = useMemo(
+    () => createHierarchyRoomSorter(mx, sortByActivity, sortMode, customOrders),
+    [mx, sortByActivity, sortMode, customOrders]
   );
 
   const [hierarchyAtom] = useState(() =>
@@ -260,6 +304,17 @@ export const useSpaceJoinedHierarchy = (
         }
       },
       [spaceId, roomToParents, setHierarchy, getRoom, excludeRoom, sortRoomItems]
+    )
+  );
+
+  useAccountDataCallback(
+    mx,
+    useCallback(
+      (mEvent) => {
+        if (mEvent.getType() !== AccountDataEvent.PrinnyRoomOrder) return;
+        setHierarchy(getSpaceJoinedHierarchy(spaceId, getRoom, excludeRoom, sortRoomItems));
+      },
+      [spaceId, setHierarchy, getRoom, excludeRoom, sortRoomItems]
     )
   );
 

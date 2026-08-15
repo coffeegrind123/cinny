@@ -11,7 +11,7 @@ export function NoStickerPacks() {
     >
       <Icon size="600" src={Icons.Sticker} />
       <Box direction="Inherit">
-        <Text align="Center">No Sticker Packs!</Text>
+        <Text align="Center">No Sticker Sets!</Text>
         <Text priority="300" align="Center" size="T200">
           Add stickers from user, room or space settings.
         </Text>

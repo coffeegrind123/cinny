@@ -112,3 +112,22 @@ emojisData.forEach((emoji) => {
     emojis.push(em);
   }
 });
+
+export type EmojiReplacement = {
+  key: string;
+  shortcode: string;
+};
+
+/**
+ * Maps every known emoji shortcode (including alternative shortcodes)
+ * to its unicode character and primary shortcode.
+ * Used for live `:shortcode:` auto-replacement in the editor.
+ */
+export const emojiShortcodeMap: Map<string, EmojiReplacement> = new Map(
+  emojis.flatMap((e) => {
+    const allShortcodes = Array.isArray(e.shortcodes) ? e.shortcodes : [e.shortcode];
+    return allShortcodes
+      .filter(Boolean)
+      .map((sc) => [sc.toLowerCase(), { key: e.unicode, shortcode: e.shortcode }]);
+  }),
+);

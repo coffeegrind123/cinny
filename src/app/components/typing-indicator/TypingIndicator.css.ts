@@ -3,6 +3,13 @@ import { recipe } from '@vanilla-extract/recipes';
 import { DefaultReset, toRem } from 'folds';
 
 const TypingDotAnime = keyframes({
+  // The resting transform lives in the keyframes rather than on the element:
+  // low animation mode collapses animation-duration to ~0, which freezes the
+  // dots on their final frame. With the offset only in `base`, that frame kept
+  // the -15% translate and the dots sat visibly above their own row.
+  from: {
+    transform: 'translateY(15%)',
+  },
   to: {
     opacity: '0.4',
     transform: 'translateY(-15%)',
@@ -16,7 +23,6 @@ export const TypingDot = recipe({
       display: 'inline-block',
       backgroundColor: 'currentColor',
       borderRadius: '50%',
-      transform: 'translateY(15%)',
     },
   ],
   variants: {

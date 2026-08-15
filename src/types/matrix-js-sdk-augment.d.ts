@@ -8,6 +8,8 @@ declare module 'matrix-js-sdk' {
     'io.element.recent_emoji': unknown;
     'im.ponies.user_emotes': unknown;
     'im.ponies.emote_rooms': unknown;
+    'app.prinny.room_order': unknown;
+    'app.prinny.gif_favorites': unknown;
   }
 
   interface StateEvents {

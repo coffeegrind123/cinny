@@ -1,13 +1,9 @@
-import { MouseEventHandler, forwardRef, useState } from 'react';
+import { MouseEventHandler, forwardRef, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Icon, Icons, Menu, MenuItem, PopOut, RectCords, Text, config, toRem } from 'folds';
 import { useAtomValue } from 'jotai';
 import { FocusTrap } from 'focus-trap-react';
-import { useOrphanRooms } from '../../../state/hooks/roomList';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
-import { mDirectAtom } from '../../../state/mDirectList';
-import { roomToParentsAtom } from '../../../state/room/roomToParents';
-import { allRoomsAtom } from '../../../state/room-list/roomList';
 import { roomToUnreadAtom } from '../../../state/room/roomToUnread';
 import { getHomePath, joinPathComponent } from '../../pathUtils';
 import { useRoomsUnread } from '../../../state/hooks/unread';
@@ -18,27 +14,30 @@ import {
   SidebarItemTooltip,
 } from '../../../components/sidebar';
 import { useHomeSelected } from '../../../hooks/router/useHomeSelected';
+import { useDirectSelected } from '../../../hooks/router/useDirectSelected';
 import { UnreadBadge } from '../../../components/unread-badge';
 import { ScreenSize, useScreenSizeContext } from '../../../hooks/useScreenSize';
 import { useNavToActivePathAtom } from '../../../state/hooks/navToActivePath';
 import { useHomeRooms } from '../home/useHomeRooms';
+import { useDirectRooms } from '../direct/useDirectRooms';
 import { markAsRead } from '../../../utils/notifications';
 import { stopPropagation } from '../../../utils/keyboard';
 import { useSetting } from '../../../state/hooks/settings';
 import { settingsAtom } from '../../../state/settings';
+import { useShellLayout } from '../../../hooks/useShellLayout';
 
 type HomeMenuProps = {
+  rooms: string[];
   requestClose: () => void;
 };
-const HomeMenu = forwardRef<HTMLDivElement, HomeMenuProps>(({ requestClose }, ref) => {
-  const orphanRooms = useHomeRooms();
+const HomeMenu = forwardRef<HTMLDivElement, HomeMenuProps>(({ rooms, requestClose }, ref) => {
   const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
-  const unread = useRoomsUnread(orphanRooms, roomToUnreadAtom);
+  const unread = useRoomsUnread(rooms, roomToUnreadAtom);
   const mx = useMatrixClient();
 
   const handleMarkAsRead = () => {
     if (!unread) return;
-    orphanRooms.forEach((rId) => markAsRead(mx, rId, hideActivity));
+    rooms.forEach((rId) => markAsRead(mx, rId, hideActivity));
     requestClose();
   };
 
@@ -63,15 +62,29 @@ const HomeMenu = forwardRef<HTMLDivElement, HomeMenuProps>(({ requestClose }, re
 
 export function HomeTab() {
   const navigate = useNavigate();
-  const mx = useMatrixClient();
   const screenSize = useScreenSizeContext();
   const navToActivePath = useAtomValue(useNavToActivePathAtom());
+  const layout = useShellLayout();
 
-  const mDirects = useAtomValue(mDirectAtom);
-  const roomToParents = useAtomValue(roomToParentsAtom);
-  const orphanRooms = useOrphanRooms(mx, allRoomsAtom, mDirects, roomToParents);
-  const homeUnread = useRoomsUnread(orphanRooms, roomToUnreadAtom);
+  const orphanRooms = useHomeRooms();
+  const directs = useDirectRooms();
+
+  // The badge counts what the Home nav actually lists, which is a settings
+  // question — a merged Home that showed no DM count would be lying about the
+  // list behind it, and a split one that showed it would be lying the other way.
+  const rooms = useMemo(() => {
+    const items: string[] = [];
+    if (layout.roomsInHome) items.push(...orphanRooms);
+    if (layout.directsInHome) items.push(...directs);
+    return items;
+  }, [layout.roomsInHome, layout.directsInHome, orphanRooms, directs]);
+
+  const homeUnread = useRoomsUnread(rooms, roomToUnreadAtom);
   const homeSelected = useHomeSelected();
+  const directSelected = useDirectSelected();
+  // `/direct` renders the Home nav while the two are merged, so it lights the
+  // same tab.
+  const selected = homeSelected || (layout.directsInHome && directSelected);
   const [menuAnchor, setMenuAnchor] = useState<RectCords>();
 
   const handleHomeClick = () => {
@@ -94,7 +107,7 @@ export function HomeTab() {
   };
 
   return (
-    <SidebarItem active={homeSelected}>
+    <SidebarItem active={selected}>
       <SidebarItemTooltip tooltip="Home">
         {(triggerRef) => (
           <SidebarAvatar
@@ -104,7 +117,7 @@ export function HomeTab() {
             onClick={handleHomeClick}
             onContextMenu={handleContextMenu}
           >
-            <Icon src={Icons.Home} filled={homeSelected} />
+            <Icon src={Icons.Home} filled={selected} />
           </SidebarAvatar>
         )}
       </SidebarItemTooltip>
@@ -130,7 +143,7 @@ export function HomeTab() {
                 escapeDeactivates: stopPropagation,
               }}
             >
-              <HomeMenu requestClose={() => setMenuAnchor(undefined)} />
+              <HomeMenu rooms={rooms} requestClose={() => setMenuAnchor(undefined)} />
             </FocusTrap>
           }
         />

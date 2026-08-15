@@ -4,6 +4,7 @@ import {
   Box,
   Icon,
   Icons,
+  Modal,
   Overlay,
   OverlayBackdrop,
   OverlayCenter,
@@ -14,7 +15,7 @@ import { FocusTrap } from 'focus-trap-react';
 import * as css from './styles.css';
 import { UserAvatar } from '../user-avatar';
 import colorMXID from '../../../util/colorMXID';
-import { getMxIdLocalPart } from '../../utils/matrix';
+import { getMxIdLocalPart, getMxIdServer } from '../../utils/matrix';
 import { BreakWord, LineClamp3 } from '../../styles/Text.css';
 import { UserPresence } from '../../hooks/useUserPresence';
 import { AvatarPresence, PresenceBadge } from '../presence';
@@ -24,10 +25,13 @@ import { stopPropagation } from '../../utils/keyboard';
 type UserHeroProps = {
   userId: string;
   avatarUrl?: string;
+  bannerUrl?: string;
+  profileLoaded: boolean;
   presence?: UserPresence;
 };
-export function UserHero({ userId, avatarUrl, presence }: UserHeroProps) {
+export function UserHero({ userId, avatarUrl, bannerUrl, profileLoaded, presence }: UserHeroProps) {
   const [viewAvatar, setViewAvatar] = useState<string>();
+  const coverUrl = bannerUrl ?? (profileLoaded ? avatarUrl : undefined);
 
   return (
     <Box direction="Column" className={css.UserHero}>
@@ -35,11 +39,16 @@ export function UserHero({ userId, avatarUrl, presence }: UserHeroProps) {
         className={css.UserHeroCoverContainer}
         style={{
           backgroundColor: colorMXID(userId),
-          filter: avatarUrl ? undefined : 'brightness(50%)',
+          filter: coverUrl ? undefined : 'brightness(50%)',
         }}
       >
-        {avatarUrl && (
-          <img className={css.UserHeroCover} src={avatarUrl} alt={userId} draggable="false" />
+        {coverUrl && (
+          <img
+            className={bannerUrl ? css.UserHeroBanner : css.UserHeroCover}
+            src={coverUrl}
+            alt=""
+            draggable="false"
+          />
         )}
       </div>
       <div className={css.UserHeroAvatarContainer}>
@@ -75,11 +84,13 @@ export function UserHero({ userId, avatarUrl, presence }: UserHeroProps) {
                   escapeDeactivates: stopPropagation,
                 }}
               >
-                <ImageViewer
-                  src={viewAvatar}
-                  alt={userId}
-                  requestClose={() => setViewAvatar(undefined)}
-                />
+                <Modal size="500" onContextMenu={(evt: any) => evt.stopPropagation()}>
+                  <ImageViewer
+                    src={viewAvatar}
+                    alt={userId}
+                    requestClose={() => setViewAvatar(undefined)}
+                  />
+                </Modal>
               </FocusTrap>
             </OverlayCenter>
           </Overlay>
@@ -92,9 +103,11 @@ export function UserHero({ userId, avatarUrl, presence }: UserHeroProps) {
 type UserHeroNameProps = {
   displayName?: string;
   userId: string;
+  pronouns?: string;
 };
-export function UserHeroName({ displayName, userId }: UserHeroNameProps) {
+export function UserHeroName({ displayName, userId, pronouns }: UserHeroNameProps) {
   const username = getMxIdLocalPart(userId);
+  const server = getMxIdServer(userId);
 
   return (
     <Box grow="Yes" direction="Column" gap="0">
@@ -106,10 +119,20 @@ export function UserHeroName({ displayName, userId }: UserHeroNameProps) {
         >
           {displayName ?? username ?? userId}
         </Text>
+        {pronouns && (
+          <Text size="T200" priority="300">
+            {pronouns}
+          </Text>
+        )}
       </Box>
       <Box alignItems="Center" gap="100" wrap="Wrap">
-        <Text size="T200" className={classNames(BreakWord, LineClamp3)} title={username}>
+        <Text size="T200" className={classNames(BreakWord, LineClamp3)} title={userId}>
           @{username}
+          {server && (
+            <Text as="span" size="Inherit" priority="300">
+              :{server}
+            </Text>
+          )}
         </Text>
       </Box>
     </Box>

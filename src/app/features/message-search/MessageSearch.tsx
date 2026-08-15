@@ -13,7 +13,6 @@ import { settingsAtom } from '../../state/settings';
 import { SequenceCard } from '../../components/sequence-card';
 import { useRoomNavigate } from '../../hooks/useRoomNavigate';
 import { ScrollTopContainer } from '../../components/scroll-top-container';
-import { ContainerColor } from '../../styles/ContainerColor.css';
 import { decodeSearchParamValueArray, encodeSearchParamValueArray } from '../../pages/pathUtils';
 import { useRooms } from '../../state/hooks/roomList';
 import { allRoomsAtom } from '../../state/room-list/roomList';
@@ -22,6 +21,7 @@ import { MessageSearchParams, useMessageSearch } from './useMessageSearch';
 import { SearchResultGroup } from './SearchResultGroup';
 import { SearchInput } from './SearchInput';
 import { SearchFilters } from './SearchFilters';
+import { SearchErrorNotice, SearchNotice } from './SearchNotice';
 import { VirtualTile } from '../../components/virtualizer';
 
 const useSearchPathSearchParams = (searchParams: URLSearchParams): _SearchPathSearchParams =>
@@ -33,7 +33,7 @@ const useSearchPathSearchParams = (searchParams: URLSearchParams): _SearchPathSe
       rooms: searchParams.get('rooms') ?? undefined,
       senders: searchParams.get('senders') ?? undefined,
     }),
-    [searchParams]
+    [searchParams],
   );
 
 type MessageSearchProps = {
@@ -69,7 +69,7 @@ export function MessageSearch({
   const searchParamRooms = useMemo(() => {
     if (searchPathSearchParams.rooms) {
       const joinedRoomIds = decodeSearchParamValueArray(searchPathSearchParams.rooms).filter(
-        (rId) => allRooms.includes(rId)
+        (rId) => allRooms.includes(rId),
       );
       return joinedRoomIds;
     }
@@ -105,7 +105,7 @@ export function MessageSearch({
       msgSearchParams.rooms,
       msgSearchParams.senders,
     ],
-    queryFn: ({ pageParam }) => searchMessages(pageParam),
+    queryFn: ({ pageParam, signal }) => searchMessages(pageParam, signal),
     initialPageParam: '',
     getNextPageParam: (lastPage) => lastPage.nextToken,
   });
@@ -115,11 +115,17 @@ export function MessageSearch({
     const mixed = data?.pages.flatMap((result) => result.highlights);
     return Array.from(new Set(mixed));
   }, [data]);
+  // every page reports the same server-side total
+  const totalCount = data?.pages[0]?.count;
+
+  const rankOrder = msgSearchParams.order === SearchOrderBy.Rank;
 
   const virtualizer = useVirtualizer({
     count: groups.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 40,
+    // result groups render as full message cards; a low estimate makes the
+    // virtualizer believe every group is on screen and fetch every page at once
+    estimateSize: () => 240,
     overscan: 1,
   });
   const vItems = virtualizer.getVirtualItems();
@@ -236,18 +242,22 @@ export function MessageSearch({
         </PageHeroEmpty>
       )}
 
+      {msgSearchParams.term && rankOrder && (
+        <SearchNotice variant="SurfaceVariant">
+          <Text size="T300">Sorting by relevance shows a limited set of results.</Text>
+          <Text size="T200" priority="300">
+            Homeservers cannot paginate relevance-ranked search. Switch to Recent to load every
+            match.
+          </Text>
+        </SearchNotice>
+      )}
+
       {msgSearchParams.term && groups.length === 0 && status === 'success' && (
-        <Box
-          className={ContainerColor({ variant: 'Warning' })}
-          style={{ padding: config.space.S300, borderRadius: config.radii.R400 }}
-          alignItems="Center"
-          gap="200"
-        >
-          <Icon size="200" src={Icons.Info} />
-          <Text>
+        <SearchNotice>
+          <Text size="T300">
             No results found for <b>{`"${msgSearchParams.term}"`}</b>
           </Text>
-        </Box>
+        </SearchNotice>
       )}
 
       {((msgSearchParams.term && status === 'pending') ||
@@ -262,7 +272,14 @@ export function MessageSearch({
       {vItems.length > 0 && (
         <Box direction="Column" gap="300">
           <Box direction="Column" gap="200">
-            <Text size="H5">{`Results for "${msgSearchParams.term}"`}</Text>
+            <Box alignItems="Baseline" gap="200">
+              <Text size="H5">{`Results for "${msgSearchParams.term}"`}</Text>
+              {typeof totalCount === 'number' && (
+                <Text size="T200" priority="300">
+                  {`${totalCount} ${totalCount === 1 ? 'match' : 'matches'}`}
+                </Text>
+              )}
+            </Box>
             <Line size="300" variant="Surface" />
           </Box>
           <div
@@ -282,7 +299,7 @@ export function MessageSearch({
                   virtualItem={vItem}
                   style={{ paddingBottom: config.space.S500 }}
                   ref={virtualizer.measureElement}
-                  key={vItem.index}
+                  key={group.key}
                 >
                   <SearchResultGroup
                     room={groupRoom}
@@ -307,20 +324,7 @@ export function MessageSearch({
         </Box>
       )}
 
-      {error && (
-        <Box
-          className={ContainerColor({ variant: 'Critical' })}
-          style={{
-            padding: config.space.S300,
-            borderRadius: config.radii.R400,
-          }}
-          direction="Column"
-          gap="200"
-        >
-          <Text size="L400">{error.name}</Text>
-          <Text size="T300">{error.message}</Text>
-        </Box>
-      )}
+      {error && <SearchErrorNotice error={error} />}
     </Box>
   );
 }

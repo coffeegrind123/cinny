@@ -56,6 +56,7 @@ import { useMessageLayoutItems } from '../../../hooks/useMessageLayout';
 import { useMessageSpacingItems } from '../../../hooks/useMessageSpacing';
 import { useDateFormatItems } from '../../../hooks/useDateFormat';
 import { SequenceCardStyle } from '../styles.css';
+import { normalizeAutoEmbedHost } from '../../../utils/mediaAutoEmbed';
 
 type ThemeSelectorProps = {
   themeNames: Record<string, string>;
@@ -884,11 +885,7 @@ function Editor() {
           title="Show Bot Buttons"
           description="Draw the buttons bots attach to their messages. Turn this off and the message's plain-text list of options is shown instead, which bots send anyway."
           after={
-            <Switch
-              variant="Primary"
-              value={renderBotKeyboards}
-              onChange={setRenderBotKeyboards}
-            />
+            <Switch variant="Primary" value={renderBotKeyboards} onChange={setRenderBotKeyboards} />
           }
         />
       </SequenceCard>
@@ -1234,6 +1231,166 @@ function Messages() {
 type GeneralProps = {
   requestClose: () => void;
 };
+/**
+ * Settings for the features ported from largelanguagemeowing/cinny. Grouped
+ * together and off by default: each one changes a layout or a habit that
+ * already works, so it is opted into rather than sprung on an existing install.
+ */
+function ForkFeatures() {
+  const [unifiedHomeSidebar, setUnifiedHomeSidebar] = useSetting(
+    settingsAtom,
+    'unifiedHomeSidebar',
+  );
+  const [dmRailButtons, setDmRailButtons] = useSetting(settingsAtom, 'dmRailButtons');
+  const [topBar, setTopBar] = useSetting(settingsAtom, 'topBar');
+  const [topBarProfile, setTopBarProfile] = useSetting(settingsAtom, 'topBarProfile');
+  const [roomsPseudoSpace, setRoomsPseudoSpace] = useSetting(settingsAtom, 'roomsPseudoSpace');
+  const [gifPicker, setGifPicker] = useSetting(settingsAtom, 'gifPicker');
+  const [lowAnimationMode, setLowAnimationMode] = useSetting(settingsAtom, 'lowAnimationMode');
+  const [showRichPresence, setShowRichPresence] = useSetting(settingsAtom, 'showRichPresence');
+  const [emojiShortcodeReplace, setEmojiShortcodeReplace] = useSetting(
+    settingsAtom,
+    'emojiShortcodeReplace',
+  );
+  const [autoJoinSpaceRooms, setAutoJoinSpaceRooms] = useSetting(
+    settingsAtom,
+    'autoJoinSpaceRooms',
+  );
+  const [autoEmbedHosts, setAutoEmbedHosts] = useSetting(settingsAtom, 'mediaAutoEmbedHosts');
+
+  const handleAutoEmbedHostsChange: ChangeEventHandler<HTMLInputElement> = (evt) => {
+    // Normalising here rather than at match time means a pasted URL or a stray
+    // capital is stored as the hostname the comparison actually expects.
+    setAutoEmbedHosts(
+      evt.currentTarget.value
+        .split(',')
+        .map(normalizeAutoEmbedHost)
+        .filter((host): host is string => host !== undefined),
+    );
+  };
+
+  return (
+    <Box direction="Column" gap="100">
+      <Text size="L400">Layout</Text>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Unified Home Sidebar"
+          description="List direct messages and spaceless rooms together in one Home slot instead of two tabs."
+          after={
+            <Switch variant="Primary" value={unifiedHomeSidebar} onChange={setUnifiedHomeSidebar} />
+          }
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Direct Message Rail Buttons"
+          description="Show unread direct messages as avatar buttons under Home in the client rail."
+          after={<Switch variant="Primary" value={dmRailButtons} onChange={setDmRailButtons} />}
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Top Bar"
+          description="A full-width bar above the sidebar carrying the inbox."
+          after={<Switch variant="Primary" value={topBar} onChange={setTopBar} />}
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Profile Controls in Top Bar"
+          description="Move your avatar and status controls into the top bar. Needs the top bar."
+          after={
+            <Switch
+              variant="Primary"
+              disabled={!topBar}
+              value={topBarProfile}
+              onChange={setTopBarProfile}
+            />
+          }
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Rooms Space"
+          description="Give spaceless rooms their own entry in the space rail. Home then lists your direct messages."
+          after={
+            <Switch variant="Primary" value={roomsPseudoSpace} onChange={setRoomsPseudoSpace} />
+          }
+        />
+      </SequenceCard>
+
+      <Text size="L400">Media</Text>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="GIF Picker"
+          description="Add a GIF tab to the emoji board. Searches are sent to klipy.com, which sees your IP and your query."
+          after={<Switch variant="Primary" value={gifPicker} onChange={setGifPicker} />}
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Low Animation Mode"
+          description="Stop media autoplaying — hover to play — and disable interface animation."
+          after={
+            <Switch variant="Primary" value={lowAnimationMode} onChange={setLowAnimationMode} />
+          }
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Inline Video Hosts"
+          description="Comma-separated hosts whose direct video links play in place instead of showing a preview card. Empty means none — a video plays only from a host you name here."
+        >
+          <Input
+            variant="Secondary"
+            radii="300"
+            defaultValue={autoEmbedHosts.join(', ')}
+            placeholder="example.com, files.example.org"
+            onChange={handleAutoEmbedHostsChange}
+          />
+        </SettingTile>
+      </SequenceCard>
+
+      <Text size="L400">Presence</Text>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Show Rich Presence"
+          description="Show what other people are listening to or playing, when they publish it."
+          after={
+            <Switch variant="Primary" value={showRichPresence} onChange={setShowRichPresence} />
+          }
+        />
+      </SequenceCard>
+
+      <Text size="L400">Composer</Text>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Replace Emoji Shortcodes"
+          description="Turn :shortcode: into an emoji as you type, without the autocomplete menu."
+          after={
+            <Switch
+              variant="Primary"
+              value={emojiShortcodeReplace}
+              onChange={setEmojiShortcodeReplace}
+            />
+          }
+        />
+      </SequenceCard>
+
+      <Text size="L400">Spaces</Text>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Auto Join Space Rooms"
+          description="Join every room a space lists, including rooms added later. A large space means many joins."
+          after={
+            <Switch variant="Primary" value={autoJoinSpaceRooms} onChange={setAutoJoinSpaceRooms} />
+          }
+        />
+      </SequenceCard>
+    </Box>
+  );
+}
+
 export function General({ requestClose }: GeneralProps) {
   return (
     <Page>
@@ -1261,6 +1418,7 @@ export function General({ requestClose }: GeneralProps) {
                 <Editor />
                 <Messages />
                 <AudioSettings />
+                <ForkFeatures />
                 <PrivacySettings />
               </Box>
             </PageContentCenter>

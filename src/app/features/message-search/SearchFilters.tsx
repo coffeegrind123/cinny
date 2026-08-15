@@ -92,7 +92,12 @@ function OrderButton({ order, onChange }: OrderButtonProps) {
                 radii="300"
                 aria-pressed={rankOrder}
               >
-                <Text size="T300">Relevance</Text>
+                <Box direction="Column">
+                  <Text size="T300">Relevance</Text>
+                  <Text size="T200" priority="300">
+                    Cannot load more
+                  </Text>
+                </Box>
               </MenuItem>
             </div>
           </Menu>
@@ -134,13 +139,13 @@ function SelectRoomButton({ roomList, selectedRooms, onChange }: SelectRoomButto
 
   const getRoomNameStr: SearchItemStrGetter<string> = useCallback(
     (rId) => mx.getRoom(rId)?.name ?? rId,
-    [mx]
+    [mx],
   );
 
   const [searchResult, _searchRoom, resetSearch] = useAsyncSearch(
     roomList,
     getRoomNameStr,
-    SEARCH_OPTS
+    SEARCH_OPTS,
   );
   const rooms = Array.from(searchResult?.items ?? roomList).sort(factoryRoomIdByAtoZ(mx));
 

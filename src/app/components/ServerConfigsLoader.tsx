@@ -5,11 +5,18 @@ import { useMatrixClient } from '../hooks/useMatrixClient';
 import { MediaConfig } from '../hooks/useMediaConfig';
 import { promiseFulfilledResult } from '../utils/common';
 import { isWebUrl } from '../utils/safeUrl';
+import { serverVersion } from '../cs-api';
+import {
+  identifyServerSoftware,
+  ServerSoftwareInfo,
+  UNKNOWN_SERVER_SOFTWARE,
+} from '../hooks/useServerSoftware';
 
 export type ServerConfigs = {
   capabilities?: Capabilities;
   mediaConfig?: MediaConfig;
   authMetadata?: ValidatedAuthMetadata;
+  serverSoftware: ServerSoftwareInfo;
 };
 
 type ServerConfigsLoaderProps = {
@@ -17,7 +24,10 @@ type ServerConfigsLoaderProps = {
 };
 export function ServerConfigsLoader({ children }: ServerConfigsLoaderProps) {
   const mx = useMatrixClient();
-  const fallbackConfigs = useMemo(() => ({}), []);
+  const fallbackConfigs = useMemo<ServerConfigs>(
+    () => ({ serverSoftware: UNKNOWN_SERVER_SOFTWARE }),
+    []
+  );
 
   const [configsState] = useAsyncCallbackValue<ServerConfigs, unknown>(
     useCallback(async () => {
@@ -25,11 +35,13 @@ export function ServerConfigsLoader({ children }: ServerConfigsLoaderProps) {
         mx.getCapabilities(),
         mx.getMediaConfig(),
         mx.getAuthMetadata(),
+        serverVersion(fetch, mx.getHomeserverUrl()),
       ]);
 
       const capabilities = promiseFulfilledResult(result[0]);
       const mediaConfig = promiseFulfilledResult(result[1]);
       const authMetadata = promiseFulfilledResult(result[2]);
+      const serverSoftware = identifyServerSoftware(promiseFulfilledResult(result[3]));
       let validatedAuthMetadata: ValidatedAuthMetadata | undefined;
 
       // A homeserver without MSC2965 simply 404s both discovery endpoints, so
@@ -41,7 +53,9 @@ export function ServerConfigsLoader({ children }: ServerConfigsLoaderProps) {
       // validating gets past here.
       try {
         // Nothing to validate, and nothing to report: the server said no.
-        if (authMetadata === undefined) return { capabilities, mediaConfig };
+        // `serverSoftware` still travels — it is probed independently of OIDC,
+        // and most homeservers take this branch.
+        if (authMetadata === undefined) return { capabilities, mediaConfig, serverSoftware };
 
         validatedAuthMetadata = validateAuthMetadata(authMetadata);
 
@@ -74,6 +88,7 @@ export function ServerConfigsLoader({ children }: ServerConfigsLoaderProps) {
         capabilities,
         mediaConfig,
         authMetadata: validatedAuthMetadata,
+        serverSoftware,
       };
     }, [mx])
   );

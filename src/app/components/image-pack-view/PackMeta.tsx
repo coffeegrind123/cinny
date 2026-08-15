@@ -147,7 +147,7 @@ export function ImagePackProfileEdit({ meta, onCancel, onSave }: ImagePackProfil
     <Box as="form" onSubmit={handleSubmit} direction="Column" gap="400">
       <Box gap="400">
         <Box grow="Yes" direction="Column" gap="100">
-          <Text size="L400">Pack Avatar</Text>
+          <Text size="L400">Set Avatar</Text>
           {uploadAtom ? (
             <Box gap="200" direction="Column">
               <CompactUploadCardRenderer

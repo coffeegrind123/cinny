@@ -1,4 +1,6 @@
 import { Room } from 'matrix-js-sdk';
+import { EventType } from 'matrix-js-sdk/lib/@types/event';
+import { MatrixEvent } from 'matrix-js-sdk/lib/models/event';
 import {
   MatrixRTCSession,
   MatrixRTCSessionEvent,
@@ -8,6 +10,7 @@ import { CallMembership } from 'matrix-js-sdk/lib/matrixrtc/CallMembership';
 import { useEffect, useState } from 'react';
 import { MatrixRTCSessionManagerEvents } from 'matrix-js-sdk/lib/matrixrtc/MatrixRTCSessionManager';
 import { useMatrixClient } from './useMatrixClient';
+import { getSpaceChildren } from '../utils/room';
 
 export const useCallSession = (room: Room): MatrixRTCSession => {
   const mx = useMatrixClient();
@@ -57,4 +60,73 @@ export const useCallMembers = (session: MatrixRTCSession): CallMembership[] => {
   useCallMembersChange(session, setMemberships);
 
   return memberships;
+};
+
+export const useSpaceHasCall = (space: Room): boolean => {
+  const mx = useMatrixClient();
+  const [hasCall, setHasCall] = useState(false);
+
+  useEffect(() => {
+    const childRoomIds = getSpaceChildren(space);
+    let cancelled = false;
+    let stateVersion = 0;
+
+    const hasLocalCall = () =>
+      childRoomIds.some((roomId) => {
+        const room = mx.getRoom(roomId);
+        if (!room) return false;
+        return mx.matrixRTC.getRoomSession(room).memberships.length > 0;
+      });
+
+    const check = () => {
+      stateVersion += 1;
+      setHasCall(hasLocalCall());
+    };
+
+    const fetchCallState = async () => {
+      const version = stateVersion;
+      const results = await Promise.all(
+        childRoomIds.map(async (roomId) => {
+          try {
+            const state = await mx.roomState(roomId);
+            const membershipEvents = state.filter(
+              (event) =>
+                event.type === EventType.GroupCallMemberPrefix ||
+                event.type === EventType.RTCMembership
+            );
+            const memberships = await Promise.all(
+              membershipEvents.map(async (event) => {
+                try {
+                  return await CallMembership.parseFromEvent(new MatrixEvent(event));
+                } catch {
+                  return undefined;
+                }
+              })
+            );
+            return memberships.some((membership) => membership && !membership.isExpired());
+          } catch {
+            return false;
+          }
+        })
+      );
+
+      if (!cancelled && version === stateVersion) {
+        setHasCall(hasLocalCall() || results.some(Boolean));
+      }
+    };
+
+    mx.matrixRTC.on(MatrixRTCSessionManagerEvents.SessionStarted, check);
+    mx.matrixRTC.on(MatrixRTCSessionManagerEvents.SessionEnded, check);
+
+    check();
+    fetchCallState();
+
+    return () => {
+      cancelled = true;
+      mx.matrixRTC.off(MatrixRTCSessionManagerEvents.SessionStarted, check);
+      mx.matrixRTC.off(MatrixRTCSessionManagerEvents.SessionEnded, check);
+    };
+  }, [mx, space]);
+
+  return hasCall;
 };

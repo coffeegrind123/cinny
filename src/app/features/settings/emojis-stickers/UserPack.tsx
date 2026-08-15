@@ -30,7 +30,7 @@ export function UserPack({ onViewPack }: UserPackProps) {
 
   return (
     <Box direction="Column" gap="100">
-      <Text size="L400">Default Pack</Text>
+      <Text size="L400">Default Set</Text>
       <SequenceCard
         className={SequenceCardStyle}
         variant="SurfaceVariant"

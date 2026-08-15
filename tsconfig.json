@@ -13,7 +13,15 @@
     "noEmit": true,
     "outDir": "dist",
     "skipLibCheck": true,
-    "lib": ["ES2020", "DOM"]
+    "lib": ["ES2020", "DOM"],
+    // Mirror the bare-`folds` alias in vite.config.js. Without this tsc keeps
+    // resolving `folds` to the package while the bundler resolves it to the
+    // shim, so an `Icons.Foo` the shim does not define would typecheck against
+    // folds' enum and be `undefined` at runtime.
+    "baseUrl": ".",
+    "paths": {
+      "folds": ["./src/folds/index.ts"]
+    }
   },
   "exclude": ["node_modules", "dist"],
   "include": ["src"]

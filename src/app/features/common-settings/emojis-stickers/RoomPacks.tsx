@@ -97,8 +97,8 @@ function CreatePackTile({ packs, roomId }: CreatePackTileProps) {
       gap="400"
     >
       <SettingTile
-        title="New Pack"
-        description="Add your own emoji and sticker pack to use in room."
+        title="New Set"
+        description="Add your own emoji and sticker set to use in room."
       >
         <Box
           style={{ marginTop: config.space.S200 }}
@@ -267,7 +267,7 @@ export function RoomPacks({ onViewPack }: RoomPacksProps) {
   return (
     <>
       <Box direction="Column" gap="100">
-        <Text size="L400">Packs</Text>
+        <Text size="L400">Sets</Text>
         {canEdit && <CreatePackTile roomId={room.roomId} packs={packs} />}
         {packs.map(renderPack)}
         {packs.length === 0 && (
@@ -288,10 +288,10 @@ export function RoomPacks({ onViewPack }: RoomPacksProps) {
               }}
             >
               <Text size="H5" align="Center">
-                No Packs
+                No Sets
               </Text>
               <Text size="T200" align="Center">
-                There are no emoji or sticker packs to display at the moment.
+                There are no emoji or sticker sets to display at the moment.
               </Text>
             </Box>
           </SequenceCard>
@@ -315,11 +315,11 @@ export function RoomPacks({ onViewPack }: RoomPacksProps) {
             <Box grow="Yes" direction="Column">
               {applyState.status === AsyncStatus.Error ? (
                 <Text size="T200">
-                  <b>Failed to remove packs! Please try again.</b>
+                  <b>Failed to remove sets! Please try again.</b>
                 </Text>
               ) : (
                 <Text size="T200">
-                  <b>Delete selected packs. ({removedPacks.length} selected)</b>
+                  <b>Delete selected sets. ({removedPacks.length} selected)</b>
                 </Text>
               )}
             </Box>

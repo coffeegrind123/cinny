@@ -1,4 +1,5 @@
 import React, {
+  CSSProperties,
   KeyboardEventHandler,
   RefObject,
   forwardRef,
@@ -55,11 +56,14 @@ import {
   getBeginCommand,
   trimCommand,
   getMentions,
+  replaceShortcodeWithEmoji,
 } from '../../components/editor';
 import { EmojiBoard, EmojiBoardTab } from '../../components/emoji-board';
 import { UseStateProvider } from '../../components/UseStateProvider';
 import {
   TUploadContent,
+  decryptFile,
+  downloadEncryptedMedia,
   encryptFile,
   getImageInfo,
   getMxIdLocalPart,
@@ -121,6 +125,10 @@ import { ReplyLayout, ThreadIndicator } from '../../components/message';
 import { roomToParentsAtom } from '../../state/room/roomToParents';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
 import { useImagePackRooms } from '../../hooks/useImagePackRooms';
+import { useEmojiShortcodeMap } from '../../hooks/useEmojiShortcodeMap';
+import { FavoriteGif } from '../../state/gifFavorites';
+import { MATRIX_GIF_PROPERTY_NAME } from '../../../types/matrix/common';
+import { getGifToSend, isGifVideo } from '../../utils/klipy';
 import { usePowerLevelsContext } from '../../hooks/usePowerLevels';
 import colorMXID from '../../../util/colorMXID';
 import { useIsDirectRoom } from '../../hooks/useRoom';
@@ -133,6 +141,15 @@ import { BotReplyKeyboard } from './BotReplyKeyboard';
 import { BotMenuButton } from './BotMenuButton';
 import { usePowerLevelTags } from '../../hooks/usePowerLevelTags';
 import { useComposingCheck } from '../../hooks/useComposingCheck';
+
+const gifIconStyles: CSSProperties = {
+  border: '1.5px solid currentColor',
+  borderRadius: toRem(3),
+  fontSize: toRem(9),
+  fontWeight: 700,
+  lineHeight: 1,
+  padding: `${toRem(3)} ${toRem(2)}`,
+};
 
 // Bridges the global `toggle-emoji-picker` keybind into the emoji
 // board's per-instance UseStateProvider scope. Lives as a child of
@@ -169,6 +186,12 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
     const [legacyUsernameColor] = useSetting(settingsAtom, 'legacyUsernameColor');
     const direct = useIsDirectRoom();
     const commands = useCommands(mx, room);
+    // Read once: the answer cannot change for the life of the component, and
+    // calling it during render on every keystroke re-parses the user agent.
+    const isMobile = useMemo(mobileOrTablet, []);
+    // Timestamp of the last touch-driven send, so the synthetic click that a
+    // touchend generates is not treated as a second press. See the send button.
+    const lastSendTouchEndRef = useRef(-Infinity);
     const emojiBtnRef = useRef<HTMLButtonElement>(null);
     const roomToParents = useAtomValue(roomToParentsAtom);
     const powerLevels = usePowerLevelsContext();
@@ -218,7 +241,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
     const accessibleTagColors = useAccessiblePowerTagColors(
       theme.kind,
       creatorsTag,
-      powerLevelTags
+      powerLevelTags,
     );
 
     const replyPowerTag = replyUserID ? getMemberPowerTag(replyUserID) : undefined;
@@ -232,17 +255,32 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
     const [selectedFiles, setSelectedFiles] = useAtom(roomIdToUploadItemsAtomFamily(draftScope));
     const uploadFamilyObserverAtom = createUploadFamilyObserverAtom(
       roomUploadAtomFamily,
-      selectedFiles.map((f) => f.file)
+      selectedFiles.map((f) => f.file),
     );
     const uploadBoardHandlers = useRef<UploadBoardImperativeHandlers | undefined>(undefined);
 
     const imagePackRooms: Room[] = useImagePackRooms(roomId, roomToParents);
+    const emojiShortcodeMap = useEmojiShortcodeMap(imagePackRooms);
 
     const [toolbar, setToolbar] = useSetting(settingsAtom, 'editorToolbar');
     const [autocompleteQuery, setAutocompleteQuery] =
       useState<AutocompleteQuery<AutocompletePrefix>>();
 
     const sendTypingStatus = useTypingStatusUpdater(mx, roomId);
+
+    const [emojiShortcodeReplace] = useSetting(settingsAtom, 'emojiShortcodeReplace');
+    const handleEditorChange = useCallback(() => {
+      if (!emojiShortcodeReplace) return;
+      // Only look when the change actually introduced a ':'. Every keystroke
+      // runs through here, and scanning back from the cursor for a shortcode on
+      // each one buys nothing when no colon was typed.
+      const hasColonInsert = editor.operations.some(
+        (op) => op.type === 'insert_text' && op.text.includes(':'),
+      );
+      if (hasColonInsert) {
+        replaceShortcodeWithEmoji(editor, emojiShortcodeMap);
+      }
+    }, [editor, emojiShortcodeMap, emojiShortcodeReplace]);
 
     const voiceRecorder = useVoiceRecorder(roomId);
     const [pollPrompt, setPollPrompt] = useState(false);
@@ -265,7 +303,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
 
         if (room.hasEncryptionStateEvent()) {
           const encryptFiles = fulfilledPromiseSettledResult(
-            await Promise.allSettled(safeFiles.map((f) => encryptFile(f)))
+            await Promise.allSettled(safeFiles.map((f) => encryptFile(f))),
           );
           encryptFiles.forEach((ef) =>
             fileItems.push({
@@ -273,7 +311,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
               metadata: {
                 markedAsSpoiler: false,
               },
-            })
+            }),
           );
         } else {
           safeFiles.forEach((f) =>
@@ -284,7 +322,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
               metadata: {
                 markedAsSpoiler: false,
               },
-            })
+            }),
           );
         }
         setSelectedFiles({
@@ -292,7 +330,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
           item: fileItems,
         });
       },
-      [setSelectedFiles, room]
+      [setSelectedFiles, room],
     );
 
     // Register this room's file handler for global (anywhere-in-window) drops.
@@ -343,16 +381,17 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
         const files = getDataTransferFiles(evt.dataTransfer);
         if (files) handleFiles(files);
       },
-      [handleFiles]
+      [handleFiles],
     );
     const dropZoneVisible = useFileDropZone(fileDropContainerRef, handleFiles);
     const [hideStickerBtn, setHideStickerBtn] = useState(document.body.clientWidth < 500);
+    const [gifPicker] = useSetting(settingsAtom, 'gifPicker');
 
     const isComposing = useComposingCheck();
 
     useElementSizeObserver(
       useCallback(() => fileDropContainerRef.current, [fileDropContainerRef]),
-      useCallback((width) => setHideStickerBtn(width < 500), [])
+      useCallback((width) => setHideStickerBtn(width < 500), []),
     );
 
     useEffect(() => {
@@ -370,7 +409,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
         resetEditor(editor);
         resetEditorHistory(editor);
       },
-      [roomId, editor, setMsgDraft]
+      [roomId, editor, setMsgDraft],
     );
 
     const handleFileMetadata = useCallback(
@@ -381,7 +420,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
           replacement: { ...fileItem, metadata },
         });
       },
-      [setSelectedFiles]
+      [setSelectedFiles],
     );
 
     const handleRemoveUpload = useCallback(
@@ -393,7 +432,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
         });
         uploads.forEach((u) => roomUploadAtomFamily.remove(u));
       },
-      [setSelectedFiles, selectedFiles]
+      [setSelectedFiles, selectedFiles],
     );
 
     const handleCancelUpload = (uploads: Upload[]) => {
@@ -423,11 +462,19 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
       });
       handleCancelUpload(uploads);
       const contents = fulfilledPromiseSettledResult(await Promise.allSettled(contentsPromises));
-      contents.forEach((content) => {
-        // Attachments sent from a thread composer must stay in the thread.
-        if (threadRootId) applyRelation(content as IContent);
+      contents.forEach((content, index) => {
+        // Attachments sent from a thread composer must stay in the thread, and
+        // an attachment sent while a reply is drafted must carry that reply —
+        // this path used to apply the thread relation only, so replying and then
+        // attaching a file silently dropped the reply.
+        //
+        // The reply itself goes on the first attachment alone: stamping every
+        // file of a multi-file send with `m.in_reply_to` renders as N separate
+        // replies to the same message. The rest still take the thread relation.
+        applyRelation(content as IContent, { ignoreReplyDraft: index > 0 });
         mx.sendMessage(roomId, content as any);
       });
+      setReplyDraft(undefined);
     };
 
     /**
@@ -438,10 +485,14 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
      * this on one path (attachments, say) would drop that message into the main
      * room instead, which looks like the message went to the wrong place —
      * because it did.
+     *
+     * `ignoreReplyDraft` is for the second and later files of one multi-file
+     * send: the reply belongs to the first message only, but every message
+     * still needs the thread relation.
      */
     const applyRelation = useCallback(
-      (content: IContent) => {
-        if (replyDraft) {
+      (content: IContent, opts?: { ignoreReplyDraft?: boolean }) => {
+        if (replyDraft && !opts?.ignoreReplyDraft) {
           content['m.relates_to'] = {
             'm.in_reply_to': {
               event_id: replyDraft.eventId,
@@ -469,7 +520,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
           };
         }
       },
-      [replyDraft, threadRootId, threadLatestEventId]
+      [replyDraft, threadRootId, threadLatestEventId],
     );
 
     // Voice messages bypass the upload board on purpose. The board is a staging
@@ -504,17 +555,14 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
           },
           mxc,
           recording.durationSeconds * 1000,
-          recording.waveform
+          recording.waveform,
         );
 
         const mentionData = getMentions(mx, roomId, editor);
         if (replyDraft && replyDraft.userId !== mx.getUserId()) {
           mentionData.users.add(replyDraft.userId);
         }
-        content['m.mentions'] = getMentionContent(
-          Array.from(mentionData.users),
-          mentionData.room
-        );
+        content['m.mentions'] = getMentionContent(Array.from(mentionData.users), mentionData.room);
 
         applyRelation(content);
 
@@ -539,7 +587,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
           allowTextFormatting: true,
           allowBlockMarkdown: isMarkdown,
           allowInlineMarkdown: isMarkdown,
-        })
+        }),
       );
       let msgType = MsgType.Text;
       let effectMsgType: string | undefined;
@@ -655,6 +703,10 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
       resetEditorHistory(editor);
       setReplyDraft(undefined);
       sendTypingStatus(false);
+      // Put the caret back in the composer on touch devices. Losing focus there
+      // dismisses the on-screen keyboard, so sending two messages in a row cost
+      // a tap on the input in between.
+      if (isMobile) safeFocusEditor(editor);
     }, [
       mx,
       roomId,
@@ -666,6 +718,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
       commands,
       applyRelation,
       mapStyleUrl,
+      isMobile,
     ]);
 
     // A quick-reply key sends its label as an ordinary message — no callback,
@@ -680,7 +733,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
         mx.sendMessage(roomId, content as any);
         sendTypingStatus(false);
       },
-      [mx, roomId, applyRelation, sendTypingStatus]
+      [mx, roomId, applyRelation, sendTypingStatus],
     );
 
     const handleKeyDown: KeyboardEventHandler = useCallback(
@@ -701,7 +754,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
           setReplyDraft(undefined);
         }
       },
-      [submit, setReplyDraft, enterForNewline, autocompleteQuery, isComposing]
+      [submit, setReplyDraft, enterForNewline, autocompleteQuery, isComposing],
     );
 
     const handleKeyUp: KeyboardEventHandler = useCallback(
@@ -721,7 +774,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
           : undefined;
         setAutocompleteQuery(query);
       },
-      [editor, sendTypingStatus, hideActivity]
+      [editor, sendTypingStatus, hideActivity],
     );
 
     const handleCloseAutocomplete = useCallback(() => {
@@ -734,27 +787,124 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
       moveCursor(editor);
     };
 
+    const handleGifSelect = async (fav: FavoriteGif) => {
+      const sendGifContent = (content: IContent) => {
+        applyRelation(content);
+        mx.sendMessage(roomId, content as any);
+        setReplyDraft(undefined);
+      };
+
+      const safeGifName = (name: string, fallback: string) =>
+        name
+          .replace(/[/\\?%*:|"<>/]/g, '')
+          .trim()
+          .slice(0, 50) || fallback;
+
+      try {
+        // An unencrypted mxc favourite going into an unencrypted room can
+        // reuse the already uploaded content without a re-upload.
+        if (fav.kind === 'mxc' && !fav.video && !fav.encInfo && !room.hasEncryptionStateEvent()) {
+          sendGifContent({
+            msgtype: MsgType.Image,
+            body: fav.body,
+            filename: fav.body,
+            url: fav.mxc,
+            info: fav.info,
+          });
+          return;
+        }
+
+        let blob: Blob;
+        let filename: string;
+        let videoGif = fav.kind === 'url' || (fav.kind === 'mxc' && fav.video === true);
+        if (fav.kind === 'klipy') {
+          const format = getGifToSend(fav.gif);
+          if (!format?.url) return;
+          videoGif = isGifVideo(format);
+          const resp = await fetch(format.url);
+          if (!resp.ok) return;
+          blob = await resp.blob();
+          filename = `${safeGifName(fav.gif.title || 'gif', 'gif')}.${videoGif ? 'mp4' : 'gif'}`;
+        } else if (fav.kind === 'mxc') {
+          const mediaUrl = mxcUrlToHttp(mx, fav.mxc, useAuthentication);
+          if (!mediaUrl) return;
+          if (fav.encInfo) {
+            const { encInfo } = fav;
+            blob = await downloadEncryptedMedia(mediaUrl, (encBuf) =>
+              decryptFile(encBuf, fav.info?.mimetype ?? 'image/gif', encInfo),
+            );
+          } else {
+            const resp = await fetch(mediaUrl);
+            if (!resp.ok) return;
+            blob = await resp.blob();
+          }
+          const extension = videoGif ? 'mp4' : 'gif';
+          const baseName = fav.body.replace(/\.(?:gif|mp4)$/i, '');
+          filename = new RegExp(`\\.${extension}$`, 'i').test(fav.body)
+            ? fav.body
+            : `${safeGifName(baseName, 'gif')}.${extension}`;
+        } else {
+          const resp = await fetch(fav.videoUrl);
+          if (!resp.ok) return;
+          blob = await resp.blob();
+          filename = `${safeGifName(fav.title || 'gif', 'gif')}.mp4`;
+        }
+
+        const defaultType = videoGif ? 'video/mp4' : 'image/gif';
+        const file = new File([blob], filename, {
+          type: blob.type || defaultType,
+        });
+
+        const encData = room.hasEncryptionStateEvent() ? await encryptFile(file) : undefined;
+        const uploadFile = encData?.file ?? file;
+
+        const uploadData = await mx.uploadContent(uploadFile);
+        const mxc = uploadData?.content_uri;
+        if (!mxc) return;
+
+        const item: TUploadItem = {
+          file,
+          originalFile: file,
+          encInfo: encData?.encInfo,
+          metadata: { markedAsSpoiler: false },
+        };
+        const content = videoGif
+          ? await getVideoMsgContent(mx, item, mxc)
+          : await getImageMsgContent(mx, item, mxc);
+        if (videoGif) content[MATRIX_GIF_PROPERTY_NAME] = true;
+
+        sendGifContent(content);
+      } catch (e) {
+        console.error('Failed to send GIF', e);
+      }
+    };
+
     const handleStickerSelect = async (mxc: string, shortcode: string, label: string) => {
       const stickerUrl = mxcUrlToHttp(mx, mxc, useAuthentication);
       if (!stickerUrl) return;
 
       const info = await getImageInfo(
         await loadImageElement(stickerUrl),
-        await getImageUrlBlob(stickerUrl)
+        await getImageUrlBlob(stickerUrl),
       );
 
-      mx.sendEvent(roomId, EventType.Sticker, {
+      // Stickers are a send path like any other, so they carry the drafted
+      // reply and the thread relation too. Without this, picking a sticker
+      // while a reply was staged posted it as a loose message — and inside a
+      // thread it landed in the main room.
+      const content = {
         body: label,
         url: mxc,
         info,
-      });
+      };
+      applyRelation(content as IContent);
+      mx.sendEvent(roomId, EventType.Sticker, content);
+      setReplyDraft(undefined);
     };
 
     return (
       <div ref={ref}>
-        {pollPrompt && (
-          <PollCreatePrompt room={room} requestClose={() => setPollPrompt(false)} />
-        )}
+        {pollPrompt && <PollCreatePrompt room={room} requestClose={() => setPollPrompt(false)} />}
         {locationPrompt && (
           <LocationPicker
             room={room}
@@ -853,11 +1003,11 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
         <CustomEditor
           editableName="RoomInput"
           editor={editor}
+          onChange={handleEditorChange}
           // A bot's `input_field_placeholder` says what it is waiting for,
           // which is more useful than the generic prompt while it is waiting.
           placeholder={
-            (botKeyboard.state.kind === 'force_reply' ||
-              botKeyboard.state.kind === 'keyboard') &&
+            (botKeyboard.state.kind === 'force_reply' || botKeyboard.state.kind === 'keyboard') &&
             botKeyboard.state.markup.input_field_placeholder
               ? botKeyboard.state.markup.input_field_placeholder
               : 'Send a message...'
@@ -868,80 +1018,78 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
           onDrop={handleDrop}
           top={
             <>
-            <BotReplyKeyboard room={room} keyboard={botKeyboard} onPressKey={handleQuickReply} />
-            {voiceRecorder.error && (
-              <Box
-                alignItems="Center"
-                gap="200"
-                style={{ padding: `${config.space.S200} ${config.space.S300} 0` }}
-              >
-                <Box grow="Yes">
-                  <Text size="T200" style={{ color: color.Critical.Main }}>
-                    {voiceRecorder.error}
-                  </Text>
-                </Box>
-                <IconButton
-                  onClick={voiceRecorder.clearError}
-                  variant="SurfaceVariant"
-                  size="300"
-                  radii="300"
-                  aria-label="Dismiss"
-                >
-                  <Icon src={Icons.Cross} size="50" />
-                </IconButton>
-              </Box>
-            )}
-            {voiceActive && (
-              <VoiceRecordBar controls={voiceRecorder} onSend={handleSendVoice} />
-            )}
-            {replyDraft && (
-              <div>
+              <BotReplyKeyboard room={room} keyboard={botKeyboard} onPressKey={handleQuickReply} />
+              {voiceRecorder.error && (
                 <Box
                   alignItems="Center"
-                  gap="300"
+                  gap="200"
                   style={{ padding: `${config.space.S200} ${config.space.S300} 0` }}
                 >
-                  {/* Invisible spacer matching the attachment button's width so the
+                  <Box grow="Yes">
+                    <Text size="T200" style={{ color: color.Critical.Main }}>
+                      {voiceRecorder.error}
+                    </Text>
+                  </Box>
+                  <IconButton
+                    onClick={voiceRecorder.clearError}
+                    variant="SurfaceVariant"
+                    size="300"
+                    radii="300"
+                    aria-label="Dismiss"
+                  >
+                    <Icon src={Icons.Cross} size="50" />
+                  </IconButton>
+                </Box>
+              )}
+              {voiceActive && <VoiceRecordBar controls={voiceRecorder} onSend={handleSendVoice} />}
+              {replyDraft && (
+                <div>
+                  <Box
+                    alignItems="Center"
+                    gap="300"
+                    style={{ padding: `${config.space.S200} ${config.space.S300} 0` }}
+                  >
+                    {/* Invisible spacer matching the attachment button's width so the
                       replied-to message stays aligned with the text input below.
                       The close button now lives on the right, nearer the send
                       controls — less mouse travel from the compose area. */}
-                  <Box shrink="No" aria-hidden style={{ visibility: 'hidden' }}>
-                    <IconButton variant="SurfaceVariant" size="300" radii="300" tabIndex={-1}>
-                      <Icon src={Icons.Cross} size="50" />
-                    </IconButton>
-                  </Box>
-                  <Box grow="Yes" direction="Row" gap="200" alignItems="Center">
-                    {replyDraft.relation?.rel_type === RelationType.Thread && <ThreadIndicator />}
-                    <ReplyLayout
-                      userColor={replyUsernameColor}
-                      username={
+                    <Box shrink="No" aria-hidden style={{ visibility: 'hidden' }}>
+                      <IconButton variant="SurfaceVariant" size="300" radii="300" tabIndex={-1}>
+                        <Icon src={Icons.Cross} size="50" />
+                      </IconButton>
+                    </Box>
+                    <Box grow="Yes" direction="Row" gap="200" alignItems="Center">
+                      {replyDraft.relation?.rel_type === RelationType.Thread && <ThreadIndicator />}
+                      <ReplyLayout
+                        userColor={replyUsernameColor}
+                        username={
+                          <Text size="T300" truncate>
+                            <b>
+                              {getMemberDisplayName(room, replyDraft.userId) ??
+                                getMxIdLocalPart(replyDraft.userId) ??
+                                replyDraft.userId}
+                            </b>
+                          </Text>
+                        }
+                      >
                         <Text size="T300" truncate>
-                          <b>
-                            {getMemberDisplayName(room, replyDraft.userId) ??
-                              getMxIdLocalPart(replyDraft.userId) ??
-                              replyDraft.userId}
-                          </b>
+                          {trimReplyFromBody(replyDraft.body)}
                         </Text>
-                      }
-                    >
-                      <Text size="T300" truncate>
-                        {trimReplyFromBody(replyDraft.body)}
-                      </Text>
-                    </ReplyLayout>
+                      </ReplyLayout>
+                    </Box>
+                    <Box shrink="No">
+                      <IconButton
+                        onClick={() => setReplyDraft(undefined)}
+                        variant="SurfaceVariant"
+                        size="300"
+                        radii="300"
+                      >
+                        <Icon src={Icons.Cross} size="50" />
+                      </IconButton>
+                    </Box>
                   </Box>
-                  <Box shrink="No">
-                    <IconButton
-                      onClick={() => setReplyDraft(undefined)}
-                      variant="SurfaceVariant"
-                      size="300"
-                      radii="300"
-                    >
-                      <Icon src={Icons.Cross} size="50" />
-                    </IconButton>
-                  </Box>
-                </Box>
-              </div>
-            )}
+                </div>
+              )}
             </>
           }
           before={
@@ -997,7 +1145,9 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
                 >
                   <Icon
                     src={
-                      voiceRecorder.status === VoiceRecordStatus.Recording ? Icons.MicMute : Icons.Mic
+                      voiceRecorder.status === VoiceRecordStatus.Recording
+                        ? Icons.MicMute
+                        : Icons.Mic
                     }
                   />
                 </IconButton>
@@ -1016,73 +1166,91 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
                     <EmojiPickerKeybind
                       onToggle={() =>
                         setEmojiBoardTab((t) =>
-                          t === EmojiBoardTab.Emoji ? undefined : EmojiBoardTab.Emoji
+                          t === EmojiBoardTab.Emoji ? undefined : EmojiBoardTab.Emoji,
                         )
                       }
                     />
-                  <PopOut
-                    offset={16}
-                    alignOffset={-44}
-                    position="Top"
-                    align="End"
-                    anchor={
-                      emojiBoardTab === undefined
-                        ? undefined
-                        : emojiBtnRef.current?.getBoundingClientRect() ?? undefined
-                    }
-                    content={
-                      <EmojiBoard
-                        tab={emojiBoardTab}
-                        onTabChange={setEmojiBoardTab}
-                        imagePackRooms={imagePackRooms}
-                        returnFocusOnDeactivate={false}
-                        onEmojiSelect={handleEmoticonSelect}
-                        onCustomEmojiSelect={handleEmoticonSelect}
-                        onStickerSelect={handleStickerSelect}
-                        requestClose={() => {
-                          setEmojiBoardTab((t) => {
-                            if (t) {
-                              if (!mobileOrTablet()) safeFocusEditor(editor);
-                              return undefined;
-                            }
-                            return t;
-                          });
-                        }}
-                      />
-                    }
-                  >
-                    {!hideStickerBtn && (
+                    <PopOut
+                      offset={16}
+                      alignOffset={-44}
+                      position="Top"
+                      align="End"
+                      anchor={
+                        emojiBoardTab === undefined
+                          ? undefined
+                          : (emojiBtnRef.current?.getBoundingClientRect() ?? undefined)
+                      }
+                      content={
+                        <EmojiBoard
+                          tab={emojiBoardTab}
+                          onTabChange={setEmojiBoardTab}
+                          imagePackRooms={imagePackRooms}
+                          returnFocusOnDeactivate={false}
+                          onEmojiSelect={handleEmoticonSelect}
+                          onCustomEmojiSelect={handleEmoticonSelect}
+                          onStickerSelect={handleStickerSelect}
+                          onGifSelect={handleGifSelect}
+                          requestClose={() => {
+                            setEmojiBoardTab((t) => {
+                              if (t) {
+                                if (!mobileOrTablet()) safeFocusEditor(editor);
+                                return undefined;
+                              }
+                              return t;
+                            });
+                          }}
+                        />
+                      }
+                    >
+                      {!hideStickerBtn && gifPicker && (
+                        <IconButton
+                          aria-label="Open GIF picker"
+                          aria-pressed={emojiBoardTab === EmojiBoardTab.Gif}
+                          onClick={() => setEmojiBoardTab(EmojiBoardTab.Gif)}
+                          variant="SurfaceVariant"
+                          size="300"
+                          radii="300"
+                        >
+                          {/* folds has no GIF glyph, and the picker is named by
+                            the three letters everywhere else, so the label is
+                            the icon. */}
+                          <Text as="span" size="L400" style={gifIconStyles}>
+                            GIF
+                          </Text>
+                        </IconButton>
+                      )}
+                      {!hideStickerBtn && (
+                        <IconButton
+                          aria-pressed={emojiBoardTab === EmojiBoardTab.Sticker}
+                          onClick={() => setEmojiBoardTab(EmojiBoardTab.Sticker)}
+                          variant="SurfaceVariant"
+                          size="300"
+                          radii="300"
+                        >
+                          <Icon
+                            src={Icons.Sticker}
+                            filled={emojiBoardTab === EmojiBoardTab.Sticker}
+                          />
+                        </IconButton>
+                      )}
                       <IconButton
-                        aria-pressed={emojiBoardTab === EmojiBoardTab.Sticker}
-                        onClick={() => setEmojiBoardTab(EmojiBoardTab.Sticker)}
+                        ref={emojiBtnRef}
+                        aria-pressed={
+                          hideStickerBtn ? !!emojiBoardTab : emojiBoardTab === EmojiBoardTab.Emoji
+                        }
+                        onClick={() => setEmojiBoardTab(EmojiBoardTab.Emoji)}
                         variant="SurfaceVariant"
                         size="300"
                         radii="300"
                       >
                         <Icon
-                          src={Icons.Sticker}
-                          filled={emojiBoardTab === EmojiBoardTab.Sticker}
+                          src={Icons.Smile}
+                          filled={
+                            hideStickerBtn ? !!emojiBoardTab : emojiBoardTab === EmojiBoardTab.Emoji
+                          }
                         />
                       </IconButton>
-                    )}
-                    <IconButton
-                      ref={emojiBtnRef}
-                      aria-pressed={
-                        hideStickerBtn ? !!emojiBoardTab : emojiBoardTab === EmojiBoardTab.Emoji
-                      }
-                      onClick={() => setEmojiBoardTab(EmojiBoardTab.Emoji)}
-                      variant="SurfaceVariant"
-                      size="300"
-                      radii="300"
-                    >
-                      <Icon
-                        src={Icons.Smile}
-                        filled={
-                          hideStickerBtn ? !!emojiBoardTab : emojiBoardTab === EmojiBoardTab.Emoji
-                        }
-                      />
-                    </IconButton>
-                  </PopOut>
+                    </PopOut>
                   </>
                 )}
               </UseStateProvider>
@@ -1095,7 +1263,29 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
                   marginRight: '6px',
                 }}
               />
-              <IconButton onClick={submit} variant="Primary" size="300" radii="300">
+              {/*
+                Sending by touch is handled on touchend, not click. The default
+                action of a touch on a button moves focus to it, which blurs the
+                editor and dismisses the on-screen keyboard before `submit` can
+                put the caret back — so the keyboard closed on every send.
+                Preventing the default keeps focus where it is; the click that
+                the browser synthesises afterwards is dropped by the timestamp
+                guard so the message is not sent twice.
+              */}
+              <IconButton
+                onTouchEnd={(evt) => {
+                  evt.preventDefault();
+                  lastSendTouchEndRef.current = evt.timeStamp;
+                  submit();
+                }}
+                onClick={(evt) => {
+                  if (evt.timeStamp - lastSendTouchEndRef.current < 1000) return;
+                  submit();
+                }}
+                variant="Primary"
+                size="300"
+                radii="300"
+              >
                 <Icon src={Icons.Send} />
               </IconButton>
             </>
@@ -1111,5 +1301,5 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
         />
       </div>
     );
-  }
+  },
 );

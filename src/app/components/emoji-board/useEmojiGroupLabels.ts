@@ -15,5 +15,5 @@ export const useEmojiGroupLabels = (): IEmojiGroupLabels =>
       [EmojiGroupId.Symbol]: 'Symbols',
       [EmojiGroupId.Flag]: 'Flags',
     }),
-    []
+    [],
   );

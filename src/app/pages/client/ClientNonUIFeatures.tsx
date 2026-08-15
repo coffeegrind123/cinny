@@ -1,4 +1,6 @@
 import { useAtomValue } from 'jotai';
+import { mDirectAtom } from '../../state/mDirectList';
+import { roomToParentsAtom } from '../../state/room/roomToParents';
 import { ReactNode, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MatrixEventEvent, RoomEvent, RoomEventHandlerMap } from 'matrix-js-sdk';
@@ -23,7 +25,7 @@ import { usePreviousValue } from '../../hooks/usePreviousValue';
 import { useSystemTray } from '../../hooks/useSystemTray';
 import { useContentProtection } from '../../hooks/useContentProtection';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
-import { getInboxInvitesPath, getInboxNotificationsPath } from '../pathUtils';
+import { getInboxInvitesPath } from '../pathUtils';
 import { useRoomNavigate } from '../../hooks/useRoomNavigate';
 import { useWindowFocusedRef } from '../../hooks/useWindowFocused';
 import {
@@ -33,6 +35,8 @@ import {
   isNotificationEvent,
 } from '../../utils/room';
 import { NotificationType, UnreadInfo } from '../../../types/matrix/room';
+import { useSpaceAutoJoinGlobal } from '../../hooks/useSpaceAutoJoinGlobal';
+import { RichPresencePublisher } from '../../hooks/useRichPresencePublisher';
 import { getMxIdLocalPart, mxcUrlToHttp } from '../../utils/matrix';
 import { useSelectedRoom } from '../../hooks/router/useSelectedRoom';
 import { useInboxNotificationsSelected } from '../../hooks/router/useInbox';
@@ -138,7 +142,9 @@ function InviteNotifications() {
 
       // Flash taskbar on Windows
       if (isTauri()) {
-        getCurrentWindow().requestUserAttention(UserAttentionType.Informational).catch(() => {});
+        getCurrentWindow()
+          .requestUserAttention(UserAttentionType.Informational)
+          .catch(() => {});
       }
 
       // Browser fallback with click handler
@@ -155,7 +161,7 @@ function InviteNotifications() {
         };
       }
     },
-    [navigate]
+    [navigate],
   );
 
   const playSound = useCallback(() => {
@@ -184,7 +190,6 @@ function InviteNotifications() {
 
 function MessageNotifications() {
   const audioRef = useRef<HTMLAudioElement>(null);
-  const notifRef = useRef<Notification | undefined>(undefined);
   const unreadCacheRef = useRef<Map<string, UnreadInfo>>(new Map());
   const mx = useMatrixClient();
   const useAuthentication = useMediaAuthentication();
@@ -192,21 +197,22 @@ function MessageNotifications() {
   const [notificationSound] = useSetting(settingsAtom, 'isNotificationSounds');
   const [notificationContentMode] = useSetting(settingsAtom, 'notificationContentMode');
 
-  const navigate = useNavigate();
   const { navigateRoom } = useRoomNavigate();
   const windowFocusedRef = useWindowFocusedRef();
   const notificationSelected = useInboxNotificationsSelected();
   const selectedRoomId = useSelectedRoom();
+  const mDirects = useAtomValue(mDirectAtom);
+  const roomToParents = useAtomValue(roomToParentsAtom);
 
   const notify = useCallback(
     ({
-      senderName,
+      title,
       roomAvatar,
       notificationBody,
       roomId,
       eventId,
     }: {
-      senderName: string;
+      title: string;
       roomAvatar?: string;
       notificationBody: string;
       roomId: string;
@@ -217,15 +223,14 @@ function MessageNotifications() {
       // forward the access token when the room avatar URL points at the
       // authenticated download endpoint.
       const accessToken = mx.getAccessToken();
-      const iconAuthHeader =
-        useAuthentication && accessToken ? `Bearer ${accessToken}` : undefined;
+      const iconAuthHeader = useAuthentication && accessToken ? `Bearer ${accessToken}` : undefined;
 
       // sendDesktopNotification's own browser fallback fires a *second*
       // toast with no click handler, which doubles up notifications on
       // web. Only call it in Tauri; the explicit browser fallback below
       // owns the web path and adds the navigate-on-click behaviour.
       if (isTauri()) {
-        sendDesktopNotification(senderName, {
+        sendDesktopNotification(title, {
           icon: roomAvatar,
           iconAuthHeader,
           iconHomeserver: mx.baseUrl,
@@ -243,22 +248,28 @@ function MessageNotifications() {
 
       // Browser fallback with click handler
       if (!('__TAURI__' in window || '__TAURI_INTERNALS__' in window) && 'Notification' in window) {
-        notifRef.current?.close();
-        const noti = new window.Notification(senderName, {
+        const noti = new window.Notification(title, {
           icon: roomAvatar,
           badge: roomAvatar,
           body: notificationBody,
           silent: true,
+          // Tagged per room rather than closing the previous notification
+          // outright. One `notifRef` meant a message in room A vanished the
+          // moment room B produced one, so a burst across rooms left evidence
+          // of only the last. Same-room notifications still replace each other,
+          // which is what a tag is for.
+          tag: roomId,
         });
         noti.onclick = () => {
-          if (!window.closed) navigate(getInboxNotificationsPath());
+          // Open the message itself. This used to land on the inbox, which is
+          // the one place the user did not ask to be — the Tauri path above has
+          // always carried roomId/eventId through to the native toast.
+          if (!window.closed) navigateRoom(roomId, eventId);
           noti.close();
-          notifRef.current = undefined;
         };
-        notifRef.current = noti;
       }
     },
-    [navigate, mx, useAuthentication]
+    [navigateRoom, mx, useAuthentication, notificationContentMode],
   );
 
   const playSound = useCallback(() => {
@@ -285,9 +296,10 @@ function MessageNotifications() {
       }
 
       const senderMember = room.getMember(sender);
-      const avatarMxc = senderMember?.getMxcAvatarUrl()
-        ?? room.getAvatarFallbackMember()?.getMxcAvatarUrl()
-        ?? room.getMxcAvatarUrl();
+      const avatarMxc =
+        senderMember?.getMxcAvatarUrl() ??
+        room.getAvatarFallbackMember()?.getMxcAvatarUrl() ??
+        room.getMxcAvatarUrl();
       const username = getMemberDisplayName(room, sender) ?? getMxIdLocalPart(sender) ?? sender;
       const content = (mEvent as any).content ?? mEvent.getContent();
       const msgtype: string | undefined = content?.msgtype;
@@ -319,10 +331,26 @@ function MessageNotifications() {
         notificationBody = rawBody || 'New message';
       }
 
+      // Discord-style title. A DM is titled by whoever sent it — the room name
+      // would just repeat them. Anywhere else the sender alone is ambiguous
+      // across rooms, so the room, and the space it belongs to, come with it.
+      const isDM = mDirects.has(room.roomId);
+      let title: string;
+      if (isDM) {
+        title = username;
+      } else {
+        const roomName = room.name ?? 'Unknown';
+        const parentRoomId = roomToParents.get(room.roomId)?.values().next().value;
+        const parentName = parentRoomId ? mx.getRoom(parentRoomId)?.name : undefined;
+        title = parentName
+          ? `${username} (#${roomName}, ${parentName})`
+          : `${username} (#${roomName})`;
+      }
+
       notify({
-        senderName: username,
+        title,
         roomAvatar: avatarMxc
-          ? mxcUrlToHttp(mx, avatarMxc, useAuthentication, 96, 96, 'crop') ?? undefined
+          ? (mxcUrlToHttp(mx, avatarMxc, useAuthentication, 96, 96, 'crop') ?? undefined)
           : undefined,
         notificationBody,
         roomId: room.roomId,
@@ -331,7 +359,9 @@ function MessageNotifications() {
 
       // Flash taskbar on Windows
       if (isTauri()) {
-        getCurrentWindow().requestUserAttention(UserAttentionType.Informational).catch(() => {});
+        getCurrentWindow()
+          .requestUserAttention(UserAttentionType.Informational)
+          .catch(() => {});
       }
     };
 
@@ -340,7 +370,7 @@ function MessageNotifications() {
       room,
       toStartOfTimeline,
       removed,
-      data
+      data,
     ) => {
       if (mx.getSyncState() !== 'SYNCING') return;
       // Focus is read from the Tauri window when available: document.hasFocus()
@@ -392,6 +422,8 @@ function MessageNotifications() {
     selectedRoomId,
     useAuthentication,
     windowFocusedRef,
+    mDirects,
+    roomToParents,
   ]);
 
   // Prime the Tauri-desktop notification permission cache. The plugin's
@@ -414,18 +446,30 @@ function MessageNotifications() {
         // the space/direct/home route the rest of the app uses.
         navigateRoom(roomId, eventId);
       }
-      getCurrentWindow().setFocus().catch(() => {});
-      getCurrentWindow().show().catch(() => {});
-      getCurrentWindow().unminimize().catch(() => {});
-    }).then((fn) => { unlisten = fn; });
-    return () => { unlisten?.(); };
+      getCurrentWindow()
+        .setFocus()
+        .catch(() => {});
+      getCurrentWindow()
+        .show()
+        .catch(() => {});
+      getCurrentWindow()
+        .unminimize()
+        .catch(() => {});
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => {
+      unlisten?.();
+    };
   }, [navigateRoom]);
 
   // Web push notification clicks: the SW posts a message picked up in
   // src/index.tsx and re-broadcast as a window CustomEvent.
   useEffect(() => {
     const handler = (ev: Event) => {
-      const detail = (ev as CustomEvent).detail as { roomId?: string; eventId?: string } | undefined;
+      const detail = (ev as CustomEvent).detail as
+        | { roomId?: string; eventId?: string }
+        | undefined;
       if (!detail?.roomId) return;
       navigateRoom(detail.roomId, detail.eventId);
     };
@@ -438,6 +482,16 @@ function MessageNotifications() {
       <source src={NotificationSound} type="audio/ogg" />
     </audio>
   );
+}
+
+/**
+ * Joins the rooms of spaces that opted in, globally rather than from the space
+ * lobby: a space you never open still gains rooms, and the point of the setting
+ * is not having to visit each one.
+ */
+function SpaceAutoJoinFeature() {
+  useSpaceAutoJoinGlobal();
+  return null;
 }
 
 type ClientNonUIFeaturesProps = {
@@ -457,6 +511,8 @@ export function ClientNonUIFeatures({ children }: ClientNonUIFeaturesProps) {
       <GlobalKeybinds />
       <MatrixLinkHandler />
       <BotStartLinkHandler />
+      <SpaceAutoJoinFeature />
+      <RichPresencePublisher />
       {children}
     </>
   );

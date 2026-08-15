@@ -41,7 +41,7 @@ export function CallStatus({ callEmbed }: CallStatusProps) {
       <Box grow="Yes" alignItems="Center" gap="200">
         {memberVisible ? (
           <Box shrink="No">
-            <LiveChip count={callMembers.length} room={room} members={callMembers} />
+            <LiveChip room={room} members={callMembers} />
           </Box>
         ) : (
           <Spinner variant="Secondary" size="200" />

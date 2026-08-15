@@ -49,6 +49,7 @@ import { highlightText, makeHighlightRegex } from '../../plugins/react-custom-ht
 import { factoryRoomIdByActivity } from '../../utils/sort';
 import { nameInitials } from '../../utils/common';
 import { useRoomNavigate } from '../../hooks/useRoomNavigate';
+import { useSelectedRoom } from '../../hooks/router/useSelectedRoom';
 import { useListFocusIndex } from '../../hooks/useListFocusIndex';
 import { getMxIdLocalPart, getMxIdServer, guessDmRoomUserId } from '../../utils/matrix';
 import { roomToParentsAtom } from '../../state/room/roomToParents';
@@ -77,22 +78,27 @@ const useTopActiveRooms = (
   searchRoomType: SearchRoomType | undefined,
   rooms: string[],
   directs: string[],
-  spaces: string[]
+  spaces: string[],
+  excludeRoomId?: string
 ) => {
   const mx = useMatrixClient();
 
   return useMemo(() => {
+    // The room you are already in is never the room you opened the switcher to
+    // find, and it otherwise sits at the top of the activity sort — costing a
+    // keystroke every time to skip past.
+    const notCurrent = (roomId: string) => roomId !== excludeRoomId;
     if (searchRoomType === SearchRoomType.Spaces) {
-      return spaces;
+      return spaces.filter(notCurrent);
     }
     if (searchRoomType === SearchRoomType.Directs) {
-      return [...directs].sort(factoryRoomIdByActivity(mx)).slice(0, 20);
+      return directs.filter(notCurrent).sort(factoryRoomIdByActivity(mx)).slice(0, 20);
     }
     if (searchRoomType === SearchRoomType.Rooms) {
-      return [...rooms].sort(factoryRoomIdByActivity(mx)).slice(0, 20);
+      return rooms.filter(notCurrent).sort(factoryRoomIdByActivity(mx)).slice(0, 20);
     }
-    return [...rooms, ...directs].sort(factoryRoomIdByActivity(mx)).slice(0, 20);
-  }, [mx, rooms, directs, spaces, searchRoomType]);
+    return [...rooms, ...directs].filter(notCurrent).sort(factoryRoomIdByActivity(mx)).slice(0, 20);
+  }, [mx, rooms, directs, spaces, searchRoomType, excludeRoomId]);
 };
 
 const getDmUserId = (
@@ -109,18 +115,20 @@ const useSearchTargetRooms = (
   searchRoomType: SearchRoomType | undefined,
   rooms: string[],
   directs: string[],
-  spaces: string[]
+  spaces: string[],
+  excludeRoomId?: string
 ) =>
   useMemo(() => {
+    const notCurrent = (roomId: string) => roomId !== excludeRoomId;
     if (searchRoomType === undefined) {
-      return [...rooms, ...directs, ...spaces];
+      return [...rooms, ...directs, ...spaces].filter(notCurrent);
     }
-    if (searchRoomType === SearchRoomType.Rooms) return rooms;
-    if (searchRoomType === SearchRoomType.Spaces) return spaces;
-    if (searchRoomType === SearchRoomType.Directs) return directs;
+    if (searchRoomType === SearchRoomType.Rooms) return rooms.filter(notCurrent);
+    if (searchRoomType === SearchRoomType.Spaces) return spaces.filter(notCurrent);
+    if (searchRoomType === SearchRoomType.Directs) return directs.filter(notCurrent);
 
     return [];
-  }, [rooms, spaces, directs, searchRoomType]);
+  }, [rooms, spaces, directs, searchRoomType, excludeRoomId]);
 
 const SEARCH_OPTIONS: UseAsyncSearchOptions = {
   matchOptions: {
@@ -141,6 +149,7 @@ export function Search({ requestClose }: SearchProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { navigateRoom, navigateSpace } = useRoomNavigate();
   const roomToUnread = useAtomValue(roomToUnreadAtom);
+  const selectedRoomId = useSelectedRoom();
 
   const [searchRoomType, setSearchRoomType] = useState<SearchRoomType>();
 
@@ -154,8 +163,8 @@ export function Search({ requestClose }: SearchProps) {
   const spaces = useSpaces(mx, allRoomsAtom);
   const directs = useDirects(mx, allRoomsAtom, mDirects);
 
-  const topActiveRooms = useTopActiveRooms(searchRoomType, rooms, directs, spaces);
-  const targetRooms = useSearchTargetRooms(searchRoomType, rooms, directs, spaces);
+  const topActiveRooms = useTopActiveRooms(searchRoomType, rooms, directs, spaces, selectedRoomId);
+  const targetRooms = useSearchTargetRooms(searchRoomType, rooms, directs, spaces, selectedRoomId);
 
   const getTargetStr: SearchItemStrGetter<string> = useCallback(
     (roomId: string) => {

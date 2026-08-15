@@ -117,6 +117,61 @@ export interface Settings {
   // button says whatever its sender wants, and the host is the only part of it
   // the sender cannot lie about.
   confirmBotUrls: boolean;
+
+  // ── Ported from largelanguagemeowing/cinny ────────────────────────────
+  // Everything below defaults off: each one changes a layout or a habit that
+  // already works, so it is opted into rather than sprung on an existing
+  // install. The shell settings can be enabled in any combination, but two of
+  // them describe the same slot: moving the rooms out of Home hands that slot
+  // to the direct messages, or nothing would be left in it. `useShellLayout`
+  // resolves the pair, and `topBarProfile` needs `topBar` to have a bar.
+
+  // Home and Direct Messages share one sidebar slot, listing orphan rooms and
+  // DMs together. Off keeps the two separate tabs.
+  unifiedHomeSidebar: boolean;
+  // Unread DMs appear as avatar buttons under Home in the client rail.
+  dmRailButtons: boolean;
+  // A full-width bar above the sidebar carrying the inbox.
+  topBar: boolean;
+  // Moves the profile controls into that bar. Ignored while `topBar` is off.
+  topBarProfile: boolean;
+  // Spaceless rooms get their own server-like entry in the space rail rather
+  // than living inside Home.
+  roomsPseudoSpace: boolean;
+
+  // Third tab in the emoji board backed by the Klipy GIF API. Off by default
+  // because every search leaves the client to a third-party host, disclosing
+  // an IP and a query to someone who is not the homeserver. Favourites and the
+  // composer shortcut follow this setting rather than having their own.
+  gifPicker: boolean;
+  // Media does not autoplay; it plays while hovered instead. Also stops UI
+  // animation, for motion sensitivity and for weak hardware.
+  lowAnimationMode: boolean;
+  // Hosts whose direct video links are inlined and played in place rather than
+  // rendered as a preview card. Empty by default: autoplaying from a host
+  // because a message named it is the same unprompted-fetch trade the embed
+  // toggles above guard against, so the list is opt-in and hand-curated.
+  mediaAutoEmbedHosts: string[];
+
+  // Renders other people's MSC4320 rich presence (now playing / activity) in
+  // profile cards and beside their names.
+  showRichPresence: boolean;
+  // Binds a Discord-compatible local IPC socket so RPC-aware apps publish
+  // their activity as this account's rich presence. Desktop only, and off by
+  // default because claiming that socket is something the user should ask for.
+  publishRichPresence: boolean;
+
+  // `:sob:` becomes an emoji on the closing colon, without the autocomplete
+  // menu. Off by default: it rewrites literal `:text:` the user meant to keep.
+  emojiShortcodeReplace: boolean;
+
+  // Opening a space lobby joins every unjoined room in it, and joins new ones
+  // as they are added. Off by default: a large space means dozens of joins and
+  // the sync traffic that follows.
+  autoJoinSpaceRooms: boolean;
+  // Only share message keys with cross-signed sessions. Off by default because
+  // it breaks sending to anyone who has an unverified session of their own.
+  onlySignedDevices: boolean;
 }
 
 const defaultSettings: Settings = {
@@ -193,6 +248,24 @@ const defaultSettings: Settings = {
   telegramBotToken: '',
   renderBotKeyboards: true,
   confirmBotUrls: true,
+
+  unifiedHomeSidebar: false,
+  dmRailButtons: false,
+  topBar: false,
+  topBarProfile: false,
+  roomsPseudoSpace: false,
+
+  gifPicker: false,
+  lowAnimationMode: false,
+  mediaAutoEmbedHosts: [],
+
+  showRichPresence: false,
+  publishRichPresence: false,
+
+  emojiShortcodeReplace: false,
+
+  autoJoinSpaceRooms: false,
+  onlySignedDevices: false,
 };
 
 export const getSettings = (): Settings => {

@@ -1,5 +1,4 @@
 import { MouseEventHandler, useCallback, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { FocusTrap } from 'focus-trap-react';
 import { isKeyHotkey } from '../../utils/is-hotkey';
 import { Room } from 'matrix-js-sdk';
@@ -9,7 +8,6 @@ import {
   MenuItem,
   config,
   Text,
-  Line,
   Chip,
   Icon,
   Icons,
@@ -19,13 +17,12 @@ import {
   Box,
   Scroll,
   Avatar,
+  color,
+  Input,
 } from 'folds';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
-import { getMxIdServer } from '../../utils/matrix';
 import { useCloseUserRoomProfile } from '../../state/hooks/userRoomProfile';
 import { stopPropagation } from '../../utils/keyboard';
-import { copyToClipboard } from '../../utils/dom';
-import { getExploreServerPath } from '../../pages/pathUtils';
 import { AsyncStatus, useAsyncCallback } from '../../hooks/useAsyncCallback';
 import { factoryRoomIdByAtoZ } from '../../utils/sort';
 import {
@@ -40,193 +37,11 @@ import { useAllJoinedRoomsSet, useGetRoom } from '../../hooks/useGetRoom';
 import { RoomAvatar, RoomIcon } from '../room-avatar';
 import { getDirectRoomAvatarUrl, getRoomAvatarUrl } from '../../utils/room';
 import { nameInitials } from '../../utils/common';
-import { getMatrixToUser } from '../../plugins/matrix-to';
-import { useTimeoutToggle } from '../../hooks/useTimeoutToggle';
 import { useIgnoredUsers } from '../../hooks/useIgnoredUsers';
 import { CutoutCard } from '../cutout-card';
 import { SettingTile } from '../setting-tile';
-
-export function ServerChip({ server }: { server: string }) {
-  const mx = useMatrixClient();
-  const myServer = getMxIdServer(mx.getSafeUserId());
-  const navigate = useNavigate();
-  const closeProfile = useCloseUserRoomProfile();
-  const [copied, setCopied] = useTimeoutToggle();
-
-  const [cords, setCords] = useState<RectCords>();
-
-  const open: MouseEventHandler<HTMLButtonElement> = (evt) => {
-    setCords(evt.currentTarget.getBoundingClientRect());
-  };
-
-  const close = () => setCords(undefined);
-
-  return (
-    <PopOut
-      anchor={cords}
-      position="Bottom"
-      align="Start"
-      offset={4}
-      content={
-        <FocusTrap
-          focusTrapOptions={{
-            initialFocus: false,
-            onDeactivate: close,
-            clickOutsideDeactivates: true,
-            escapeDeactivates: stopPropagation,
-            isKeyForward: (evt: KeyboardEvent) => isKeyHotkey('arrowdown', evt),
-            isKeyBackward: (evt: KeyboardEvent) => isKeyHotkey('arrowup', evt),
-          }}
-        >
-          <Menu>
-            <div style={{ padding: config.space.S100 }}>
-              <MenuItem
-                variant="Surface"
-                fill="None"
-                size="300"
-                radii="300"
-                onClick={() => {
-                  copyToClipboard(server);
-                  setCopied();
-                  close();
-                }}
-              >
-                <Text size="B300">Copy Server</Text>
-              </MenuItem>
-              <MenuItem
-                variant="Surface"
-                fill="None"
-                size="300"
-                radii="300"
-                onClick={() => {
-                  navigate(getExploreServerPath(server));
-                  closeProfile();
-                }}
-              >
-                <Text size="B300">Explore Community</Text>
-              </MenuItem>
-            </div>
-            <Line size="300" />
-            <div style={{ padding: config.space.S100 }}>
-              <MenuItem
-                variant={myServer === server ? 'Surface' : 'Critical'}
-                fill="None"
-                size="300"
-                radii="300"
-                onClick={() => {
-                  window.open(`https://${server}`, '_blank');
-                  close();
-                }}
-              >
-                <Text size="B300">Open in Browser</Text>
-              </MenuItem>
-            </div>
-          </Menu>
-        </FocusTrap>
-      }
-    >
-      <Chip
-        variant={myServer === server ? 'SurfaceVariant' : 'Warning'}
-        radii="Pill"
-        before={
-          cords ? (
-            <Icon size="50" src={Icons.ChevronBottom} />
-          ) : (
-            <Icon size="50" src={copied ? Icons.Check : Icons.Server} />
-          )
-        }
-        onClick={open}
-        aria-pressed={!!cords}
-      >
-        <Text size="B300" truncate>
-          {server}
-        </Text>
-      </Chip>
-    </PopOut>
-  );
-}
-
-export function ShareChip({ userId }: { userId: string }) {
-  const [cords, setCords] = useState<RectCords>();
-
-  const [copied, setCopied] = useTimeoutToggle();
-
-  const open: MouseEventHandler<HTMLButtonElement> = (evt) => {
-    setCords(evt.currentTarget.getBoundingClientRect());
-  };
-
-  const close = () => setCords(undefined);
-
-  return (
-    <PopOut
-      anchor={cords}
-      position="Bottom"
-      align="Start"
-      offset={4}
-      content={
-        <FocusTrap
-          focusTrapOptions={{
-            initialFocus: false,
-            onDeactivate: close,
-            clickOutsideDeactivates: true,
-            escapeDeactivates: stopPropagation,
-            isKeyForward: (evt: KeyboardEvent) => isKeyHotkey('arrowdown', evt),
-            isKeyBackward: (evt: KeyboardEvent) => isKeyHotkey('arrowup', evt),
-          }}
-        >
-          <Menu>
-            <div style={{ padding: config.space.S100 }}>
-              <MenuItem
-                variant="Surface"
-                fill="None"
-                size="300"
-                radii="300"
-                onClick={() => {
-                  copyToClipboard(userId);
-                  setCopied();
-                  close();
-                }}
-              >
-                <Text size="B300">Copy User ID</Text>
-              </MenuItem>
-              <MenuItem
-                variant="Surface"
-                fill="None"
-                size="300"
-                radii="300"
-                onClick={() => {
-                  copyToClipboard(getMatrixToUser(userId));
-                  setCopied();
-                  close();
-                }}
-              >
-                <Text size="B300">Copy User Link</Text>
-              </MenuItem>
-            </div>
-          </Menu>
-        </FocusTrap>
-      }
-    >
-      <Chip
-        variant={copied ? 'Success' : 'SurfaceVariant'}
-        radii="Pill"
-        before={
-          cords ? (
-            <Icon size="50" src={Icons.ChevronBottom} />
-          ) : (
-            <Icon size="50" src={copied ? Icons.Check : Icons.Link} />
-          )
-        }
-        onClick={open}
-        aria-pressed={!!cords}
-      >
-        <Text size="B300" truncate>
-          Share
-        </Text>
-      </Chip>
-    </PopOut>
-  );
-}
+import { Membership } from '../../../types/matrix/room';
+import { useRoom } from '../../hooks/useRoom';
 
 type MutualRoomsData = {
   rooms: Room[];
@@ -239,7 +54,6 @@ export function MutualRoomsChip({ userId }: { userId: string }) {
   const mutualRoomSupported = useMutualRoomsSupport();
   const mutualRoomUnstable = useUnstableMutualRoomsSupport();
   const mutualRoomsState = useMutualRooms(userId);
-  console.log(mutualRoomSupported, mutualRoomsState);
   const { navigateRoom, navigateSpace } = useRoomNavigate();
   const closeUserRoomProfile = useCloseUserRoomProfile();
   const directs = useDirectRooms();
@@ -442,9 +256,29 @@ export function IgnoredUserAlert() {
   );
 }
 
-export function OptionsChip({ userId }: { userId: string }) {
+type OptionsChipProps = {
+  userId: string;
+  membership?: Membership;
+  canInvite: boolean;
+  canKick: boolean;
+  canBan: boolean;
+  canUnban: boolean;
+};
+
+type ModerationAction = 'invite' | 'kick' | 'ban' | 'unban';
+
+export function OptionsChip({
+  userId,
+  membership,
+  canInvite,
+  canKick,
+  canBan,
+  canUnban,
+}: OptionsChipProps) {
   const mx = useMatrixClient();
+  const room = useRoom();
   const [cords, setCords] = useState<RectCords>();
+  const [reason, setReason] = useState('');
 
   const open: MouseEventHandler<HTMLButtonElement> = (evt) => {
     setCords(evt.currentTarget.getBoundingClientRect());
@@ -463,6 +297,34 @@ export function OptionsChip({ userId }: { userId: string }) {
     }, [mx, ignoredUsers, userId, ignored])
   );
   const ignoring = ignoreState.status === AsyncStatus.Loading;
+
+  const [moderationState, moderate] = useAsyncCallback<void, Error, [ModerationAction]>(
+    useCallback(
+      async (action) => {
+        const moderationReason = reason.trim() || undefined;
+        if (action === 'invite') await mx.invite(room.roomId, userId, moderationReason);
+        if (action === 'kick') await mx.kick(room.roomId, userId, moderationReason);
+        if (action === 'ban') await mx.ban(room.roomId, userId, moderationReason);
+        if (action === 'unban') await mx.unban(room.roomId, userId);
+      },
+      [mx, room, userId, reason]
+    )
+  );
+  const moderating = moderationState.status === AsyncStatus.Loading;
+  const hasModerationActions =
+    (canInvite && membership === Membership.Leave) ||
+    (canKick && (membership === Membership.Join || membership === Membership.Invite)) ||
+    (canBan && membership !== Membership.Ban) ||
+    (canUnban && membership === Membership.Ban);
+
+  const runModeration = (action: ModerationAction) => {
+    moderate(action)
+      .then(() => {
+        setReason('');
+        close();
+      })
+      .catch(() => undefined);
+  };
 
   return (
     <PopOut
@@ -503,13 +365,83 @@ export function OptionsChip({ userId }: { userId: string }) {
               >
                 <Text size="B300">{ignored ? 'Unblock User' : 'Block User'}</Text>
               </MenuItem>
+              {hasModerationActions && (
+                <Input
+                  aria-label="Moderation reason"
+                  placeholder="Reason (optional)"
+                  value={reason}
+                  onChange={(event) => setReason(event.currentTarget.value)}
+                  variant="SurfaceVariant"
+                  size="300"
+                  radii="300"
+                  disabled={moderating}
+                />
+              )}
+              {canInvite && membership === Membership.Leave && (
+                <MenuItem
+                  variant="Surface"
+                  fill="None"
+                  size="300"
+                  radii="300"
+                  onClick={() => runModeration('invite')}
+                  disabled={moderating}
+                >
+                  <Text size="B300">Invite to Room</Text>
+                </MenuItem>
+              )}
+              {canKick && (membership === Membership.Join || membership === Membership.Invite) && (
+                <MenuItem
+                  variant="Critical"
+                  fill="None"
+                  size="300"
+                  radii="300"
+                  onClick={() => runModeration('kick')}
+                  disabled={moderating}
+                >
+                  <Text size="B300">
+                    {membership === Membership.Invite ? 'Cancel Invite' : 'Kick from Room'}
+                  </Text>
+                </MenuItem>
+              )}
+              {canBan && membership !== Membership.Ban && (
+                <MenuItem
+                  variant="Critical"
+                  fill="None"
+                  size="300"
+                  radii="300"
+                  onClick={() => runModeration('ban')}
+                  disabled={moderating}
+                >
+                  <Text size="B300">Ban from Room</Text>
+                </MenuItem>
+              )}
+              {canUnban && membership === Membership.Ban && (
+                <MenuItem
+                  variant="Critical"
+                  fill="None"
+                  size="300"
+                  radii="300"
+                  onClick={() => runModeration('unban')}
+                  disabled={moderating}
+                >
+                  <Text size="B300">Unban from Room</Text>
+                </MenuItem>
+              )}
+              {moderationState.status === AsyncStatus.Error && (
+                <Text
+                  size="T200"
+                  style={{ padding: config.space.S100, color: color.Critical.Main }}
+                >
+                  {moderationState.error.message}
+                </Text>
+              )}
             </div>
           </Menu>
         </FocusTrap>
       }
     >
       <Chip variant="SurfaceVariant" radii="Pill" onClick={open} aria-pressed={!!cords}>
-        {ignoring ? (
+        {ignoring || moderating ? (
           <Spinner variant="Secondary" size="50" />
         ) : (
           <Icon size="50" src={Icons.HorizontalDots} />

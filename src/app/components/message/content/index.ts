@@ -6,3 +6,4 @@ export * from './VoiceContent';
 export * from './FileContent';
 export * from './FallbackContent';
 export * from './EventContent';
+export * from './MediaAutoEmbed';

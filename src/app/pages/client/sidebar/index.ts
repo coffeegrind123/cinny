@@ -1,5 +1,7 @@
 export * from './HomeTab';
 export * from './DirectTab';
+export * from './DirectRailButtons';
+export * from './RoomsTab';
 export * from './SpaceTabs';
 export * from './InboxTab';
 export * from './ExploreTab';
