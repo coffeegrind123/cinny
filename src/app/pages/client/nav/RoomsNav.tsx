@@ -47,6 +47,7 @@ import { UseStateProvider } from '../../../components/UseStateProvider';
 import { JoinAddressPrompt } from '../../../components/join-address-prompt';
 import { _RoomSearchParams } from '../../paths';
 import { factoryRoomIdByActivity, factoryRoomIdByAtoZ, factoryRoomIdByPinned } from '../../../utils/sort';
+import { useScrollElement } from '../../../hooks/useScrollElement';
 import { useScrollMargin } from '../../../hooks/useScrollMargin';
 
 /**
@@ -178,6 +179,7 @@ export function RoomsNavList({ base, scrollRef }: RoomsNavListProps) {
   const paths = roomsNavPaths[base];
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const scrollElement = useScrollElement(scrollRef);
   const scrollMargin = useScrollMargin(scrollRef, containerRef);
 
   const sortedRooms = useMemo(() => {
@@ -197,7 +199,10 @@ export function RoomsNavList({ base, scrollRef }: RoomsNavListProps) {
 
   const virtualizer = useVirtualizer({
     count: sortedRooms.length,
-    getScrollElement: () => scrollRef.current,
+    // Resolved through state rather than read off the ref directly: the
+    // scroll container is an ANCESTOR of this list, so its ref is still
+    // null while this component's layout effects run. See useScrollElement.
+    getScrollElement: () => scrollElement,
     estimateSize: () => 38,
     overscan: 10,
     scrollMargin,

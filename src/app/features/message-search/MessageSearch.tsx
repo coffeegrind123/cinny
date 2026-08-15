@@ -2,6 +2,7 @@ import { RefObject, useEffect, useMemo, useRef } from 'react';
 import { Text, Box, Icon, Icons, config, Spinner, IconButton, Line, toRem } from 'folds';
 import { useAtomValue } from 'jotai';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { useScrollElement } from '../../hooks/useScrollElement';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { SearchOrderBy } from 'matrix-js-sdk';
@@ -120,9 +121,15 @@ export function MessageSearch({
 
   const rankOrder = msgSearchParams.order === SearchOrderBy.Rank;
 
+  const scrollElement = useScrollElement(scrollRef);
+
   const virtualizer = useVirtualizer({
     count: groups.length,
-    getScrollElement: () => scrollRef.current,
+    // The scroll container is an ANCESTOR of this component, so its ref is
+    // still null while these layout effects run. Pre-existing, and masked
+    // until now because results only appear after a query is typed and that
+    // re-render is what let the virtualizer resolve. See useScrollElement.
+    getScrollElement: () => scrollElement,
     // result groups render as full message cards; a low estimate makes the
     // virtualizer believe every group is on screen and fetch every page at once
     estimateSize: () => 240,
