@@ -222,6 +222,23 @@ const asText = (value: unknown): string | undefined => {
   return clean.length === 0 ? undefined : clean.slice(0, MAX_NOTIFICATION_TEXT);
 };
 
+// Notification artwork, resolved against the worker's own scope.
+//
+// `public/res/…` is the SOURCE layout and does not survive the build: the only
+// thing vite.config.js copies out of it is `public/res/android/**` ->
+// `public/android/`, everything else reaches `dist/` only as a hashed
+// `assets/…` file emitted from a bundler import, which a plain string cannot
+// name. The previous '/public/res/svg/prinny.svg' therefore 404'd on every push
+// and the browser silently substituted its own generic icon.
+//
+// Scope-relative rather than base-relative on purpose: the same source builds
+// at '/' (self-hosters) and at '/app/' (prinny.app), and `registration.scope`
+// is whichever one this worker was actually registered under — no build-time
+// value to keep in sync. PNG rather than the brand SVG because SVG notification
+// icons are not reliably rendered outside Firefox.
+const notificationAsset = (path: string): string =>
+  new URL(path, self.registration.scope).href;
+
 self.addEventListener('push', (event: PushEvent) => {
   event.waitUntil(handlePush(event));
 });
@@ -252,8 +269,8 @@ async function handlePush(event: PushEvent) {
 
   await self.registration.showNotification(title, {
     body,
-    icon: '/public/res/svg/prinny.svg',
-    badge: '/public/res/svg/prinny.svg',
+    icon: notificationAsset('public/android/android-chrome-192x192.png'),
+    badge: notificationAsset('public/android/android-chrome-96x96.png'),
     tag: eventId ?? 'matrix-push',
     renotify: true,
     data: {
