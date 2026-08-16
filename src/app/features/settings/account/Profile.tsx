@@ -24,6 +24,7 @@ import {
   config,
   Spinner,
   TextArea,
+  color,
 } from 'folds';
 import { FocusTrap } from 'focus-trap-react';
 import { SequenceCard } from '../../../components/sequence-card';
@@ -48,6 +49,10 @@ import {
   getProfilePronouns,
   getProfileBanner,
   getProfileBiography,
+  getProfileTimezone,
+  isValidTimezone,
+  formatTimeInTimezone,
+  M_TIMEZONE,
   MSC4247_PRONOUNS,
   MSC4427_BANNER,
   MSC4440_BIOGRAPHY,
@@ -511,6 +516,128 @@ function ProfilePronouns({ profile }: { profile: UserProfile }) {
   );
 }
 
+/**
+ * MSC4175 — `m.tz`, a defined profile key since Matrix 1.16.
+ *
+ * Writes the STABLE key only. The three fields either side of this one write
+ * their unstable identifiers because they are still open proposals; this one is
+ * spec, and the server validates `m.tz` against a documented key pattern.
+ */
+function ProfileTimezone({ profile }: { profile: UserProfile }) {
+  const mx = useMatrixClient();
+  const currentValue = getProfileTimezone(profile.extended) ?? '';
+  const [value, setValue] = useState(currentValue);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => setValue(currentValue), [currentValue]);
+
+  // `Intl.supportedValuesOf` gives the runtime's own zone list, so the datalist
+  // can never offer a zone the runtime would then reject. Guarded because it is
+  // newer than the rest of Intl — without the list the input still works, it
+  // just loses type-ahead.
+  const zones = useMemo<string[]>(() => {
+    const intl = Intl as typeof Intl & {
+      supportedValuesOf?: (key: 'timeZone') => string[];
+    };
+    try {
+      return intl.supportedValuesOf?.('timeZone') ?? [];
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const trimmed = value.trim();
+  const valid = trimmed === '' || isValidTimezone(trimmed);
+  const preview = valid && trimmed ? formatTimeInTimezone(trimmed) : undefined;
+
+  const handleDetect = () => {
+    const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (detected) setValue(detected);
+  };
+
+  const handleSubmit: FormEventHandler<HTMLFormElement> = async (event) => {
+    event.preventDefault();
+    if (!valid) return;
+    setSaving(true);
+    try {
+      // DELETE rather than a null write, matching the banner and biography
+      // tiles. Setting null leaves the key present with a null value, which
+      // every reader then has to special-case.
+      if (trimmed === '') {
+        await mx.deleteExtendedProfileProperty(M_TIMEZONE);
+      } else {
+        await mx.setExtendedProfileProperty(M_TIMEZONE, trimmed);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <SettingTile
+      title={
+        <Text as="span" size="L400">
+          Time Zone
+        </Text>
+      }
+      description={
+        preview
+          ? `Others see your local time. It is ${preview} for you now.`
+          : 'Lets people see what time it is where you are. Leave empty to hide it.'
+      }
+    >
+      <Box as="form" onSubmit={handleSubmit} gap="200" grow="Yes">
+        <Box grow="Yes" direction="Column">
+          <Input
+            aria-label="Time zone"
+            list="prinny-timezone-list"
+            value={value}
+            onChange={(event) => setValue(event.currentTarget.value)}
+            placeholder="Europe/Helsinki"
+            maxLength={64}
+            size="400"
+            variant={valid ? 'Secondary' : 'Critical'}
+            radii="300"
+          />
+          {zones.length > 0 && (
+            <datalist id="prinny-timezone-list">
+              {zones.map((zone) => (
+                <option key={zone} value={zone} />
+              ))}
+            </datalist>
+          )}
+          {!valid && (
+            <Text size="T200" style={{ color: color.Critical.Main }}>
+              Not a time zone this device knows. Pick one from the list.
+            </Text>
+          )}
+        </Box>
+        <Button
+          type="button"
+          onClick={handleDetect}
+          size="400"
+          variant="Secondary"
+          fill="Soft"
+          radii="300"
+        >
+          <Text size="B400">Detect</Text>
+        </Button>
+        <Button
+          type="submit"
+          size="400"
+          variant="Success"
+          fill="Solid"
+          radii="300"
+          disabled={saving || !valid || trimmed === currentValue}
+        >
+          {saving && <Spinner variant="Success" fill="Solid" size="300" />}
+          <Text size="B400">Save</Text>
+        </Button>
+      </Box>
+    </SettingTile>
+  );
+}
+
 function ProfileStatus({ userId }: { userId: string }) {
   const mx = useMatrixClient();
   const presence = useUserPresence(userId);
@@ -694,6 +821,7 @@ export function Profile() {
             <ProfileDisplayName userId={userId} profile={profile} />
             <ProfileStatus userId={userId} />
             <ProfilePronouns profile={profile} />
+            <ProfileTimezone profile={profile} />
             <ProfileBiography profile={profile} />
           </SequenceCard>
         </Box>

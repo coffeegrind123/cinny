@@ -137,8 +137,10 @@ type UserHeroNameProps = {
   displayName?: string;
   userId: string;
   pronouns?: string;
+  /** MSC4175 local time, already formatted. */
+  localTime?: string;
 };
-export function UserHeroName({ displayName, userId, pronouns }: UserHeroNameProps) {
+export function UserHeroName({ displayName, userId, pronouns, localTime }: UserHeroNameProps) {
   const username = getMxIdLocalPart(userId);
   const server = getMxIdServer(userId);
 
@@ -155,6 +157,11 @@ export function UserHeroName({ displayName, userId, pronouns }: UserHeroNameProp
         {pronouns && (
           <Text size="T200" priority="300">
             {pronouns}
+          </Text>
+        )}
+        {localTime && (
+          <Text size="T200" priority="300" title="Local time">
+            {localTime} local
           </Text>
         )}
       </Box>

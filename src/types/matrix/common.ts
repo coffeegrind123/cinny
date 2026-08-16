@@ -8,12 +8,24 @@ export const MATRIX_SPOILER_REASON_PROPERTY_NAME = 'page.codeberg.everypizza.msc
 // rather than as a silent clip.
 export const MATRIX_GIF_PROPERTY_NAME = 'io.cinny.gif';
 
+// MSC4230 — whether an m.image / m.sticker is animated. Stable since Matrix
+// 1.18; the unstable prefix is written alongside it because Element still reads
+// only that one, and a receiver that believes an animation is a still will
+// happily request a flattened server-side thumbnail of it. Drop the unstable
+// write once Element ships the stable key.
+export const MATRIX_ANIMATED_PROPERTY_NAME = 'is_animated';
+export const MATRIX_ANIMATED_UNSTABLE_PROPERTY_NAME = 'org.matrix.msc4230.is_animated';
+
 export type IImageInfo = {
   w?: number;
   h?: number;
   mimetype?: string;
   size?: number;
   [MATRIX_BLUR_HASH_PROPERTY_NAME]?: string;
+  /** MSC4230, stable in Matrix 1.18. */
+  [MATRIX_ANIMATED_PROPERTY_NAME]?: boolean;
+  /** MSC4230 unstable prefix — still the only one Element reads. */
+  [MATRIX_ANIMATED_UNSTABLE_PROPERTY_NAME]?: boolean;
 };
 
 export type IVideoInfo = {

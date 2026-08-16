@@ -21,9 +21,11 @@ import { CryptoBackend } from 'matrix-js-sdk/lib/common-crypto/CryptoBackend';
 import { AccountDataEvent } from '../../types/matrix/accountData';
 import {
   IRoomCreateContent,
+  MarkedUnreadContent,
   Membership,
   MessageEvent,
   NotificationType,
+  RoomAccountDataEvent,
   RoomToParents,
   RoomType,
   StateEvent,
@@ -234,6 +236,28 @@ export const roomHaveUnread = (mx: MatrixClient, room: Room) => {
   return true;
 };
 
+/**
+ * MSC2867: has the user explicitly flagged this room as unread?
+ *
+ * Both identifiers are read because they coexist in the wild — the stable key
+ * has only been spec since Matrix 1.12, and clients that predate it (or never
+ * migrated) still write `com.famedly.marked_unread`. The stable key wins where
+ * both are present, and a key whose `unread` is explicitly `false` counts as
+ * "not marked" rather than falling through to the other one: `false` is a
+ * deliberate clear, not an absence.
+ */
+export const getRoomMarkedUnread = (room: Room): boolean => {
+  const stable = room
+    .getAccountData(RoomAccountDataEvent.MarkedUnread)
+    ?.getContent<MarkedUnreadContent>();
+  if (typeof stable?.unread === 'boolean') return stable.unread;
+
+  const legacy = room
+    .getAccountData(RoomAccountDataEvent.MarkedUnreadLegacy)
+    ?.getContent<MarkedUnreadContent>();
+  return legacy?.unread === true;
+};
+
 export const getUnreadInfo = (room: Room): UnreadInfo => {
   const total = room.getUnreadNotificationCount(NotificationCountType.Total);
   const highlight = room.getUnreadNotificationCount(NotificationCountType.Highlight);
@@ -241,6 +265,7 @@ export const getUnreadInfo = (room: Room): UnreadInfo => {
     roomId: room.roomId,
     highlight,
     total: highlight > total ? highlight : total,
+    marked: getRoomMarkedUnread(room),
   };
 };
 
@@ -250,7 +275,10 @@ export const getUnreadInfos = (mx: MatrixClient): UnreadInfo[] => {
     if (room.getMyMembership() !== 'join') return unread;
     if (getNotificationType(mx, room.roomId) === NotificationType.Mute) return unread;
 
-    if (roomHaveNotification(room) || roomHaveUnread(mx, room)) {
+    // A room the user marked unread carries no notification and no unread
+    // event, so it only reaches the atom because of the third clause. Without
+    // it the flag round-trips to the server and changes nothing on screen.
+    if (roomHaveNotification(room) || roomHaveUnread(mx, room) || getRoomMarkedUnread(room)) {
       unread.push(getUnreadInfo(room));
     }
 

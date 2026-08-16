@@ -128,6 +128,7 @@ import { useImagePackRooms } from '../../hooks/useImagePackRooms';
 import { useEmojiShortcodeMap } from '../../hooks/useEmojiShortcodeMap';
 import { FavoriteGif } from '../../state/gifFavorites';
 import { MATRIX_GIF_PROPERTY_NAME } from '../../../types/matrix/common';
+import { animatedImageInfo, blobIsAnimated } from '../../utils/animatedMedia';
 import { getGifToSend, isGifVideo } from '../../utils/klipy';
 import { usePowerLevelsContext } from '../../hooks/usePowerLevels';
 import colorMXID from '../../../util/colorMXID';
@@ -885,10 +886,13 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
       const stickerUrl = mxcUrlToHttp(mx, mxc, useAuthentication);
       if (!stickerUrl) return;
 
-      const info = await getImageInfo(
-        await loadImageElement(stickerUrl),
-        await getImageUrlBlob(stickerUrl),
-      );
+      // MSC4230 covers `m.sticker` as well as `m.image`, and animated stickers
+      // are the common case — a receiver that thumbnails one gets a still.
+      const stickerBlob = await getImageUrlBlob(stickerUrl);
+      const info = {
+        ...(await getImageInfo(await loadImageElement(stickerUrl), stickerBlob)),
+        ...animatedImageInfo(await blobIsAnimated(stickerBlob)),
+      };
 
       // Stickers are a send path like any other, so they carry the drafted
       // reply and the thread relation too. Without this, picking a sticker

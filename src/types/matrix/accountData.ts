@@ -8,6 +8,13 @@ export enum AccountDataEvent {
   PrinnyRoomOrder = 'app.prinny.room_order',
   PrinnyGifFavorites = 'app.prinny.gif_favorites',
 
+  /**
+   * MSC4356, stable since Matrix 1.18. Content is
+   * `{ recent_emoji: [{ emoji, total }] }` — note the OBJECT entries; the
+   * `io.element.*` key below stores the same list as positional tuples.
+   */
+  RecentEmoji = 'm.recent_emoji',
+  /** Element's pre-spec key, still the only one Element itself reads. */
   ElementRecentEmoji = 'io.element.recent_emoji',
 
   PoniesUserEmotes = 'im.ponies.user_emotes',

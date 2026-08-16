@@ -7,6 +7,7 @@ import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
 import { usePowerLevels } from '../../hooks/usePowerLevels';
 import { useRoom } from '../../hooks/useRoom';
+import { useLocalTime } from '../../hooks/useLocalTime';
 import { useUserPresence } from '../../hooks/useUserPresence';
 import { IgnoredUserAlert, MutualRoomsChip, OptionsChip } from './UserChips';
 import { PowerChip } from './PowerChip';
@@ -25,6 +26,7 @@ import {
   getProfileBanner,
   getProfileBiography,
   getProfilePronouns,
+  getProfileTimezone,
 } from '../../../types/matrix/profile';
 import { DirectMessageComposer } from './DirectMessageComposer';
 
@@ -67,6 +69,7 @@ export function UserRoomProfile({ userId }: UserRoomProfileProps) {
     .join(', ');
   const bannerMxc = getProfileBanner(profile.extended);
   const biography = getProfileBiography(profile.extended);
+  const localTime = useLocalTime(getProfileTimezone(profile.extended));
   const bannerUrl = bannerMxc
     ? mxcUrlToHttp(mx, bannerMxc, useAuthentication) ?? undefined
     : undefined;
@@ -84,7 +87,12 @@ export function UserRoomProfile({ userId }: UserRoomProfileProps) {
       <Box direction="Column" gap="500" style={{ padding: config.space.S400 }}>
         <Box direction="Column" gap="400">
           <Box gap="400" alignItems="Start">
-            <UserHeroName displayName={displayName} userId={userId} pronouns={pronouns} />
+            <UserHeroName
+              displayName={displayName}
+              userId={userId}
+              pronouns={pronouns}
+              localTime={localTime}
+            />
           </Box>
           <Box alignItems="Center" gap="200" wrap="Wrap">
             {creator ? <CreatorChip /> : <PowerChip userId={userId} />}

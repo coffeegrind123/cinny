@@ -14,6 +14,7 @@ import {
   loadVideoElement,
 } from '../../utils/dom';
 import { encryptFile, getImageInfo, getThumbnailContent, getVideoInfo } from '../../utils/matrix';
+import { animatedImageInfo, blobIsAnimated } from '../../utils/animatedMedia';
 import { TUploadItem } from '../../state/room/roomInputDrafts';
 import { encodeBlurHash } from '../../utils/blurHash';
 import { scaleYDimension } from '../../utils/common';
@@ -61,9 +62,15 @@ export const getImageMsgContent = async (
   if (imgEl) {
     const blurHash = encodeBlurHash(imgEl, 512, scaleYDimension(imgEl.width, 512, imgEl.height));
 
+    // MSC4230. Sniffed from `originalFile`, never `file`: on an encrypted
+    // upload `file` is the ciphertext, whose bytes are by design
+    // indistinguishable from noise and would sniff as "not an image".
+    const animated = await blobIsAnimated(originalFile);
+
     content.info = {
       ...getImageInfo(imgEl, file),
       [MATRIX_BLUR_HASH_PROPERTY_NAME]: blurHash,
+      ...animatedImageInfo(animated),
     };
   }
   if (encInfo) {

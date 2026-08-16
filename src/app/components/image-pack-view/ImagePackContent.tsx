@@ -37,6 +37,7 @@ import { useFilePicker } from '../../hooks/useFilePicker';
 import { CompactUploadCardRenderer } from '../upload-card';
 import { UploadSuccess } from '../../state/upload';
 import { getImageInfo, getUploadContentName, TUploadContent } from '../../utils/matrix';
+import { animatedImageInfo, blobIsAnimated } from '../../utils/animatedMedia';
 import { getImageFileUrl, loadImageElement, renameFile } from '../../utils/dom';
 import { replaceSpaceWithDash, suffixRename } from '../../utils/common';
 import { getFileNameWithoutExt } from '../../utils/mimeTypes';
@@ -209,7 +210,12 @@ export const ImagePackContent = as<'div', ImagePackContentProps>(
         const imgEl = await loadImageElement(getImageFileUrl(data.file));
         const packImage: PackImage = {
           url: data.mxc,
-          info: getImageInfo(imgEl, data.file),
+          info: {
+            ...getImageInfo(imgEl, data.file),
+            // MSC4230 — pack images are sent as `m.sticker`, and animated
+            // stickers are the norm rather than the exception.
+            ...animatedImageInfo(await blobIsAnimated(data.file)),
+          },
         };
         const image = PackImageReader.fromPackImage(
           getFileNameWithoutExt(getUploadContentName(data.file)),

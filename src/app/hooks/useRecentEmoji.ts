@@ -9,7 +9,12 @@ export const useRecentEmoji = (mx: MatrixClient, limit?: number): IEmoji[] => {
 
   useEffect(() => {
     const handleAccountData = (event: MatrixEvent) => {
-      if (event.getType() !== AccountDataEvent.ElementRecentEmoji) return;
+      const type = event.getType();
+      // Either key changing must refresh the list — another client may write
+      // only the stable one, or only Element's.
+      if (type !== AccountDataEvent.RecentEmoji && type !== AccountDataEvent.ElementRecentEmoji) {
+        return;
+      }
       setRecentEmoji(getRecentEmojis(mx, limit));
     };
 

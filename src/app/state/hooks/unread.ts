@@ -17,9 +17,11 @@ const getRoomsUnread = (rooms: string[], roomToUnread: RoomToUnread): Unread | u
       total: 0,
       highlight: 0,
       from: new Set(),
+      marked: false,
     };
     newUnread.total += roomUnread.total;
     newUnread.highlight += roomUnread.highlight;
+    newUnread.marked = newUnread.marked || roomUnread.marked;
     newUnread.from?.add(roomId);
     return newUnread;
   }, undefined);

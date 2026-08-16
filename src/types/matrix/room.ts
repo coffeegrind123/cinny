@@ -69,6 +69,31 @@ export enum MessageEvent {
   BotCallbackAnswer = 'app.prinny.bot.callback_answer',
 }
 
+/**
+ * Account data scoped to a single room, as opposed to the user-wide keys in
+ * `types/matrix/accountData.ts`.
+ */
+export enum RoomAccountDataEvent {
+  /**
+   * MSC2867 "marking rooms as unread". Content is `{ unread: boolean }`.
+   *
+   * Stable since **Matrix 1.12** (October 2024) — this is ordinary spec, not a
+   * proposal, and matrix-js-sdk types it natively as `EventType.MarkedUnread`.
+   */
+  MarkedUnread = 'm.marked_unread',
+  /**
+   * The pre-spec identifier for the same thing, still written by older clients
+   * (Element used it for years, and famedly's Dart SDK, matrix-rust-sdk and
+   * palpo all still read it). Read-only for us: we write the stable key, but a
+   * room a user flagged from an older client must still look unread here.
+   */
+  MarkedUnreadLegacy = 'com.famedly.marked_unread',
+}
+
+export type MarkedUnreadContent = {
+  unread?: boolean;
+};
+
 export enum RoomType {
   Space = 'm.space',
   Call = 'org.matrix.msc3417.call',
@@ -110,12 +135,21 @@ export type Unread = {
   total: number;
   highlight: number;
   from: Set<string> | null;
+  /**
+   * MSC2867: the user asked for this room to look unread regardless of what
+   * the receipts say. Deliberately a separate channel from `total` rather than
+   * a synthetic count of 1 — a badge that claims one unread message when there
+   * are none is a lie, and the counts feed the app badge and the favicon.
+   * For a parent space this is true when ANY room under it is marked.
+   */
+  marked: boolean;
 };
 export type RoomToUnread = Map<string, Unread>;
 export type UnreadInfo = {
   roomId: string;
   total: number;
   highlight: number;
+  marked: boolean;
 };
 
 export type MuteChanges = {

@@ -1,3 +1,8 @@
+import {
+  MATRIX_ANIMATED_PROPERTY_NAME,
+  MATRIX_ANIMATED_UNSTABLE_PROPERTY_NAME,
+} from '../../types/matrix/common';
+
 /**
  * Detection helpers for media that is *animated but not a video* — GIFs, and
  * the muted MP4/WebM surrogates that Twitter, Tenor, Giphy and Bluesky serve in
@@ -300,3 +305,169 @@ export const parseTenorGif = (value: unknown): GifSurrogate | null => {
     height: height && height > 0 ? height : undefined,
   };
 };
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * MSC4230 — `info.is_animated`
+ *
+ * Everything above this line answers "could a file of this TYPE be animated?"
+ * from a MIME type or a URL, which is all a link preview can know. MSC4230 asks
+ * a different and stricter question about a file we are holding: is THIS file
+ * animated? A `.webp` or `.png` is usually not, so the type-level helpers would
+ * answer `true` for most static images and the flag would be worse than absent.
+ *
+ * The distinction matters to the receiver, and Prinny already documents why in
+ * `UrlPreviewCard`: a server-side thumbnail of an animated image is a single
+ * flattened frame, so a client that knows an image is animated can skip the
+ * thumbnailer instead of showing a still and hoping.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** How much of a file we are willing to read to answer the question. */
+const ANIMATION_SNIFF_BYTES = 512 * 1024;
+
+const ascii = (view: DataView, offset: number, length: number): string => {
+  let out = '';
+  for (let i = 0; i < length; i += 1) out += String.fromCharCode(view.getUint8(offset + i));
+  return out;
+};
+
+/**
+ * GIF: walk the block structure and count Image Descriptors. Two or more means
+ * more than one frame, which is the definition of animated.
+ *
+ * Deliberately NOT the common shortcut of looking for a Graphics Control
+ * Extension: a GCE is also how transparency is declared, and a single-frame
+ * transparent GIF written by Pillow carries one (verified — offset 25 of a
+ * 100-byte static GIF). Its presence says nothing about frame count.
+ *
+ * Returns `undefined` rather than `false` if the walk runs off the end of the
+ * buffer, because "I stopped looking" is not "there is only one frame".
+ */
+const gifIsAnimated = (view: DataView): boolean | undefined => {
+  const { byteLength } = view;
+  if (byteLength < 13 || ascii(view, 0, 3) !== 'GIF') return undefined;
+
+  // Logical Screen Descriptor: the packed field at byte 10 says whether a
+  // Global Colour Table follows and how big it is (3 * 2^(N+1) bytes).
+  const packed = view.getUint8(10);
+  let offset = 13;
+  if (packed & 0x80) offset += 3 * 2 ** ((packed & 0x07) + 1);
+
+  let frames = 0;
+  while (offset < byteLength) {
+    const block = view.getUint8(offset);
+
+    if (block === 0x3b) return frames > 1; // trailer: the file ended cleanly
+    if (block === 0x21) {
+      // Extension: label, then length-prefixed sub-blocks until a 0 length.
+      offset += 2;
+      while (offset < byteLength) {
+        const size = view.getUint8(offset);
+        offset += 1 + size;
+        if (size === 0) break;
+      }
+    } else if (block === 0x2c) {
+      frames += 1;
+      if (frames > 1) return true; // no need to read the rest of the file
+      // Image Descriptor is 10 bytes; its packed field declares a Local Colour
+      // Table the same way the global one did.
+      const localPacked = view.getUint8(offset + 9);
+      offset += 10;
+      if (localPacked & 0x80) offset += 3 * 2 ** ((localPacked & 0x07) + 1);
+      offset += 1; // LZW minimum code size
+      while (offset < byteLength) {
+        const size = view.getUint8(offset);
+        offset += 1 + size;
+        if (size === 0) break;
+      }
+    } else {
+      return undefined; // not a structure we recognise; do not guess
+    }
+  }
+
+  return undefined; // ran out of buffer before the trailer
+};
+
+/**
+ * WebP: only the extended (VP8X) format can animate, and it says so in a flag.
+ * Definitive both ways, and readable from the first 21 bytes.
+ */
+const webpIsAnimated = (view: DataView): boolean | undefined => {
+  if (view.byteLength < 21) return undefined;
+  if (ascii(view, 0, 4) !== 'RIFF' || ascii(view, 8, 4) !== 'WEBP') return undefined;
+  if (ascii(view, 12, 4) !== 'VP8X') return false; // simple format: single frame
+  return (view.getUint8(20) & 0x02) !== 0; // ANIM flag
+};
+
+/**
+ * PNG/APNG: an APNG is a PNG carrying an `acTL` chunk before the first `IDAT`.
+ * Chunks are `[u32 length][4-byte type][data][u32 crc]`, so this is an exact
+ * walk rather than a search for the bytes anywhere in the file — `acTL` could
+ * otherwise appear inside compressed pixel data by chance.
+ */
+const pngIsAnimated = (view: DataView): boolean | undefined => {
+  if (view.byteLength < 8) return undefined;
+  if (view.getUint32(0) !== 0x89504e47 || view.getUint32(4) !== 0x0d0a1a0a) return undefined;
+
+  let offset = 8;
+  while (offset + 8 <= view.byteLength) {
+    const length = view.getUint32(offset);
+    const type = ascii(view, offset + 4, 4);
+    if (type === 'acTL') return true;
+    if (type === 'IDAT' || type === 'IEND') return false; // acTL must precede IDAT
+    offset += 12 + length;
+  }
+  return undefined;
+};
+
+/**
+ * MSC4230: is this image animated?
+ *
+ * `true` / `false` are only returned when they were actually determined.
+ * `undefined` means "could not tell" and the caller must OMIT the field rather
+ * than write `false` — the spec treats an absent flag as unknown, and a
+ * confidently wrong `false` would make receivers thumbnail an animation.
+ */
+export const blobIsAnimated = async (blob: Blob): Promise<boolean | undefined> => {
+  // ImageDecoder is the authoritative answer and covers formats no hand-written
+  // header check does (AVIF in particular). It is Chromium-only at the time of
+  // writing, which covers WebView2 on Windows and Android's WebView, but not
+  // WebKitGTK on the Linux desktop build — hence the fallbacks below.
+  const decoderCtor = (globalThis as { ImageDecoder?: typeof ImageDecoder }).ImageDecoder;
+  if (decoderCtor && blob.type) {
+    try {
+      const decoder = new decoderCtor({ data: await blob.arrayBuffer(), type: blob.type });
+      await decoder.tracks.ready;
+      const animated = Array.from(decoder.tracks).some((track) => track.animated);
+      decoder.close();
+      return animated;
+    } catch {
+      // Unsupported type, or a decoder that refused the data. Fall through.
+    }
+  }
+
+  const view = new DataView(await blob.slice(0, ANIMATION_SNIFF_BYTES).arrayBuffer());
+  // Sniffed from the bytes, not from `blob.type` — a file picked from disk can
+  // arrive with an empty or plainly wrong type, and the magic numbers cannot.
+  const gif = gifIsAnimated(view);
+  if (gif !== undefined) return gif;
+  const webp = webpIsAnimated(view);
+  if (webp !== undefined) return webp;
+  return pngIsAnimated(view);
+};
+
+/**
+ * The MSC4230 fields for an `info` object, ready to spread.
+ *
+ * Returns an EMPTY object when animation could not be determined. That is the
+ * whole point of the tri-state: the spec reads an absent flag as "unknown",
+ * while `is_animated: false` is a positive claim that this is a still image.
+ */
+export const animatedImageInfo = (
+  animated: boolean | undefined
+): { [MATRIX_ANIMATED_PROPERTY_NAME]?: boolean; [MATRIX_ANIMATED_UNSTABLE_PROPERTY_NAME]?: boolean } =>
+  animated === undefined
+    ? {}
+    : {
+        [MATRIX_ANIMATED_PROPERTY_NAME]: animated,
+        [MATRIX_ANIMATED_UNSTABLE_PROPERTY_NAME]: animated,
+      };
