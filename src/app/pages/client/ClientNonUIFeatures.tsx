@@ -18,6 +18,7 @@ import {
   onNotificationAction,
   isTauri,
   primeDesktopNotificationPermission,
+  ensureAndroidNotificationPermission,
 } from '../../utils/desktop-notifications';
 import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
@@ -449,6 +450,9 @@ function MessageNotifications() {
   // launch even though Rust's permission_state is hardcoded to Granted.
   useEffect(() => {
     primeDesktopNotificationPermission();
+    // Android's is a real OS permission, and until now nothing ever asked for
+    // it outside Settings — so a fresh install posted nothing anywhere.
+    ensureAndroidNotificationPermission();
   }, []);
 
   // Handle notification clicks: bring window to foreground and navigate to room

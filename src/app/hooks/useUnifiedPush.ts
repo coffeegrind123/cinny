@@ -7,6 +7,7 @@ import {
   isValidPushEndpoint,
   onEndpointReceived,
   onPushMessage,
+  onRegistrationFailed,
   onUnregistered,
   startForegroundService,
   stopForegroundService,
@@ -142,6 +143,7 @@ export function useUnifiedPush(mx: MatrixClient | undefined) {
     let unsubMessage: (() => void) | undefined;
     let unsubEndpoint: (() => void) | undefined;
     let unsubUnregistered: (() => void) | undefined;
+    let unsubRegistrationFailed: (() => void) | undefined;
 
     async function setup() {
       // Only run on Android — UnifiedPush + foreground service are Android-only.
@@ -160,12 +162,40 @@ export function useUnifiedPush(mx: MatrixClient | undefined) {
       // 1. Try existing endpoint first
       let endpoint = await getUnifiedPushEndpoint().catch(() => null);
 
-      // 2. If no saved endpoint, register with UP distributor
+      // 2. If no saved endpoint, register with UP distributor.
+      //
+      // Subscribe to the distributor's own failure event BEFORE registering:
+      // `register` rejects for reasons this side can see (no distributor
+      // installed, the command failing), but a distributor that accepts the
+      // registration and then refuses it reports through
+      // REGISTRATION_FAILED — which lands in the receiver, not in this
+      // promise, and used to go nowhere at all because nothing listened.
+      onRegistrationFailed((reason) => {
+        console.error(
+          '[UnifiedPush] The distributor refused to register this app:',
+          reason,
+          '\n  Push cannot work until this is resolved — check the distributor app (ntfy, Sunup, NextPush).'
+        );
+      }).then((unsub) => {
+        unsubRegistrationFailed = unsub;
+      });
+
       if (!endpoint) {
         try {
           endpoint = await registerUnifiedPush();
         } catch (err) {
-          console.warn('[UnifiedPush] Registration failed, no distributor available:', err);
+          // The overwhelmingly common cause is no distributor app on the
+          // device: without one there is no push at all, since this client has
+          // no FCM path — tauri-plugin-mobile-push is registered but never
+          // called. Said plainly here because it is the difference between
+          // "the app is broken" and "install ntfy".
+          console.warn(
+            '[UnifiedPush] Could not register with a UnifiedPush distributor.',
+            '\n  No notifications will arrive while the app is backgrounded.',
+            '\n  Install a distributor (ntfy, Sunup, NextPush) and reopen Prinny.',
+            '\n  error:',
+            err
+          );
           return;
         }
       }
@@ -197,6 +227,7 @@ export function useUnifiedPush(mx: MatrixClient | undefined) {
       unsubMessage?.();
       unsubEndpoint?.();
       unsubUnregistered?.();
+      unsubRegistrationFailed?.();
       if (setupDone.current) {
         stopForegroundService().catch(() => {});
       }

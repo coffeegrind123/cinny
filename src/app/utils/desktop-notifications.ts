@@ -78,6 +78,49 @@ export async function primeDesktopNotificationPermission(): Promise<void> {
   }
 }
 
+/**
+ * Ask Android for POST_NOTIFICATIONS, once, on first run.
+ *
+ * Nothing did this. The only caller of `requestNotificationPermission` is the
+ * Enable button in Settings → Notifications, so unless a user went looking for
+ * it the app held no notification permission at all — and on Android 13+ that
+ * makes every `notify()` a silent no-op: the in-app path, the push receiver's,
+ * and the foreground service's persistent one alike. It reads exactly like
+ * "notifications don't work", with nothing in any log to say otherwise, and
+ * it is easy to conclude the permission is fine because *download* notifications
+ * still arrive — those are posted by Android's DownloadManager under its own
+ * identity, not ours.
+ *
+ * Asked once and recorded, because Android stops showing the dialog after two
+ * dismissals and re-asking on every launch spends that budget for nothing. The
+ * Settings button remains the way back for anyone who declined.
+ */
+const ANDROID_NOTIFICATION_PERMISSION_ASKED = 'androidNotifPermissionAsked';
+
+export async function ensureAndroidNotificationPermission(): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    const { getTauriPlatform } = await import('./platform');
+    if ((await getTauriPlatform()) !== 'android') return;
+
+    // The OS is the authority — a granted permission needs no prompt, and this
+    // also refreshes the dispatch gate on every launch.
+    if (await refreshNotificationPermission()) return;
+
+    try {
+      if (localStorage.getItem(ANDROID_NOTIFICATION_PERMISSION_ASKED) === '1') return;
+      localStorage.setItem(ANDROID_NOTIFICATION_PERMISSION_ASKED, '1');
+    } catch {
+      // No localStorage: prompting once per launch beats never prompting.
+    }
+
+    const result = await requestNotificationPermission();
+    setLiveNotificationPermission(result === 'granted');
+  } catch (err) {
+    console.warn('[notif] ensureAndroidNotificationPermission failed:', err);
+  }
+}
+
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
   if (isTauri()) {
     const mod = await getTauriNotif();
@@ -319,7 +362,7 @@ async function sendAndroidNotification(
 ): Promise<boolean> {
   try {
     const { invoke } = await import('@tauri-apps/api/core');
-    await invoke('plugin:messageNotification|show', {
+    await invoke('plugin:message-notification|show', {
       title,
       body,
       iconPath,
@@ -328,7 +371,7 @@ async function sendAndroidNotification(
     });
     return true;
   } catch (err) {
-    console.warn('[notif] Android messageNotification|show failed:', err);
+    console.warn('[notif] Android message-notification|show failed:', err);
     return false;
   }
 }
@@ -507,30 +550,35 @@ export async function onNotificationAction(
 
   // Android dispatches notification clicks through our custom
   // MessageNotificationPlugin: MainActivity.onCreate / onNewIntent picks up
-  // the PendingIntent extras and the plugin emits this event. Listen for
-  // it in addition to the Windows-style global event above. Tauri plugin
-  // trigger() emits the bare event name globally — matches the convention
-  // used by UnifiedPushPlugin (`endpoint-received`, `message-received`).
+  // the PendingIntent extras and the plugin emits this event.
+  //
+  // Registered with addPluginListener, not listen(). Kotlin's
+  // `Plugin.trigger()` delivers only to channels opened by the plugin's own
+  // `registerListener` command — it does NOT emit on the global event bus, as
+  // the comment that used to sit here claimed. Every tap on an Android
+  // notification therefore went nowhere, and so did UnifiedPush's events,
+  // which were written against the same wrong assumption.
   try {
-    const { listen } = await import('@tauri-apps/api/event');
-    const unlisten = await listen<NotificationExtra>(
+    const { addPluginListener, invoke } = await import('@tauri-apps/api/core');
+    const listener = await addPluginListener<NotificationExtra>(
+      'message-notification',
       'message-notification-clicked',
-      (event) => {
-        const payload = event.payload;
+      (payload) => {
         if (payload?.roomId) {
           callback(payload);
         }
       }
     );
-    unlisteners.push(unlisten);
+    unlisteners.push(() => {
+      listener.unregister();
+    });
 
     // Signal the plugin that we're listening. On Android cold start the
     // PendingIntent extras arrive before React mounts; the plugin stashes
     // the click and replays it on this command. No-op on other platforms
     // (the command isn't registered there — invoke rejects silently).
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('plugin:messageNotification|js_ready');
+      await invoke('plugin:message-notification|js_ready');
     } catch {
       // Plugin not present (desktop / non-Android) — ignore.
     }

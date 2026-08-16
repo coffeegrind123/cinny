@@ -6,11 +6,41 @@
  *   2. Register the endpoint as a Matrix pusher via POST /pushers/set
  *   3. When a push arrives, Matrix sync runs and fires normal notification handlers
  *
- * Falls back to FCM via tauri-plugin-mobile-push on devices with Play Services.
+ * There is no FCM path. `tauri-plugin-mobile-push` is registered in `lib.rs`
+ * but nothing in the frontend has ever called it, so a device with Play
+ * Services is served by UnifiedPush exactly like a de-Googled one — which means
+ * a distributor app (ntfy, Sunup, NextPush) is required on every Android
+ * install, not only on GrapheneOS.
  */
-import { invoke } from '@tauri-apps/api/core';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { addPluginListener, invoke } from '@tauri-apps/api/core';
+import { type UnlistenFn } from '@tauri-apps/api/event';
 import { isWebUrl } from './safeUrl';
+
+/**
+ * Subscribe to an event emitted by a Tauri mobile plugin's Kotlin side.
+ *
+ * NOT `listen()` from `@tauri-apps/api/event`, which is the global event bus.
+ * Kotlin's `Plugin.trigger(event, payload)` walks `listeners[event]` — a map
+ * filled only by the plugin's own `registerListener` command, i.e. by
+ * `addPluginListener` — and does nothing at all when that map is empty. So a
+ * `listen('endpoint-received')` never fires no matter how many pushes arrive,
+ * which is exactly how UnifiedPush endpoint rotation and the push-received sync
+ * nudge came to be silently dead.
+ *
+ * Normalised back to an `UnlistenFn` because `addPluginListener` resolves to a
+ * `PluginListener` whose teardown is `.unregister()`; calling the object itself
+ * throws, and callers here store plain functions.
+ */
+async function listenToPlugin<T>(
+  plugin: string,
+  event: string,
+  handler: (payload: T) => void
+): Promise<UnlistenFn> {
+  const listener = await addPluginListener<T>(plugin, event, handler);
+  return () => {
+    listener.unregister();
+  };
+}
 
 export interface UnifiedPushEndpoint {
   endpoint: string;
@@ -63,8 +93,8 @@ export async function getUnifiedPushEndpoint(): Promise<string | null> {
  * Listen for new UnifiedPush endpoints (arrives after registration).
  */
 export function onEndpointReceived(callback: (endpoint: string) => void): Promise<UnlistenFn> {
-  return listen<{ endpoint: string }>('endpoint-received', (event) => {
-    callback(event.payload.endpoint);
+  return listenToPlugin<{ endpoint: string }>('unifiedpush', 'endpoint-received', (payload) => {
+    callback(payload.endpoint);
   });
 }
 
@@ -73,8 +103,8 @@ export function onEndpointReceived(callback: (endpoint: string) => void): Promis
  * Callback receives the raw message body as a UTF-8 string.
  */
 export function onPushMessage(callback: (body: string) => void): Promise<UnlistenFn> {
-  return listen<{ body: string }>('message-received', (event) => {
-    callback(event.payload.body);
+  return listenToPlugin<{ body: string }>('unifiedpush', 'message-received', (payload) => {
+    callback(payload.body);
   });
 }
 
@@ -82,15 +112,15 @@ export function onPushMessage(callback: (body: string) => void): Promise<Unliste
  * Listen for UnifiedPush unregistration events.
  */
 export function onUnregistered(callback: () => void): Promise<UnlistenFn> {
-  return listen('unregistered', callback);
+  return listenToPlugin('unifiedpush', 'unregistered', callback);
 }
 
 /**
  * Listen for UnifiedPush registration failures.
  */
 export function onRegistrationFailed(callback: (reason: string) => void): Promise<UnlistenFn> {
-  return listen<{ reason: string }>('registration-failed', (event) => {
-    callback(event.payload.reason);
+  return listenToPlugin<{ reason: string }>('unifiedpush', 'registration-failed', (payload) => {
+    callback(payload.reason);
   });
 }
 

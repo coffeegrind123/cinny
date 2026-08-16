@@ -63,7 +63,7 @@ export const shareText = (payload: SharePayload): string => {
 export const readSharedFile = async (token: string): Promise<File> => {
   const { invoke } = await import('@tauri-apps/api/core');
   const result = await invoke<{ name: string; mime: string; base64: string }>(
-    'plugin:shareTarget|read_shared_file',
+    'plugin:share-target|read_shared_file',
     { token }
   );
 
@@ -90,26 +90,35 @@ export const onShareReceived = async (
   if (!isTauri()) return () => {};
 
   try {
-    const { listen } = await import('@tauri-apps/api/event');
-    const unlisten = await listen<unknown>('share-received', (event) => {
-      if (!isSharePayload(event.payload)) {
-        // Loud on purpose. This event comes from our own Kotlin, so a shape
-        // mismatch means the two halves have drifted — which would otherwise
-        // present as "sharing into Prinny silently does nothing".
-        console.error('[share] Ignoring share payload of unexpected shape:', event.payload);
-        return;
+    // addPluginListener, NOT listen(): the Kotlin side emits through
+    // `Plugin.trigger`, which only feeds channels registered by the plugin's
+    // own `registerListener` command. A global `listen('share-received')`
+    // subscribes to a bus nothing publishes to.
+    const { addPluginListener, invoke } = await import('@tauri-apps/api/core');
+    const listener = await addPluginListener<unknown>(
+      'share-target',
+      'share-received',
+      (payload) => {
+        if (!isSharePayload(payload)) {
+          // Loud on purpose. This event comes from our own Kotlin, so a shape
+          // mismatch means the two halves have drifted — which would otherwise
+          // present as "sharing into Prinny silently does nothing".
+          console.error('[share] Ignoring share payload of unexpected shape:', payload);
+          return;
+        }
+        callback(payload);
       }
-      callback(event.payload);
-    });
+    );
 
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('plugin:shareTarget|js_ready');
+      await invoke('plugin:share-target|js_ready');
     } catch {
       // Plugin not present (desktop / web) — nothing shares into those.
     }
 
-    return unlisten;
+    return () => {
+      listener.unregister();
+    };
   } catch (err) {
     console.error('[share] Failed to register share-received listener:', err);
     return () => {};
