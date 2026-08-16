@@ -46,6 +46,7 @@ import { getCurrentWindow, UserAttentionType } from '@tauri-apps/api/window';
 import { GlobalKeybinds } from '../../components/global-keybinds/GlobalKeybinds';
 import { MatrixLinkHandler } from '../../components/MatrixLinkHandler';
 import { BotStartLinkHandler } from '../../components/BotStartLinkHandler';
+import { ShareTargetHandler } from '../../features/share/ShareTargetHandler';
 import { isVoiceMessageContent } from '../../utils/voice-message';
 
 function SystemEmojiFeature() {
@@ -527,6 +528,7 @@ export function ClientNonUIFeatures({ children }: ClientNonUIFeaturesProps) {
       <GlobalKeybinds />
       <MatrixLinkHandler />
       <BotStartLinkHandler />
+      <ShareTargetHandler />
       <SpaceAutoJoinFeature />
       <RichPresencePublisher />
       {children}

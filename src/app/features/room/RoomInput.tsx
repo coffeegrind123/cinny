@@ -96,7 +96,7 @@ import {
   createUploadFamilyObserverAtom,
 } from '../../state/upload';
 import { getDataTransferFiles, getImageUrlBlob, loadImageElement } from '../../utils/dom';
-import { safeFile } from '../../utils/mimeTypes';
+import { filesToUploadItems } from '../../utils/uploadItems';
 import { fulfilledPromiseSettledResult } from '../../utils/common';
 import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
@@ -302,36 +302,9 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
     const handleFiles = useCallback(
       async (files: File[]) => {
         setUploadBoard(true);
-        const safeFiles = files.map(safeFile);
-        const fileItems: TUploadItem[] = [];
-
-        if (room.hasEncryptionStateEvent()) {
-          const encryptFiles = fulfilledPromiseSettledResult(
-            await Promise.allSettled(safeFiles.map((f) => encryptFile(f))),
-          );
-          encryptFiles.forEach((ef) =>
-            fileItems.push({
-              ...ef,
-              metadata: {
-                markedAsSpoiler: false,
-              },
-            }),
-          );
-        } else {
-          safeFiles.forEach((f) =>
-            fileItems.push({
-              file: f,
-              originalFile: f,
-              encInfo: undefined,
-              metadata: {
-                markedAsSpoiler: false,
-              },
-            }),
-          );
-        }
         setSelectedFiles({
           type: 'PUT',
-          item: fileItems,
+          item: await filesToUploadItems(room, files),
         });
       },
       [setSelectedFiles, room],
