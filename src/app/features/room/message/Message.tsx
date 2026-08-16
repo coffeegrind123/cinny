@@ -944,6 +944,9 @@ export const Message = as<'div', MessageProps>(
 
     const headerJSX = !collapse && (
       <Box
+        className={
+          messageLayout === MessageLayout.Modern ? css.MessageHeaderOptionsSpace : undefined
+        }
         gap="300"
         direction={messageLayout === MessageLayout.Compact ? 'RowReverse' : 'Row'}
         justifyContent="SpaceBetween"
@@ -985,17 +988,6 @@ export const Message = as<'div', MessageProps>(
           </Box>
           {tagIconSrc && <PowerIcon size="100" iconSrc={tagIconSrc} />}
         </Box>
-        {messageLayout === MessageLayout.Modern && hover && (
-          // The full mxid, not just the localpart. Two people can share a
-          // localpart across homeservers, which is exactly when knowing who
-          // sent something matters, and the part that disambiguates them was
-          // the part being dropped.
-          <Box shrink="No" style={{ userSelect: 'none' }}>
-            <Text as="span" size="T200" priority="300" truncate>
-              {senderId}
-            </Text>
-          </Box>
-        )}
       </Box>
     );
 
@@ -1027,17 +1019,24 @@ export const Message = as<'div', MessageProps>(
       );
 
     /**
-     * The same label for a message with no header to put it in.
+     * The sender's full mxid, shown on hover — on EVERY message of a group.
      *
-     * `headerJSX` renders only when `!collapse`, so until now the sender was
-     * shown on the FIRST message of a group and on none of the ones after it —
-     * backwards, since the first is the one already captioned by the avatar and
-     * the name beside it. Modern layout only, matching the header variant:
-     * Compact puts the sender at the start of every row already, and Bubble
-     * groups by column.
+     * The full id and not just the localpart: two people can share a localpart
+     * across homeservers, which is exactly when knowing who sent something
+     * matters, and that is the part which disambiguates them.
+     *
+     * This is deliberately one element for both a group's first message and the
+     * ones after it. It used to be two — a flex child of `headerJSX` when
+     * `!collapse`, and this positioned one when `collapse` — which drifted:
+     * only the positioned one was ever given clearance for the hover toolbar,
+     * so the same label sat 144px apart between the two cases. Worse, the
+     * flush-right one was the broken case rather than the correct one, sitting
+     * under an opaque toolbar and losing the tops of its glyphs.
+     *
+     * Modern layout only: Compact already puts the sender at the start of every
+     * row, and Bubble groups by column.
      */
-    const gutterMxIdJSX = collapse &&
-      messageLayout === MessageLayout.Modern &&
+    const senderMxIdJSX = messageLayout === MessageLayout.Modern &&
       hover && (
         <div className={css.MessageSenderMxId}>
           <Text as="span" size="T200" priority="300">
@@ -1354,7 +1353,7 @@ export const Message = as<'div', MessageProps>(
         {...focusWithinProps}
         ref={ref}
       >
-        {gutterMxIdJSX}
+        {senderMxIdJSX}
         {!edit && (hover || !!menuAnchor || !!emojiBoardAnchor) && (
           <div className={css.MessageOptionsBase}>
             <Menu

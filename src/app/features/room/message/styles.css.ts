@@ -50,6 +50,24 @@ export const MessageOptionsBar = style([
 ]);
 
 /**
+ * How much of a row's right edge the hover toolbar occupies, plus a gap.
+ *
+ * Defined ONCE and consumed by everything that has to keep out of its way.
+ * This existing in one place is the actual fix: the sender-mxid label was
+ * offset by this and the group header was not, so the same label sat 144px
+ * apart depending on whether it was a group's first message — and the flush
+ * one was the broken one, sitting under the toolbar and having its glyph tops
+ * clipped.
+ *
+ * 148px is the bar at its widest: four 2rem IconButtons, three S100 gaps
+ * between them, and S100 of Menu padding either side. Fewer buttons render
+ * when the event does not permit them, which only leaves consumers further
+ * from the bar than they need to be.
+ */
+export const MESSAGE_OPTIONS_WIDTH = 148;
+const messageOptionsClearance = `calc(${toRem(MESSAGE_OPTIONS_WIDTH)} + ${config.space.S100})`;
+
+/**
  * The time of a collapsed message, shown in the avatar slot while the row is
  * hovered.
  *
@@ -192,7 +210,7 @@ export const MessageSenderMxId = style({
    * label further from the bar than it needs to be. Sized off the bar rather
    * than a round number so it stays correct if a button is added.
    */
-  right: `calc(${toRem(148)} + ${config.space.S100})`,
+  right: messageOptionsClearance,
   maxWidth: '40%',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -261,3 +279,24 @@ export const MessageFailedBar = style([
     cursor: 'default',
   },
 ]);
+
+/**
+ * Keeps the group header's own content clear of the hover toolbar.
+ *
+ * The sender mxid used to be a flex child of this row, so flexbox held the
+ * display name and the label apart and the name truncated against it. The
+ * label is now positioned against the message row instead — one mechanism for
+ * both the first message and the ones after it — which takes it out of this
+ * row's flow, so the name needs the reservation made explicitly or a long one
+ * runs underneath an opaque label.
+ *
+ * Applied unconditionally rather than on hover: making it conditional would
+ * re-truncate the display name at the moment the pointer arrives, which is a
+ * visible jump on exactly the row being pointed at. This costs width only on
+ * the name-and-time line of a group's first message — the message body still
+ * uses the full row, which is the thing the removed 154px strip was taking and
+ * the reason it was removed.
+ */
+export const MessageHeaderOptionsSpace = style({
+  paddingRight: messageOptionsClearance,
+});
