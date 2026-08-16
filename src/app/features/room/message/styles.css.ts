@@ -1,4 +1,5 @@
 import { globalStyle, style } from '@vanilla-extract/css';
+import { recipe, RecipeVariants } from '@vanilla-extract/recipes';
 import { DefaultReset, color, config, toRem } from 'folds';
 
 export const MessageBase = style({
@@ -165,12 +166,13 @@ export const MessageInlineReceipts = style({
 });
 
 /**
- * The sender's mxid, parked at the right-hand end of a COLLAPSED message.
+ * The sender's mxid, parked at the right-hand end of a group's FIRST message.
  *
- * A grouped message has no header, and the header is where this lives for the
- * first message of a group — so on every message after it the sender was simply
- * not shown, which is the opposite of useful: the first message is the one whose
- * sender you can already read off the avatar and the name above it.
+ * It appears whenever the pointer is anywhere in the group, not only on the row
+ * it is drawn on — see `state/hoveredMessageGroup`. Hovering a collapsed message
+ * three lines down still puts the id up here, because here is where the sender
+ * is identified; repeating it on each collapsed row labels the same sender over
+ * and over.
  *
  * Absolutely positioned for the same reason `MessageGutterTime` is: in flow it
  * would sit after the message body and drag the row's width around as the
@@ -186,41 +188,70 @@ export const MessageInlineReceipts = style({
  * same reason the timestamp and username have it — chrome is not content, and
  * it must not end up in a dragged selection.
  *
- * The hover background travels with it because it overlays the end of the
- * message text on a long line. The row is hovered whenever this is visible, so
- * the colour always matches what is behind it.
+ * It needs an opaque ground because it overlays the end of the message text on
+ * a long line, and WHICH ground depends on where the pointer is: the row is
+ * tinted `Surface.ContainerHover` when the pointer is on it, and left at the
+ * page's own `Surface.Container` when the pointer is on a collapsed message
+ * further down the group. `rowHover` picks between them. Getting this wrong is
+ * not subtle — a hover-tinted label on an untinted row reads as a grey box
+ * floating in the message.
+ *
+ * A recipe rather than two classes with one overriding the other: both would be
+ * single-class selectors, so the winner would be decided by the order
+ * vanilla-extract happened to emit them in, which is not something to hang a
+ * visible background on.
  */
-export const MessageSenderMxId = style({
-  position: 'absolute',
-  top: config.space.S100,
-  /**
-   * Clear of the hover toolbar, which shares this corner and wins.
-   *
-   * Both appear on hover, so they are always on screen together and cannot
-   * share the space. Measured rather than reasoned about, and the first
-   * attempt was wrong: the toolbar was assumed to reach 6px into its own row,
-   * so a label on the first line would clear it. It reaches 10px — a 32px
-   * IconButton plus the Menu's S100 padding is 40px tall against a -30px
-   * offset — and it covered the top 5px of the glyphs across 64px of their
-   * width, clipping the letters.
-   *
-   * 148px is the widest that toolbar gets: four IconButtons at 2rem, three
-   * S100 gaps between them, and S100 of Menu padding either side. Fewer
-   * buttons render when the event does not permit them, which only leaves this
-   * label further from the bar than it needs to be. Sized off the bar rather
-   * than a round number so it stays correct if a button is added.
-   */
-  right: messageOptionsClearance,
-  maxWidth: '40%',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-  lineHeight: 'inherit',
-  paddingLeft: config.space.S200,
-  backgroundColor: color.Surface.ContainerHover,
-  userSelect: 'none',
-  pointerEvents: 'none',
+export const MessageSenderMxId = recipe({
+  base: {
+    position: 'absolute',
+    top: config.space.S100,
+    /**
+     * Clear of the hover toolbar, which shares this corner and wins.
+     *
+     * Both appear on hover, so they are always on screen together and cannot
+     * share the space. Measured rather than reasoned about, and the first
+     * attempt was wrong: the toolbar was assumed to reach 6px into its own row,
+     * so a label on the first line would clear it. It reaches 10px — a 32px
+     * IconButton plus the Menu's S100 padding is 40px tall against a -30px
+     * offset — and it covered the top 5px of the glyphs across 64px of their
+     * width, clipping the letters.
+     *
+     * 148px is the widest that toolbar gets: four IconButtons at 2rem, three
+     * S100 gaps between them, and S100 of Menu padding either side. Fewer
+     * buttons render when the event does not permit them, which only leaves
+     * this label further from the bar than it needs to be. Sized off the bar
+     * rather than a round number so it stays correct if a button is added.
+     */
+    right: messageOptionsClearance,
+    maxWidth: '40%',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    lineHeight: 'inherit',
+    paddingLeft: config.space.S200,
+    userSelect: 'none',
+    pointerEvents: 'none',
+  },
+  variants: {
+    rowHover: {
+      true: {
+        backgroundColor: color.Surface.ContainerHover,
+      },
+      false: {
+        // The page itself is `ContainerColor({ variant: 'Surface' })` (see
+        // `components/page/Page.tsx`) and a message row paints no background of
+        // its own, so this is what is actually behind the label when the row is
+        // not hovered.
+        backgroundColor: color.Surface.Container,
+      },
+    },
+  },
+  defaultVariants: {
+    rowHover: true,
+  },
 });
+
+export type MessageSenderMxIdVariants = RecipeVariants<typeof MessageSenderMxId>;
 
 export const BubbleAvatarBase = style({
   paddingTop: 0,

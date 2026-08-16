@@ -66,6 +66,11 @@ import {
   clearHoveredMessageEventId,
   setHoveredMessageEventId,
 } from '../../../state/hoveredMessage';
+import {
+  clearHoveredMessageGroup,
+  setHoveredMessageGroup,
+} from '../../../state/hoveredMessageGroup';
+import { useHoveredMessageGroup } from '../../../hooks/useHoveredMessageGroup';
 import { subscribeMessageAction } from '../../../state/messageAction';
 import { useElementReadReceipts } from '../../../hooks/useElementReadReceipts';
 import { ReadReceiptAvatars } from '../../../components/read-receipt-avatars/ReadReceiptAvatars';
@@ -795,6 +800,16 @@ export type MessageProps = {
   room: Room;
   mEvent: MatrixEvent;
   collapse: boolean;
+  /**
+   * Event id of the FIRST message in this message's group — its own id when it
+   * is that first message.
+   *
+   * The group is the run of consecutive same-sender messages that renders under
+   * one header, i.e. this message plus every `collapse`d one after it. Only the
+   * timeline knows where a run starts, which is why this is a prop rather than
+   * something derived here.
+   */
+  groupHeadEventId?: string;
   highlight: boolean;
   repliedToMe?: boolean;
   edit?: boolean;
@@ -831,6 +846,7 @@ export const Message = as<'div', MessageProps>(
       room,
       mEvent,
       collapse,
+      groupHeadEventId,
       highlight,
       repliedToMe,
       edit,
@@ -887,6 +903,31 @@ export const Message = as<'div', MessageProps>(
       if (hover) setHoveredMessageEventId(id);
       return () => clearHoveredMessageEventId(id);
     }, [hover, mEvent]);
+
+    /**
+     * Publish the hover to the message that OWNS this message's header.
+     *
+     * A collapsed message has no header of its own, so the sender label it
+     * should reveal lives on another component entirely — the group's first
+     * message, which may be several rows up. That component subscribes below;
+     * this is the other half. Falls back to this message's own id so a message
+     * rendered without the prop still lights up its own header.
+     */
+    useEffect(() => {
+      const id = mEvent.getId();
+      if (!id) return undefined;
+      if (hover) setHoveredMessageGroup(id, groupHeadEventId ?? id);
+      return () => clearHoveredMessageGroup(id);
+    }, [hover, mEvent, groupHeadEventId]);
+
+    /**
+     * Only a group's first message subscribes: it is the only one that renders
+     * the label, and keying the store by head means a pointer moving within a
+     * group notifies nothing at all.
+     */
+    const groupHovered = useHoveredMessageGroup(
+      collapse ? undefined : groupHeadEventId ?? mEvent.getId()
+    );
 
     const [forwardOpen, setForwardOpen] = useState(false);
 
@@ -1040,10 +1081,20 @@ export const Message = as<'div', MessageProps>(
     // same sender directly under that header, so repeating the mxid on each
     // of them labels the same sender over and over; the header line is where
     // the sender is identified, and that is where the full id belongs.
+    //
+    // `groupHovered` is what makes hovering ANY message of the group show it —
+    // the pointer is far more often on a collapsed message than on the header,
+    // and a label that only answered "who sent this?" while the pointer was on
+    // the one row that already names the sender answered it exactly when it was
+    // not being asked. `hover` stays in the condition as the local fallback for
+    // a message rendered outside a timeline that tracks groups.
     const senderMxIdJSX = messageLayout === MessageLayout.Modern &&
       !collapse &&
-      hover && (
-        <div className={css.MessageSenderMxId}>
+      (hover || groupHovered) && (
+        // `rowHover` is this row's own hover, NOT the group's: it picks the
+        // background the label paints over itself, and the row is only tinted
+        // when the pointer is actually on it.
+        <div className={css.MessageSenderMxId({ rowHover: hover })}>
           <Text as="span" size="T200" priority="300">
             {senderId}
           </Text>

@@ -1227,10 +1227,17 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
   const { t } = useTranslation();
 
   const renderMatrixEvent = useMatrixEventRenderer<
-    [string, MatrixEvent, number, EventTimelineSet, boolean]
+    [string, MatrixEvent, number, EventTimelineSet, boolean, string]
   >(
     {
-      [MessageEvent.RoomMessage]: (mEventId, mEvent, item, timelineSet, collapse) => {
+      [MessageEvent.RoomMessage]: (
+        mEventId,
+        mEvent,
+        item,
+        timelineSet,
+        collapse,
+        groupHeadEventId
+      ) => {
         const reactionRelations = getEventReactions(timelineSet, mEventId);
         const reactions = reactionRelations && reactionRelations.getSortedAnnotationsByKey();
         const hasReactions = reactions && reactions.length > 0;
@@ -1261,6 +1268,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
             messageSpacing={messageSpacing}
             messageLayout={messageLayout}
             collapse={collapse}
+            groupHeadEventId={groupHeadEventId}
             highlight={highlighted}
             repliedToMe={
               !!replyEventId &&
@@ -1351,7 +1359,14 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
           </Message>
         );
       },
-      [MessageEvent.RoomMessageEncrypted]: (mEventId, mEvent, item, timelineSet, collapse) => {
+      [MessageEvent.RoomMessageEncrypted]: (
+        mEventId,
+        mEvent,
+        item,
+        timelineSet,
+        collapse,
+        groupHeadEventId
+      ) => {
         const reactionRelations = getEventReactions(timelineSet, mEventId);
         const reactions = reactionRelations && reactionRelations.getSortedAnnotationsByKey();
         const hasReactions = reactions && reactions.length > 0;
@@ -1368,6 +1383,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
             messageSpacing={messageSpacing}
             messageLayout={messageLayout}
             collapse={collapse}
+            groupHeadEventId={groupHeadEventId}
             highlight={highlighted}
             repliedToMe={
               !!replyEventId &&
@@ -1479,7 +1495,14 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
           </Message>
         );
       },
-      [MessageEvent.Sticker]: (mEventId, mEvent, item, timelineSet, collapse) => {
+      [MessageEvent.Sticker]: (
+        mEventId,
+        mEvent,
+        item,
+        timelineSet,
+        collapse,
+        groupHeadEventId
+      ) => {
         const reactionRelations = getEventReactions(timelineSet, mEventId);
         const reactions = reactionRelations && reactionRelations.getSortedAnnotationsByKey();
         const hasReactions = reactions && reactions.length > 0;
@@ -1496,6 +1519,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
             messageSpacing={messageSpacing}
             messageLayout={messageLayout}
             collapse={collapse}
+            groupHeadEventId={groupHeadEventId}
             highlight={highlighted}
             canDelete={canRedact || (canDeleteOwn && mEvent.getSender() === mx.getUserId())}
             canSendReaction={canSendReaction}
@@ -1565,7 +1589,14 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
       ...Object.fromEntries(
         [M_POLL_START.name, M_POLL_START.altName].filter(Boolean).map((pollType) => [
           pollType as string,
-          (mEventId: string, mEvent: MatrixEvent, item: number, timelineSet: EventTimelineSet, collapse: boolean) => {
+          (
+            mEventId: string,
+            mEvent: MatrixEvent,
+            item: number,
+            timelineSet: EventTimelineSet,
+            collapse: boolean,
+            groupHeadEventId: string
+          ) => {
             const reactionRelations = getEventReactions(timelineSet, mEventId);
             const reactions = reactionRelations && reactionRelations.getSortedAnnotationsByKey();
             const hasReactions = reactions && reactions.length > 0;
@@ -1582,6 +1613,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
                 messageSpacing={messageSpacing}
                 messageLayout={messageLayout}
                 collapse={collapse}
+                groupHeadEventId={groupHeadEventId}
                 highlight={highlighted}
                 canDelete={canRedact || (canDeleteOwn && senderId === mx.getUserId())}
                 canSendReaction={canSendReaction}
@@ -2059,6 +2091,20 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
   let isPrevRendered = false;
   let newDivider = false;
   let dayDivider = false;
+  /**
+   * Event id of the message heading the run currently being walked.
+   *
+   * Grouping is decided here and nowhere else — `collapsed` below is the same
+   * decision, one message at a time — so this is the only place that can say
+   * which message owns a collapsed one's header. Messages need it to publish
+   * hover to that header (see `state/hoveredMessageGroup`).
+   *
+   * Carried in the same mutable-walk style as `prevEvent`, and with the same
+   * lifetime: both are reset per render pass, so a group that starts above the
+   * rendered window simply re-heads at the first message in it — which is also
+   * exactly what `collapsed` does, since `isPrevRendered` starts false.
+   */
+  let groupHeadEventId: string | undefined;
   const eventRenderer = (item: number) => {
     const [eventTimeline, baseIndex] = getTimelineAndBaseIndex(timeline.linkedTimelines, item);
     if (!eventTimeline) return null;
@@ -2092,6 +2138,13 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
       prevEvent.getType() === mEvent.getType() &&
       minuteDifference(prevEvent.getTs(), mEvent.getTs()) < 2;
 
+    // An uncollapsed message starts a new group and therefore heads it. A
+    // collapsed one inherits the head of the run it continues; the `??` is only
+    // reachable if a collapsed message is the first thing this pass renders,
+    // which `isPrevRendered` rules out, and it degrades to "heads itself".
+    if (!collapsed) groupHeadEventId = mEventId;
+    const eventGroupHeadId = groupHeadEventId ?? mEventId;
+
     const eventJSX = reactionOrEditEvent(mEvent)
       ? null
       : renderMatrixEvent(
@@ -2101,7 +2154,8 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
           mEvent,
           item,
           timelineSet,
-          collapsed
+          collapsed,
+          eventGroupHeadId
         );
     prevEvent = mEvent;
     isPrevRendered = !!eventJSX;
