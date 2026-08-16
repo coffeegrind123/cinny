@@ -71,13 +71,20 @@ export function KeyboardShortcuts({ requestClose }: KeyboardShortcutsProps) {
   const modKey = isMacOS() ? KeySymbol.Command : 'Ctrl';
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const grouped = new Map<KeybindCategory, { id: string; description: string; keys: string }[]>();
+  const grouped = new Map<
+    KeybindCategory,
+    { id: string; description: string; keys: string; gesture?: true }[]
+  >();
   for (const cat of CATEGORY_ORDER) {
     grouped.set(cat, []);
   }
   for (const def of KEYBIND_DEFINITIONS) {
-    const keys = keybinds[def.id] ?? def.defaultKeys;
-    grouped.get(def.category)?.push({ id: def.id, description: def.description, keys });
+    // A gesture is not rebindable, so it always shows its own label rather than
+    // an override that cannot exist.
+    const keys = def.gesture ? def.defaultKeys : keybinds[def.id] ?? def.defaultKeys;
+    grouped
+      .get(def.category)
+      ?.push({ id: def.id, description: def.description, keys, gesture: def.gesture });
   }
 
   return (
@@ -140,7 +147,9 @@ export function KeyboardShortcuts({ requestClose }: KeyboardShortcutsProps) {
                                   {item.description}
                                 </span>
                               </div>
-                              <KeyCombo keys={formatKeyComboSplit(item.keys)} />
+                              <KeyCombo
+                                keys={item.gesture ? [item.keys] : formatKeyComboSplit(item.keys)}
+                              />
                             </Box>
                           ))}
                         </Box>

@@ -66,6 +66,7 @@ import {
   clearHoveredMessageEventId,
   setHoveredMessageEventId,
 } from '../../../state/hoveredMessage';
+import { subscribeMessageAction } from '../../../state/messageAction';
 import { useElementReadReceipts } from '../../../hooks/useElementReadReceipts';
 import { ReadReceiptAvatars } from '../../../components/read-receipt-avatars/ReadReceiptAvatars';
 import { useSetting } from '../../../state/hooks/settings';
@@ -864,6 +865,7 @@ export const Message = as<'div', MessageProps>(
     const useAuthentication = useMediaAuthentication();
     const senderId = mEvent.getSender() ?? '';
     const [readReceiptStyle] = useSetting(settingsAtom, 'readReceiptStyle');
+    const [replyOnDoubleClick] = useSetting(settingsAtom, 'replyOnDoubleClick');
     const elementReceipts = useElementReadReceipts(
       room,
       readReceiptStyle === 'element' && !hideReadReceipts
@@ -885,6 +887,28 @@ export const Message = as<'div', MessageProps>(
       if (hover) setHoveredMessageEventId(id);
       return () => clearHoveredMessageEventId(id);
     }, [hover, mEvent]);
+
+    const [forwardOpen, setForwardOpen] = useState(false);
+
+    /**
+     * Service the keybinds that need this component rather than just the SDK.
+     *
+     * `add-reaction` and `forward-message` open a popover and a modal owned by
+     * this instance, so `MessageKeybinds` can only ask; see `state/messageAction`.
+     * Subscribing per message rather than reading a shared atom keeps a keypress
+     * from re-rendering every row in the timeline.
+     */
+    useEffect(() => {
+      const id = mEvent.getId();
+      if (!id || edit) return undefined;
+      return subscribeMessageAction(id, (request) => {
+        if (request.type === 'add-reaction') {
+          setEmojiBoardAnchor(request.anchor);
+          return;
+        }
+        setForwardOpen(true);
+      });
+    }, [mEvent, edit]);
 
     const senderDisplayName =
       getMemberDisplayName(room, senderId) ?? getMxIdLocalPart(senderId) ?? senderId;
@@ -1193,6 +1217,9 @@ export const Message = as<'div', MessageProps>(
             </Box>
           </Box>
         )}
+        {forwardOpen && (
+          <ForwardPrompt mEvent={mEvent} requestClose={() => setForwardOpen(false)} />
+        )}
         <Overlay open={readReceiptOpen} backdrop={<OverlayBackdrop />}>
           <OverlayCenter>
             <FocusTrap
@@ -1238,9 +1265,15 @@ export const Message = as<'div', MessageProps>(
      * by the element under the pointer — if it directly contains text, the user
      * was aiming at the text — rather than by inspecting the selection, which
      * has not settled yet when this fires.
+     *
+     * Switchable via `replyOnDoubleClick`, which the keybind registry exposes
+     * as the `reply-double-click` gesture so it sits beside the `r` binding
+     * that does the same job — a gesture nobody can find in a settings list is
+     * indistinguishable from one that does not exist.
      */
     const handleDoubleClick: MouseEventHandler<HTMLDivElement> = useCallback(
       (evt) => {
+        if (!replyOnDoubleClick) return;
         if (edit) return;
         const target = evt.target as HTMLElement;
         if (target.closest('a, button, input, textarea, [contenteditable]')) return;
@@ -1250,7 +1283,7 @@ export const Message = as<'div', MessageProps>(
         if (hasText) return;
         onReplyClick(evt as unknown as Parameters<typeof onReplyClick>[0]);
       },
-      [edit, onReplyClick]
+      [edit, onReplyClick, replyOnDoubleClick]
     );
 
     const handleOpenMenu: MouseEventHandler<HTMLButtonElement> = (evt) => {

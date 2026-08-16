@@ -100,6 +100,7 @@ import { safeFile } from '../../utils/mimeTypes';
 import { fulfilledPromiseSettledResult } from '../../utils/common';
 import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
+import { getKeybindDefinition } from '../../state/keybinds';
 import {
   getAudioMsgContent,
   getFileMsgContent,
@@ -171,6 +172,18 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
     const mx = useMatrixClient();
     const useAuthentication = useMediaAuthentication();
     const [enterForNewline] = useSetting(settingsAtom, 'enterForNewline');
+    const [keybinds] = useSetting(settingsAtom, 'keybinds');
+    /**
+     * The send binding, read from the registry rather than hardcoded.
+     *
+     * `send-message` has been listed in the keybind settings as rebindable
+     * since the registry was written, while this handler tested a literal
+     * `mod+enter` — so changing it there did nothing at all. Bare Enter stays
+     * separate and is governed by `enterForNewline`, not by this binding:
+     * they are two different questions and always were.
+     */
+    const sendKeys =
+      keybinds['send-message'] ?? getKeybindDefinition('send-message')?.defaultKeys ?? 'mod+enter';
     const [isMarkdown] = useSetting(settingsAtom, 'isMarkdown');
     const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
     const [legacyUsernameColor] = useSetting(settingsAtom, 'legacyUsernameColor');
@@ -728,7 +741,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
     const handleKeyDown: KeyboardEventHandler = useCallback(
       (evt) => {
         if (
-          (isKeyHotkey('mod+enter', evt) || (!enterForNewline && isKeyHotkey('enter', evt))) &&
+          (isKeyHotkey(sendKeys, evt) || (!enterForNewline && isKeyHotkey('enter', evt))) &&
           !isComposing(evt)
         ) {
           evt.preventDefault();
@@ -743,7 +756,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
           setReplyDraft(undefined);
         }
       },
-      [submit, setReplyDraft, enterForNewline, autocompleteQuery, isComposing],
+      [submit, setReplyDraft, enterForNewline, autocompleteQuery, isComposing, sendKeys],
     );
 
     const handleKeyUp: KeyboardEventHandler = useCallback(

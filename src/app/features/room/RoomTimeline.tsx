@@ -2176,7 +2176,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
           </Chip>
         </TimelineFloat>
       )}
-      <MessageKeybinds room={room} onSetEditId={setEditId} />
+      <MessageKeybinds room={room} onSetEditId={setEditId} editor={editor} />
       <Scroll ref={scrollRef} visibility="Hover">
         <Box
           direction="Column"

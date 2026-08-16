@@ -213,20 +213,6 @@ export const BubbleLeftArrow = style({
   zIndex: 1,
 });
 
-/**
- * Chrome around a message — sender name, timestamp, the hover-revealed mxid —
- * is not content, and making it selectable actively breaks copying. The mxid
- * only exists while hovered, so dragging across it mutates the DOM mid-drag
- * and the browser re-anchors the selection somewhere else entirely, which is
- * how a drag started at the timestamp ends up grabbing text from the left.
- * Excluding it means a drag anywhere in the header starts cleanly on the
- * message body, and a copied message contains the message rather than a
- * timestamp glued to it.
- */
-export const MessageChromeNoSelect = style({
-  userSelect: 'none',
-});
-
 export const Username = style({
   userSelect: 'none',
   overflow: 'hidden',
@@ -256,9 +242,9 @@ export const UsernameBold = style({
  * which is why copying a message that ends in a link appeared to "start from
  * the left".
  *
- * Same class of bug as the timestamp/mxid one handled by MessageChromeNoSelect,
- * but caused by the drag source rather than by a mutating DOM, so it needs its
- * own fix. This covers every engine the app ships on (WebView2, WebKitGTK,
+ * Same class of bug as the timestamp and mxid one — both carry their own
+ * `user-select: none` — but caused by the drag source rather than by a mutating
+ * DOM, so it needs its own fix. This covers every engine the app ships on (WebView2, WebKitGTK,
  * Android WebView, Chrome, Safari); the `draggable="false"` attribute set by
  * the linkifier and the HTML sanitizer covers Gecko, which implements neither.
  *

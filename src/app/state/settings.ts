@@ -39,6 +39,14 @@ export interface Settings {
   isPeopleDrawer: boolean;
   memberSortFilterIndex: number;
   enterForNewline: boolean;
+  /**
+   * Double-clicking a message starts a reply to it.
+   *
+   * Registered as a gesture in the keybind registry (`reply-double-click`) so
+   * it is discoverable in the shortcuts list and switchable in the keybind
+   * settings, alongside the `r` binding that does the same thing.
+   */
+  replyOnDoubleClick: boolean;
   scrollOnSend: boolean;
   messageLayout: MessageLayout;
   messageSpacing: MessageSpacing;
@@ -194,6 +202,8 @@ const defaultSettings: Settings = {
   isPeopleDrawer: true,
   memberSortFilterIndex: 0,
   enterForNewline: false,
+  // On by default: this is the behaviour the client already had.
+  replyOnDoubleClick: true,
   scrollOnSend: true,
   messageLayout: 0,
   messageSpacing: '400',

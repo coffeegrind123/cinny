@@ -1,13 +1,39 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Box, Button, color, config, Icon, IconButton, Icons, Scroll, Text } from 'folds';
+import { Box, Button, color, config, Icon, IconButton, Icons, Scroll, Switch, Text } from 'folds';
 import { Page, PageContent, PageContentCenter, PageHeader } from '../../../components/page';
 import { SequenceCard } from '../../../components/sequence-card';
 import { SequenceCardStyle } from '../styles.css';
 import { useSetting } from '../../../state/hooks/settings';
 import { settingsAtom } from '../../../state/settings';
-import { KEYBIND_DEFINITIONS, KeybindCategory } from '../../../state/keybinds';
+import {
+  KEYBIND_DEFINITIONS,
+  KeybindCategory,
+  type KeybindDefinition,
+} from '../../../state/keybinds';
 import { formatKeyComboSplit } from '../../../utils/key-display';
 import { SettingTile } from '../../../components/setting-tile';
+
+/**
+ * A pointer gesture, which is on or off rather than bound to anything.
+ *
+ * Its state lives in an ordinary boolean setting, named by the registry entry,
+ * so the gesture is configured in the same place as the key that does the same
+ * job instead of being stranded in a general settings page where nobody looking
+ * for shortcuts would find it.
+ */
+function GestureTile({ def }: { def: KeybindDefinition }) {
+  const [settings, setSettings] = useSetting(
+    settingsAtom,
+    def.settingKey as 'replyOnDoubleClick'
+  );
+
+  return (
+    <SettingTile
+      title={def.description}
+      after={<Switch variant="Primary" value={settings} onChange={setSettings} />}
+    />
+  );
+}
 
 const CATEGORY_ORDER: KeybindCategory[] = [
   KeybindCategory.Messages,
@@ -182,6 +208,13 @@ export function Keybinds({ requestClose }: KeybindsProps) {
                         gap="400"
                       >
                         {items.map((def) => {
+                          // A gesture has no combo to capture or reset — it is
+                          // on or off. Rendering the capture control for one
+                          // would invite the user to bind a key that could
+                          // never fire.
+                          if (def.gesture) {
+                            return <GestureTile key={def.id} def={def} />;
+                          }
                           const currentKey = keybinds[def.id] ?? def.defaultKeys;
                           const isCustom = keybinds[def.id] !== undefined;
                           return (

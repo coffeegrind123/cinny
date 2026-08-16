@@ -13,7 +13,23 @@ export interface KeybindDefinition {
   id: string;
   description: string;
   category: KeybindCategory;
+  /**
+   * The key combo, or — when `gesture` is set — the literal label to show for
+   * a pointer gesture that has no combo to capture.
+   */
   defaultKeys: string;
+  /**
+   * A pointer gesture rather than a key.
+   *
+   * It lives in this registry because this is where a user looks to find out
+   * what the client responds to, and a gesture nobody can discover may as well
+   * not exist. It is not rebindable — there is no second mouse chord to move it
+   * to — so it carries a boolean setting instead, and the settings screen
+   * renders a switch where it would otherwise render a key capture.
+   */
+  gesture?: true;
+  /** The `Settings` key holding the on/off state. Only for `gesture` entries. */
+  settingKey?: string;
 }
 
 export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
@@ -49,16 +65,18 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     defaultKeys: 'r',
   },
   {
+    id: 'reply-double-click',
+    description: 'Reply (double-click a message)',
+    category: KeybindCategory.Messages,
+    defaultKeys: 'Double-click',
+    gesture: true,
+    settingKey: 'replyOnDoubleClick',
+  },
+  {
     id: 'forward-message',
     description: 'Forward Message',
     category: KeybindCategory.Messages,
     defaultKeys: 'f',
-  },
-  {
-    id: 'speak-message',
-    description: 'Speak Message',
-    category: KeybindCategory.Messages,
-    defaultKeys: 's',
   },
   {
     id: 'copy-text',
