@@ -48,7 +48,9 @@ import {
   isImageUrl,
   isTwitterGifUrl,
   parseTenorGif,
+  urlHostname,
 } from '../../utils/animatedMedia';
+import { htmlToPlainText } from '../../utils/htmlText';
 
 const linkStyles = { color: color.Secondary.Main, textDecoration: 'none' };
 
@@ -104,6 +106,70 @@ async function fetchBskyProfile(actor: string): Promise<any> {
   );
   if (!resp.ok) throw new Error(`getProfile HTTP ${resp.status}`);
   return resp.json();
+}
+
+// Hacker News item URLs: https://news.ycombinator.com/item?id=12345678
+//
+// Parsed with `new URL` rather than matched against the raw string. A regex
+// over the whole URL accepts `https://evil.example/news.ycombinator.com/item?id=1`
+// as readily as the real thing, and the id it yields is interpolated straight
+// into an API path below — so the host check has to be made against a parsed
+// origin, not against a substring of someone else's URL.
+function getHnItemId(url: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+  if (parsed.hostname.replace(/\.$/, '').toLowerCase() !== 'news.ycombinator.com') return null;
+  if (parsed.pathname !== '/item') return null;
+  const id = parsed.searchParams.get('id');
+  // Digits only, and bounded: the value is a path segment in the fetch below.
+  return id !== null && /^\d{1,15}$/.test(id) ? id : null;
+}
+
+const HN_API = 'https://hacker-news.firebaseio.com/v0';
+
+async function fetchHnItem(id: string): Promise<any> {
+  const resp = await fetch(`${HN_API}/item/${id}.json`);
+  if (!resp.ok) throw new Error(`hn item HTTP ${resp.status}`);
+  const data = await resp.json();
+  // An id that never existed, or one whose item has been purged, answers a
+  // literal `null` body with a 200. Checking `resp.ok` alone would leave the
+  // card rendering an empty shell instead of falling through to the
+  // homeserver preview.
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+    throw new Error('hn item: no such item');
+  }
+  // A deleted item keeps its id and timestamp and loses everything worth
+  // showing — no title, no text, no author. Treated as a failure so the card
+  // falls through rather than rendering a row of blanks. `dead` (flagged) is
+  // NOT treated this way: those still carry their content.
+  if (data.deleted === true) throw new Error('hn item: deleted');
+  return data;
+}
+
+const RELATIVE_TIME_UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+  ['year', 31_536_000],
+  ['month', 2_592_000],
+  ['week', 604_800],
+  ['day', 86_400],
+  ['hour', 3_600],
+  ['minute', 60],
+];
+
+// HN timestamps are epoch SECONDS, unlike every other time value in this app.
+function timeAgo(epochSeconds: unknown): string {
+  if (typeof epochSeconds !== 'number' || !Number.isFinite(epochSeconds) || epochSeconds <= 0) {
+    return '';
+  }
+  const delta = Math.round(Date.now() / 1000) - epochSeconds;
+  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+  const unit = RELATIVE_TIME_UNITS.find(([, secs]) => Math.abs(delta) >= secs);
+  if (!unit) return rtf.format(-delta, 'second');
+  return rtf.format(-Math.round(delta / unit[1]), unit[0]);
 }
 
 const SOUNDCLOAK_HOST = 'sc1.maid.zone';
@@ -349,6 +415,7 @@ export const UrlPreviewCard = as<
   const [useVxTwitter] = useSetting(settingsAtom, 'useVxTwitter');
   const [useSoundcloak] = useSetting(settingsAtom, 'useSoundcloak');
   const [useBlueskyEmbeds] = useSetting(settingsAtom, 'useBlueskyEmbeds');
+  const [useHackerNewsEmbeds] = useSetting(settingsAtom, 'useHackerNewsEmbeds');
   const [usePiped] = useSetting(settingsAtom, 'usePiped');
   const [pipedInstance] = useSetting(settingsAtom, 'pipedInstance');
   const pipedBase = usePipedInstance(pipedInstance);
@@ -372,6 +439,11 @@ export const UrlPreviewCard = as<
   // Gated identically to the post path: rendering a message must not fire an
   // unprompted request to a host the *sender* chose.
   const bskyActor = useBlueskyEmbeds && !bskyPost ? getBskyProfileActor(url) : null;
+  // Gated for the same reason as the two above, even though the host here is
+  // fixed: the request still happens because a *sender* put an HN link in a
+  // message, so it discloses the viewer's IP to firebaseio.com on someone
+  // else's cue and tells that sender when the message was rendered.
+  const hnItemId = useHackerNewsEmbeds ? getHnItemId(url) : null;
 
   // vxtwitter client-side fetch
   const [vxData, setVxData] = useState<any>(null);
@@ -422,9 +494,39 @@ export const UrlPreviewCard = as<
       });
   }, [bskyActor]);
 
+  // Hacker News item fetch — public API, no key, no auth, CORS open.
+  const [hnItem, setHnItem] = useState<any>(null);
+  const [hnLoading, setHnLoading] = useState(false);
+  // Read, not just written: it decides between rendering the HN card and
+  // falling through to the homeserver preview.
+  const [hnError, setHnError] = useState(false);
+  useEffect(() => {
+    if (!hnItemId) return;
+    setHnLoading(true);
+    setHnError(false);
+    fetchHnItem(hnItemId)
+      .then((d) => {
+        setHnItem(d);
+        setHnLoading(false);
+      })
+      .catch(() => {
+        setHnError(true);
+        setHnLoading(false);
+      });
+  }, [hnItemId]);
+
   const [viewerSrc, setViewerSrc] = useState<string>();
   const [expanded, setExpanded] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  // Set once the homeserver has refused to thumbnail this card's og:image, so
+  // the image sources below switch to the original for the rest of this card's
+  // life. Without the latch the failing <img> re-requests the same rejected
+  // thumbnail on every re-render — the console fills with identical 400s and
+  // the card never recovers. Keyed on `url` so a recycled card starts clean.
+  const [thumbnailRejected, setThumbnailRejected] = useState(false);
+  useEffect(() => {
+    setThumbnailRejected(false);
+  }, [url]);
 
   const isYt = isYoutubeUrl(url);
   const ytVideoId = isYt ? getYoutubeVideoId(url) : null;
@@ -480,7 +582,7 @@ export const UrlPreviewCard = as<
     if (!clientPreviewFallback) return;
     if (previewStatus.status !== AsyncStatus.Error) return;
     if (ogFallbackTried) return;
-    if (twId || bskyPost || bskyActor || isYt) return;
+    if (twId || bskyPost || bskyActor || hnItemId || isYt) return;
     if (directAudio) return;
     setOgFallbackTried(true);
     fetchOgPreview(embedUrl).then((data) => {
@@ -496,6 +598,7 @@ export const UrlPreviewCard = as<
     bskyPost?.actor,
     bskyPost?.rkey,
     bskyActor,
+    hnItemId,
     isYt,
     directAudio,
     embedUrl,
@@ -941,6 +1044,129 @@ export const UrlPreviewCard = as<
   }
   // bskyError: fall through to Matrix og: preview
 
+  // Hacker News card. HN serves no OpenGraph metadata at all, so the
+  // homeserver preview falls back to scraping the page and the description
+  // comes out as the site's navigation strip ("new | past | comments | ask |
+  // show | jobs | submit login") followed by fragments of the story line. That
+  // data is junk at the source — no amount of rendering fixes it, only a
+  // different source does.
+  //
+  // Every field below is third-party JSON, so it is treated exactly like the
+  // Bluesky card's: strings are length-bounded and rendered as React children
+  // (escaped), numbers are range-checked, and the outbound story link is
+  // scheme-checked with `webUrlOrUndefined` before it reaches an href.
+  if (hnItemId && hnItem && !hnError) {
+    const title = typeof hnItem.title === 'string' ? hnItem.title.slice(0, 300) : '';
+    const author = typeof hnItem.by === 'string' ? hnItem.by.slice(0, 64) : '';
+    // Present on a story that links out, absent on Ask HN and on comments —
+    // in which case the card's own link is the HN discussion itself.
+    const itemUrl = webUrlOrUndefined(hnItem.url);
+    const host = itemUrl ? urlHostname(itemUrl).replace(/^www\./, '') : '';
+    // Ask HN / Show HN bodies and comment bodies arrive as an HTML fragment.
+    // Flattened to text and handed to React as a string — never as markup.
+    const body = typeof hnItem.text === 'string' ? htmlToPlainText(hnItem.text).slice(0, 1000) : '';
+    const count = (v: unknown): number | null =>
+      typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.floor(v) : null;
+    const score = count(hnItem.score);
+    const comments = count(hnItem.descendants);
+    const posted = timeAgo(hnItem.time);
+    const headingHref = itemUrl ?? safeUrl;
+
+    return (
+      <UrlPreview {...props} ref={ref}>
+        <Box
+          direction="Column"
+          gap="200"
+          grow="Yes"
+          style={{ padding: config.space.S300, minWidth: 0 }}
+        >
+          <Box gap="200" alignItems="Center" wrap="Wrap">
+            <Text size="T200" priority="400">
+              Hacker News
+            </Text>
+            {host && (
+              <Text size="T200" priority="300" truncate>
+                {host}
+              </Text>
+            )}
+          </Box>
+
+          {title &&
+            (headingHref ? (
+              <Text size="T300">
+                <a
+                  href={headingHref}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  style={linkStyles}
+                >
+                  <b>{title}</b>
+                </a>
+              </Text>
+            ) : (
+              <Text size="T300">
+                <b>{title}</b>
+              </Text>
+            ))}
+
+          {body && (
+            <Text size="T200" style={{ whiteSpace: 'pre-wrap' }}>
+              {body}
+            </Text>
+          )}
+
+          <Box gap="300" wrap="Wrap" alignItems="Center">
+            {score !== null && (
+              <Text size="T200" priority="300">
+                <b>{score.toLocaleString()}</b> {score === 1 ? 'point' : 'points'}
+              </Text>
+            )}
+            {author && (
+              <Text size="T200" priority="300">
+                by <b>{author}</b>
+              </Text>
+            )}
+            {posted && (
+              <Text size="T200" priority="300">
+                {posted}
+              </Text>
+            )}
+            {comments !== null && safeUrl && (
+              <Text size="T200" priority="300">
+                <a href={safeUrl} target="_blank" rel="noreferrer noopener" style={linkStyles}>
+                  <b>{comments.toLocaleString()}</b> {comments === 1 ? 'comment' : 'comments'}
+                </a>
+              </Text>
+            )}
+            {comments === null && safeUrl && (
+              <Text size="T200" priority="300">
+                <a href={safeUrl} target="_blank" rel="noreferrer noopener" style={linkStyles}>
+                  Discuss on Hacker News
+                </a>
+              </Text>
+            )}
+          </Box>
+        </Box>
+      </UrlPreview>
+    );
+  }
+  if (hnItemId && hnLoading) {
+    return (
+      <UrlPreview {...props} ref={ref}>
+        <Box
+          grow="Yes"
+          alignItems="Center"
+          justifyContent="Center"
+          style={{ padding: config.space.S400 }}
+        >
+          <Spinner variant="Secondary" size="400" />
+        </Box>
+      </UrlPreview>
+    );
+  }
+  // hnError: fall through to the Matrix og: preview. It is a poor card, but a
+  // poor card beats no card when the API is unreachable.
+
   // SoundCloud/soundcloak or direct MP3 — render audio player directly, skip preview
   if (directAudio) {
     const audioSrc = directAudioEmbed ? embedUrl : url;
@@ -1048,17 +1274,33 @@ export const UrlPreviewCard = as<
       ? (isDirectImage ? rawOgImage : mxcUrlToHttp(mx, rawOgImage, useAuthentication))
       : null;
 
+    // The un-thumbnailed original, and the fallback when the thumbnailer says
+    // no. A homeserver answers `/thumbnail` with **400** — not 404 — for media
+    // it holds but has no thumbnail for (Synapse: "Cannot find any thumbnails
+    // for the requested media"), which is routine for anything its thumbnailer
+    // skipped or failed on, including og:image files it re-uploaded from
+    // someone else's page. The full-size download of that same mxc serves
+    // fine, so a broken-image card is a self-inflicted wound: ask for the
+    // original instead of showing nothing.
+    const fullImgUrl = isDirectImage
+      ? rawOgImage
+      : mxcUrlToHttp(mx, rawOgImage, useAuthentication);
+
     const thumbUrl =
       animatedImgUrl ??
-      (isDirectImage
-        ? rawOgImage
-        : mxcUrlToHttp(mx, rawOgImage, useAuthentication, 256, 256, 'scale', false));
+      (thumbnailRejected
+        ? fullImgUrl
+        : isDirectImage
+          ? rawOgImage
+          : mxcUrlToHttp(mx, rawOgImage, useAuthentication, 256, 256, 'scale', false));
 
     const imgUrl =
       animatedImgUrl ??
-      (isDirectImage
-        ? rawOgImage
-        : mxcUrlToHttp(mx, rawOgImage, useAuthentication, 512, 512, 'scale', false));
+      (thumbnailRejected
+        ? fullImgUrl
+        : isDirectImage
+          ? rawOgImage
+          : mxcUrlToHttp(mx, rawOgImage, useAuthentication, 512, 512, 'scale', false));
 
     // og:image is a poster, never the media. When the link itself is the file,
     // it is the only correct source — previously the <video> was pointed at
@@ -1311,6 +1553,13 @@ export const UrlPreviewCard = as<
                 tabIndex={0}
                 onKeyDown={(evt) => onEnterOrSpace(() => setViewerSrc(viewerTarget))(evt)}
                 onClick={() => setViewerSrc(viewerTarget)}
+                onError={() => {
+                  // A thumbnail the homeserver refuses to generate — retry once
+                  // with the original. A direct image link has no thumbnail to
+                  // fall back from, and re-latching after the original fails
+                  // too is a no-op React bails out of, so this cannot loop.
+                  if (!isDirectImage && fullImgUrl) setThumbnailRejected(true);
+                }}
               />
             );
           })()}

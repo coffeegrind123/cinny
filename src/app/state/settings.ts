@@ -78,6 +78,13 @@ export interface Settings {
   useVxTwitter: boolean;
   useSoundcloak: boolean;
   useBlueskyEmbeds: boolean;
+  // Builds Hacker News cards from HN's own API instead of the homeserver
+  // preview. HN publishes no OpenGraph metadata at all, so the preview falls
+  // back to scraping the page and the description comes out as the site's
+  // navigation strip — there is no rendering fix for that, only a different
+  // source. The mildest of the embed integrations: the host is fixed and the
+  // only sender-controlled part of the request is a numeric item id.
+  useHackerNewsEmbeds: boolean;
   // How much of a message is shown in OS notifications. Decrypted end-to-end
   // encrypted content otherwise crosses into the platform notification store,
   // where other software on the device can read it. Defaults to 'full' so
@@ -236,12 +243,14 @@ const defaultSettings: Settings = {
   // viewer's IP to that host and turns "did you open the room yet?" into a
   // signal the sender can observe.
   //
-  // vxtwitter and Bluesky are on by default as a deliberate product decision:
-  // they are the embeds users expect to just work, and the settings tiles state
-  // the disclosure plainly so it can be turned off. soundcloak stays opt-in.
+  // vxtwitter, Bluesky and Hacker News are on by default as a deliberate
+  // product decision: they are the embeds users expect to just work, and the
+  // settings tiles state the disclosure plainly so each can be turned off.
+  // soundcloak stays opt-in.
   useVxTwitter: true,
   useSoundcloak: false,
   useBlueskyEmbeds: true,
+  useHackerNewsEmbeds: true,
   notificationContentMode: DEFAULT_NOTIFICATION_CONTENT_MODE,
   // On by default, pinned to gmach. Piped is the privacy-preserving option
   // here, not the risky one: without it a YouTube link embeds youtube.com

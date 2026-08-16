@@ -798,6 +798,10 @@ function Editor() {
   const [useVxTwitter, setUseVxTwitter] = useSetting(settingsAtom, 'useVxTwitter');
   const [useSoundcloak, setUseSoundcloak] = useSetting(settingsAtom, 'useSoundcloak');
   const [useBlueskyEmbeds, setUseBlueskyEmbeds] = useSetting(settingsAtom, 'useBlueskyEmbeds');
+  const [useHackerNewsEmbeds, setUseHackerNewsEmbeds] = useSetting(
+    settingsAtom,
+    'useHackerNewsEmbeds'
+  );
   const [usePiped, setUsePiped] = useSetting(settingsAtom, 'usePiped');
   const [renderMaths, setRenderMaths] = useSetting(settingsAtom, 'renderMaths');
   const [showMaps, setShowMaps] = useSetting(settingsAtom, 'showMaps');
@@ -923,6 +927,19 @@ function Editor() {
           description="Fetch Bluesky posts client-side to show full embeds. Sends the link and your IP address to public.api.bsky.app, and lets the sender of a link see when you view it."
           after={
             <Switch variant="Primary" value={useBlueskyEmbeds} onChange={setUseBlueskyEmbeds} />
+          }
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Hacker News post embeds"
+          description="Build Hacker News cards from the Hacker News API, which serves no link preview of its own. Sends the item number and your IP address to hacker-news.firebaseio.com, and lets the sender of a link see when you view it."
+          after={
+            <Switch
+              variant="Primary"
+              value={useHackerNewsEmbeds}
+              onChange={setUseHackerNewsEmbeds}
+            />
           }
         />
       </SequenceCard>
