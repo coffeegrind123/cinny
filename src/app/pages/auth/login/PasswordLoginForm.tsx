@@ -193,7 +193,21 @@ export function PasswordLoginForm({ defaultUsername, defaultEmail }: PasswordLog
       handleEmailLogin(username, password);
       return;
     }
-    handleUsernameLogin(username, password);
+    /*
+     * `@kuso` is a localpart someone has written the way they always see it.
+     *
+     * `isUserId` is `validMxId && startsWith('@')`, and `validMxId` matches
+     * `/^([@$+#])([^\s:]+):(\S+)$/` — the colon and domain are required. So a
+     * sigil with no domain fails that test, falls through here, and the raw
+     * string went to the server AS the localpart: it tried to log in a user
+     * literally called "@kuso" and failed. `kuso` worked and
+     * `@kuso:struct.ws` worked, which is the confusing part — the only broken
+     * spelling was the one that looks the most like a Matrix ID.
+     *
+     * Dropping the sigil is the whole fix. It cannot collide with the branches
+     * above: a full ID was already handled, and no email starts with `@`.
+     */
+    handleUsernameLogin(username.replace(/^@/, ''), password);
   };
 
   return (

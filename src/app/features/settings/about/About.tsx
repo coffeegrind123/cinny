@@ -15,7 +15,7 @@ import { Page, PageContent, PageContentCenter, PageHeader } from '../../../compo
 import { SequenceCard } from '../../../components/sequence-card';
 import { SequenceCardStyle } from '../styles.css';
 import { SettingTile } from '../../../components/setting-tile';
-import CinnySVG from '../../../../../public/res/svg/cinny.svg';
+import PrinnySVG from '../../../../../public/res/svg/prinny.svg';
 import { clearCacheAndReload } from '../../../../client/initMatrix';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { useUpdateCheck } from '../../../hooks/useUpdateCheck';
@@ -87,7 +87,7 @@ export function About({ requestClose }: AboutProps) {
                   <Box shrink="No">
                     <img
                       style={{ width: toRem(96), height: toRem(96) }}
-                      src={CinnySVG}
+                      src={PrinnySVG}
                       alt="Prinny Client logo"
                     />
                   </Box>

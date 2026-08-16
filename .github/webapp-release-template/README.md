@@ -61,7 +61,7 @@ git log -1 --format='%H %an %s'
 
 ## Serve
 
-Cinny is a single-page app: every route except a handful of static files must rewrite to `/index.html`. An nginx snippet ready to drop in is included as [`nginx.conf`](./nginx.conf) — adapt the `server_name` and TLS bits to your setup, then:
+Prinny is a single-page app: every route except a handful of static files must rewrite to `/index.html`. An nginx snippet ready to drop in is included as [`nginx.conf`](./nginx.conf) — adapt the `server_name` and TLS bits to your setup, then:
 
 ```bash
 ln -s /usr/share/webapps/prinny/nginx.conf /etc/nginx/sites-enabled/prinny.conf

@@ -986,9 +986,13 @@ export const Message = as<'div', MessageProps>(
           {tagIconSrc && <PowerIcon size="100" iconSrc={tagIconSrc} />}
         </Box>
         {messageLayout === MessageLayout.Modern && hover && (
+          // The full mxid, not just the localpart. Two people can share a
+          // localpart across homeservers, which is exactly when knowing who
+          // sent something matters, and the part that disambiguates them was
+          // the part being dropped.
           <Box shrink="No" style={{ userSelect: 'none' }}>
-            <Text as="span" size="T200" priority="300">
-              @{getMxIdLocalPart(senderId)}
+            <Text as="span" size="T200" priority="300" truncate>
+              {senderId}
             </Text>
           </Box>
         )}
@@ -1019,6 +1023,26 @@ export const Message = as<'div', MessageProps>(
             hour24Clock={hour24Clock}
             dateFormatString={dateFormatString}
           />
+        </div>
+      );
+
+    /**
+     * The same label for a message with no header to put it in.
+     *
+     * `headerJSX` renders only when `!collapse`, so until now the sender was
+     * shown on the FIRST message of a group and on none of the ones after it —
+     * backwards, since the first is the one already captioned by the avatar and
+     * the name beside it. Modern layout only, matching the header variant:
+     * Compact puts the sender at the start of every row already, and Bubble
+     * groups by column.
+     */
+    const gutterMxIdJSX = collapse &&
+      messageLayout === MessageLayout.Modern &&
+      hover && (
+        <div className={css.MessageSenderMxId}>
+          <Text as="span" size="T200" priority="300">
+            {senderId}
+          </Text>
         </div>
       );
 
@@ -1330,6 +1354,7 @@ export const Message = as<'div', MessageProps>(
         {...focusWithinProps}
         ref={ref}
       >
+        {gutterMxIdJSX}
         {!edit && (hover || !!menuAnchor || !!emojiBoardAnchor) && (
           <div className={css.MessageOptionsBase}>
             <Menu

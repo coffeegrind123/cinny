@@ -19,6 +19,20 @@ type Session = {
   deviceId: string;
 };
 
+/**
+ * Whether a libolm crypto store is present, without touching it.
+ *
+ * `indexedDB.databases()` only enumerates; it never opens, creates or deletes,
+ * which is the whole point -- see the note in `initClient`. It is absent in
+ * older Firefox, and there the honest answer is "cannot tell", so we say yes
+ * and leave the SDK to behave exactly as it did before.
+ */
+const legacyCryptoStoreExists = async (): Promise<boolean> => {
+  const databases = await global.indexedDB?.databases?.();
+  if (!databases) return true;
+  return databases.some((db) => db.name === 'crypto-store');
+};
+
 export const initClient = async (session: Session): Promise<MatrixClient> => {
   const indexedDBStore = new IndexedDBStore({
     indexedDB: global.indexedDB,
@@ -26,7 +40,42 @@ export const initClient = async (session: Session): Promise<MatrixClient> => {
     dbName: 'web-sync-store',
   });
 
-  const legacyCryptoStore = new IndexedDBCryptoStore(global.indexedDB, 'crypto-store');
+  /**
+   * The libolm crypto store, handed to the SDK ONLY when one actually exists.
+   *
+   * Passing it unconditionally is what produced "Cannot read properties of
+   * undefined (reading 'getMigrationState')" on load, reliably whenever another
+   * tab of this app was already open, and reliably fixed by a retry. The SDK
+   * has two code paths that call `legacyStore.getMigrationState()` without
+   * calling `startup()` first -- `rust-crypto/index.js` after creating the
+   * OlmMachine, and `migrateRoomSettingsFromLegacyCrypto` -- and `startup()` is
+   * the only thing that assigns the store's `backend`. Both rely on
+   * `migrateFromLegacyCrypto` having called it earlier, which it does not when
+   * it takes its `containsData()` early return.
+   *
+   * That early return is reached, and then contradicted, because the SDK's
+   * existence check opens the database WITHOUT a version: when the database is
+   * absent that CREATES it, resolves false, and fires `deleteDatabase` without
+   * awaiting it. A second tab holding a connection blocks that delete, so the
+   * next `containsData()` -- moments later, from the call site above -- finds
+   * the database still present and answers true. Early return, so no `startup()`
+   * and no `backend`; then a call straight into `backend.getMigrationState()`.
+   * On retry the delete has landed, both checks agree, and nothing breaks.
+   *
+   * So: decide for ourselves, with an enumeration that has no side effect, and
+   * hand over nothing when there is nothing to migrate. Neither unguarded call
+   * site can then run at all.
+   *
+   * NOT fixed by calling `startup()` ourselves, which was the obvious move: it
+   * would create the legacy database for accounts that never had one, and the
+   * first of those call sites reads `migrationState < INITIAL_OWN_KEY_QUERY_DONE`
+   * as "just migrated" and runs a retry-until-success key query. Every launch,
+   * for everyone, to paper over a store with nothing in it.
+   */
+  const LEGACY_CRYPTO_DB_NAME = 'crypto-store';
+  const legacyCryptoStore = (await legacyCryptoStoreExists())
+    ? new IndexedDBCryptoStore(global.indexedDB, LEGACY_CRYPTO_DB_NAME)
+    : undefined;
 
   const mx = createClient({
     baseUrl: session.baseUrl,

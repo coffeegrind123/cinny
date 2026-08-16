@@ -132,7 +132,7 @@ export default defineConfig({
     fs: {
       // Project root only. Nothing in the app imports from outside it: the
       // furthest-reaching imports are `src/app/features/settings/about/
-      // About.tsx` -> `../../../../../public/res/svg/cinny.svg` and
+      // About.tsx` -> `../../../../../public/res/svg/prinny.svg` and
       // `../../../../../package.json`, both of which resolve inside the root.
       // `allow: ['..']` reached into the parent `prinny-client` tree, which
       // holds `.secrets/` (Tauri updater signing key) and CI keystores.

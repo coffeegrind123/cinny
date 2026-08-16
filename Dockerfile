@@ -10,6 +10,12 @@ WORKDIR /src
 COPY .npmrc package.json package-lock.json /src/
 RUN npm ci
 COPY . /src/
+# Same rebrand publish-webapp.yml applies. Without it this image builds
+# straight from source and ships as "Cinny": the script is the only thing
+# that renames the title, manifest and UI strings, and nothing else in the
+# repo calls it. Safe here because the checkout is throwaway -- it rewrites
+# files in place, which is why it is NOT wired into `npm run build`.
+RUN node scripts/rebrand.mjs
 ENV NODE_OPTIONS=--max_old_space_size=4096
 RUN npm run build
 

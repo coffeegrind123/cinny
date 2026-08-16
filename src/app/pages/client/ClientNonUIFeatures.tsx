@@ -5,12 +5,13 @@ import { ReactNode, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MatrixEventEvent, RoomEvent, RoomEventHandlerMap } from 'matrix-js-sdk';
 import { roomToUnreadAtom, unreadEqual, unreadInfoToUnread } from '../../state/room/roomToUnread';
-import LogoSVG from '../../../../public/res/svg/cinny.svg';
-import LogoUnreadSVG from '../../../../public/res/svg/cinny-unread.svg';
-import LogoHighlightSVG from '../../../../public/res/svg/cinny-highlight.svg';
+import LogoSVG from '../../../../public/res/svg/prinny.svg';
+import LogoUnreadSVG from '../../../../public/res/svg/prinny-unread.svg';
+import LogoHighlightSVG from '../../../../public/res/svg/prinny-highlight.svg';
 import NotificationSound from '../../../../public/sound/notification.ogg';
 import InviteSound from '../../../../public/sound/invite.ogg';
 import { setFavicon } from '../../utils/dom';
+import { renderFaviconWithBadge } from '../../utils/favicon-badge';
 import {
   isNotificationPermissionGrantedSync,
   sendDesktopNotification,
@@ -81,22 +82,37 @@ function FaviconUpdater() {
   const roomToUnread = useAtomValue(roomToUnreadAtom);
 
   useEffect(() => {
-    let notification = false;
+    let total = 0;
     let highlight = false;
     roomToUnread.forEach((unread) => {
-      if (unread.total > 0) {
-        notification = true;
-      }
+      total += unread.total;
       if (unread.highlight > 0) {
         highlight = true;
       }
     });
 
-    if (notification) {
-      setFavicon(highlight ? LogoHighlightSVG : LogoUnreadSVG);
-    } else {
+    if (total === 0) {
       setFavicon(LogoSVG);
+      return undefined;
     }
+
+    // The dotted images stay as the immediate answer and as the fallback: the
+    // badge has to decode an image and rasterise a canvas, and until that lands
+    // the tab should already show that something is unread. Same reason the
+    // count is summed the way `TaskbarBadgeUpdater` sums it — one unread meaning
+    // for the taskbar and the tab, not two.
+    setFavicon(highlight ? LogoHighlightSVG : LogoUnreadSVG);
+
+    // Guards against an out-of-order finish: unread state can change several
+    // times while one render is in flight, and the last one to resolve is not
+    // necessarily the current one.
+    let current = true;
+    renderFaviconWithBadge(LogoSVG, total, highlight).then((badged) => {
+      if (current && badged) setFavicon(badged);
+    });
+    return () => {
+      current = false;
+    };
   }, [roomToUnread]);
 
   return null;

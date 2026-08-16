@@ -1,5 +1,5 @@
 import { globalStyle, style } from '@vanilla-extract/css';
-import { DefaultReset, config, toRem } from 'folds';
+import { DefaultReset, color, config, toRem } from 'folds';
 
 export const MessageBase = style({
   position: 'relative',
@@ -144,6 +144,64 @@ export const MessageInlineReceipts = style({
   marginLeft: config.space.S200,
   cursor: 'pointer',
   userSelect: 'none',
+});
+
+/**
+ * The sender's mxid, parked at the right-hand end of a COLLAPSED message.
+ *
+ * A grouped message has no header, and the header is where this lives for the
+ * first message of a group — so on every message after it the sender was simply
+ * not shown, which is the opposite of useful: the first message is the one whose
+ * sender you can already read off the avatar and the name above it.
+ *
+ * Absolutely positioned for the same reason `MessageGutterTime` is: in flow it
+ * would sit after the message body and drag the row's width around as the
+ * pointer moved down the timeline. `line-height: inherit` puts it on the
+ * message's own FIRST line rather than the top of the row, which both matches
+ * where it appears on a group header and keeps its glyphs clear of the hover
+ * toolbar — that floats from -30px to +6px, and a line box starting at the
+ * row's 4px top padding centres its text well below 6px.
+ *
+ * `pointer-events: none` because it is a label, not a target: the toolbar
+ * overlaps its box slightly and must stay clickable, and a press here should
+ * behave exactly as a press on the blank row does. `user-select: none` for the
+ * same reason the timestamp and username have it — chrome is not content, and
+ * it must not end up in a dragged selection.
+ *
+ * The hover background travels with it because it overlays the end of the
+ * message text on a long line. The row is hovered whenever this is visible, so
+ * the colour always matches what is behind it.
+ */
+export const MessageSenderMxId = style({
+  position: 'absolute',
+  top: config.space.S100,
+  /**
+   * Clear of the hover toolbar, which shares this corner and wins.
+   *
+   * Both appear on hover, so they are always on screen together and cannot
+   * share the space. Measured rather than reasoned about, and the first
+   * attempt was wrong: the toolbar was assumed to reach 6px into its own row,
+   * so a label on the first line would clear it. It reaches 10px — a 32px
+   * IconButton plus the Menu's S100 padding is 40px tall against a -30px
+   * offset — and it covered the top 5px of the glyphs across 64px of their
+   * width, clipping the letters.
+   *
+   * 148px is the widest that toolbar gets: four IconButtons at 2rem, three
+   * S100 gaps between them, and S100 of Menu padding either side. Fewer
+   * buttons render when the event does not permit them, which only leaves this
+   * label further from the bar than it needs to be. Sized off the bar rather
+   * than a round number so it stays correct if a button is added.
+   */
+  right: `calc(${toRem(148)} + ${config.space.S100})`,
+  maxWidth: '40%',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  lineHeight: 'inherit',
+  paddingLeft: config.space.S200,
+  backgroundColor: color.Surface.ContainerHover,
+  userSelect: 'none',
+  pointerEvents: 'none',
 });
 
 export const BubbleAvatarBase = style({

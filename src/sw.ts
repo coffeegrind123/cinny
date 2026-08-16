@@ -252,8 +252,8 @@ async function handlePush(event: PushEvent) {
 
   await self.registration.showNotification(title, {
     body,
-    icon: '/public/res/svg/cinny.svg',
-    badge: '/public/res/svg/cinny.svg',
+    icon: '/public/res/svg/prinny.svg',
+    badge: '/public/res/svg/prinny.svg',
     tag: eventId ?? 'matrix-push',
     renotify: true,
     data: {

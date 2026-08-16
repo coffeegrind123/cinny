@@ -5,7 +5,7 @@ import {
   onNotificationAction,
 } from '../utils/desktop-notifications';
 import { isMobile as isMobileTauri } from '../utils/platform';
-import LogoSVG from '../../../public/res/svg/cinny.svg';
+import LogoSVG from '../../../public/res/svg/prinny.svg';
 
 type UpdateStatus =
   | 'idle'
