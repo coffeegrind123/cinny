@@ -1036,7 +1036,12 @@ export const Message = as<'div', MessageProps>(
      * Modern layout only: Compact already puts the sender at the start of every
      * row, and Bubble groups by column.
      */
+    // Group's first line only. A collapsed message is one of a run from the
+    // same sender directly under that header, so repeating the mxid on each
+    // of them labels the same sender over and over; the header line is where
+    // the sender is identified, and that is where the full id belongs.
     const senderMxIdJSX = messageLayout === MessageLayout.Modern &&
+      !collapse &&
       hover && (
         <div className={css.MessageSenderMxId}>
           <Text as="span" size="T200" priority="300">
