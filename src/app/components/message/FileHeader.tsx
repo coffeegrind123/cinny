@@ -44,6 +44,10 @@ export function FileDownloadButton({ filename, url, mimeType, encInfo }: FileDow
   const downloading = downloadState.status === AsyncStatus.Loading;
   const hasError = downloadState.status === AsyncStatus.Error;
   return (
+    // Stays at 300 — folds' IconButton has no smaller size, its variants start
+    // here. That makes this button the floor on the header's height: it is
+    // taller than the badge and than the filename's line box, so the strip
+    // cannot be slimmer than the button whatever the padding does.
     <IconButton
       disabled={downloading}
       onClick={download}

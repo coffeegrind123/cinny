@@ -243,7 +243,10 @@ function IncomingCallListener({ callEmbed, joined }: IncomingCallListenerProps) 
       if (room?.isCallRoom()) return;
 
       if (event.isEncrypted()) {
-        if (!event.isBeingDecrypted()) {
+        // shouldAttemptDecryption subsumes the isBeingDecrypted check and also
+        // skips redacted and already-decrypted events; the promise below is
+        // still awaited either way, so an in-flight decryption is not lost.
+        if (event.shouldAttemptDecryption()) {
           await event.attemptDecryption(mx.getCrypto() as CryptoBackend);
         }
         await event.getDecryptionPromise();

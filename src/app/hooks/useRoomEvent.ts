@@ -18,7 +18,11 @@ const useFetchEvent = (room: Room, eventId: string) => {
       mEvent.makeReplaced(replaceEvent);
     }
 
-    if (mEvent.isEncrypted() && mx.getCrypto()) {
+    // shouldAttemptDecryption, not isEncrypted: a redacted m.room.encrypted
+    // keeps its type but loses `algorithm`, and the crypto backend rejects it.
+    // This path fetches whatever a reply or a permalink points at, which is
+    // exactly the kind of event that gets deleted.
+    if (mEvent.shouldAttemptDecryption() && mx.getCrypto()) {
       await to(mEvent.attemptDecryption(mx.getCrypto() as CryptoBackend));
     }
 

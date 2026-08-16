@@ -33,7 +33,7 @@ import {
 } from 'react';
 import { FocusTrap } from 'focus-trap-react';
 import { useHover, useFocusWithin } from 'react-aria';
-import { EventStatus, MatrixEvent, Room } from 'matrix-js-sdk';
+import { EventStatus, MatrixEvent, MsgType, Room } from 'matrix-js-sdk';
 import { Relations } from 'matrix-js-sdk/lib/models/relations';
 import classNames from 'classnames';
 import { RoomPinnedEventsEventContent } from 'matrix-js-sdk/lib/types';
@@ -42,6 +42,7 @@ import {
   BubbleLayout,
   CompactLayout,
   MessageBase,
+  MessageTrailingContext,
   ModernLayout,
   Time,
   Username,
@@ -1037,6 +1038,40 @@ export const Message = as<'div', MessageProps>(
     const [readReceiptOpen, setReadReceiptOpen] = useState(false);
 
     /**
+     * Which messages can take the receipts inline, and the two shapes they come
+     * in.
+     *
+     * Keyed off the msgtype rather than off anything about the rendered node,
+     * because this component only ever sees that node as opaque `children`.
+     * These three are exactly the msgtypes `RenderMessageContent` sends to
+     * `MText` / `MEmote` / `MNotice`, which are the renderers that read the
+     * trailing context; anything else lands on an attachment renderer that does
+     * not, and would silently drop the receipts if it were handed them.
+     */
+    const msgType = (mEvent.getContent() as { msgtype?: string }).msgtype;
+    const textLikeContent =
+      msgType === MsgType.Text || msgType === MsgType.Notice || msgType === MsgType.Emote;
+
+    const receiptsJSX = receiptUserIds.length > 0 && (
+      <Box shrink="No" style={{ cursor: 'pointer' }} onClick={() => setReadReceiptOpen(true)}>
+        <ReadReceiptAvatars room={room} userIds={receiptUserIds} />
+      </Box>
+    );
+
+    // The same avatars as an inline box, so they join the text's line boxes
+    // instead of sitting beside the block. `vertical-align` is carried by the
+    // class; see MessageInlineReceipts.
+    const inlineReceiptsJSX = textLikeContent && receiptUserIds.length > 0 && (
+      <Box
+        as="span"
+        className={css.MessageInlineReceipts}
+        onClick={() => setReadReceiptOpen(true)}
+      >
+        <ReadReceiptAvatars room={room} userIds={receiptUserIds} />
+      </Box>
+    );
+
+    /**
      * Whether the body column spans the row instead of shrink-wrapping.
      *
      * A press in the blank strip to the RIGHT of a message resolves to a caret
@@ -1100,22 +1135,26 @@ export const Message = as<'div', MessageProps>(
            * two words long.
            *
            * Without the grow, the row is only as wide as the message plus the
-           * receipts, so they land where the message actually ends. `End`
-           * aligns them to the last line rather than the first, which is where
-           * they belong on a message that wraps.
+           * receipts, so they land where the message actually ends.
+           *
+           * That is still only true of a message that does not wrap. Laying the
+           * receipts out HERE can only ever place them beside the body's box,
+           * and a text block's box is as wide as its longest line — so on a
+           * wrapped message they sat out past the end of the longest line with a
+           * gap after the short final one, and `alignItems="End"` put them
+           * against the bottom edge of that box rather than on the last line's
+           * text. Text messages therefore hand them to `MessageTrailingContext`
+           * instead, which drops them into the same inline flow as the body so
+           * they follow the last character and centre on it, and this row is
+           * left to the attachments, which have no last line to sit after and
+           * want them beside the card exactly as before.
            */
-          <Box gap="200" alignItems="End" style={{ maxWidth: '100%' }}>
-            <Box style={{ minWidth: 0 }}>{children}</Box>
-            {receiptUserIds.length > 0 && (
-              <Box
-                shrink="No"
-                style={{ cursor: 'pointer' }}
-                onClick={() => setReadReceiptOpen(true)}
-              >
-                <ReadReceiptAvatars room={room} userIds={receiptUserIds} />
-              </Box>
-            )}
-          </Box>
+          <MessageTrailingContext.Provider value={inlineReceiptsJSX || null}>
+            <Box gap="200" alignItems="End" style={{ maxWidth: '100%' }}>
+              <Box style={{ minWidth: 0 }}>{children}</Box>
+              {!textLikeContent && receiptsJSX}
+            </Box>
+          </MessageTrailingContext.Provider>
         )}
         {reactions}
         {isFailed && (

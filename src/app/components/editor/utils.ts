@@ -315,6 +315,36 @@ export const isEmptyEditor = (editor: Editor): boolean => {
   return false;
 };
 
+/**
+ * A command typed as ordinary text, e.g. `/shrug hello`.
+ *
+ * Anchored, and the name is letters/digits/`-`/`_` only, so `//shrug` does not
+ * match and sends literally — the usual escape. A trailing space or end of line
+ * is required so `/notacommand...` is not read as a name with punctuation glued
+ * to it.
+ */
+const PLAIN_COMMAND_PATTERN = /^\/([a-zA-Z0-9_-]+)(?:\s|$)/;
+
+/**
+ * The command this message begins with, whether or not the autocomplete built a
+ * node for it.
+ *
+ * The popup inserts a real `BlockType.Command` inline element, and until now
+ * that element was the ONLY thing this looked for — so a command that was typed
+ * out and sent without ever touching the popup was not a command at all. It
+ * went to the room as the literal text `/shrug hello`. Nothing announced that;
+ * the message simply came out wrong, which is why it read as the popup being
+ * required rather than as commands being half-implemented.
+ *
+ * The plain-text branch is the same idea as `emojiShortcodeReplace` doing
+ * `:sob:` without its autocomplete, except that it needs no setting to be safe:
+ * a leading slash is unambiguous where a `:word:` in prose is not.
+ *
+ * It stays deliberately permissive about the NAME. Resolving which names are
+ * real is the caller's job and it already does it — RoomInput only trims and
+ * executes when the name is a built-in, and anything else is left as text for a
+ * bot in the room to parse, exactly as before.
+ */
 export const getBeginCommand = (editor: Editor): string | undefined => {
   const lineBlock = editor.children[0];
   if (!Element.isElement(lineBlock)) return undefined;
@@ -322,9 +352,16 @@ export const getBeginCommand = (editor: Editor): string | undefined => {
 
   const [firstInline, secondInline] = lineBlock.children;
   const isEmptyText = Text.isText(firstInline) && firstInline.text.trim() === '';
-  if (!isEmptyText) return undefined;
-  if (Element.isElement(secondInline) && secondInline.type === BlockType.Command)
-    return secondInline.command;
+
+  if (isEmptyText) {
+    if (Element.isElement(secondInline) && secondInline.type === BlockType.Command)
+      return secondInline.command;
+    return undefined;
+  }
+
+  if (Text.isText(firstInline)) {
+    return firstInline.text.match(PLAIN_COMMAND_PATTERN)?.[1];
+  }
   return undefined;
 };
 

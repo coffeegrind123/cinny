@@ -4,6 +4,7 @@ import { IContent } from 'matrix-js-sdk';
 import { isJumboEmoji, URL_REG } from '../../utils/regex';
 import { trimReplyFromBody } from '../../utils/room';
 import { MessageTextBody } from './layout';
+import { useMessageTrailing } from './MessageTrailing';
 import {
   MessageBadEncryptedContent,
   MessageBrokenContent,
@@ -82,6 +83,7 @@ type MTextProps = {
   style?: CSSProperties;
 };
 export function MText({ edited, content, renderBody, renderUrlsPreview, style }: MTextProps) {
+  const trailing = useMessageTrailing();
   const { body, formatted_body: customBody } = content;
 
   if (typeof body !== 'string') return <BrokenContent />;
@@ -101,6 +103,7 @@ export function MText({ edited, content, renderBody, renderUrlsPreview, style }:
           customBody: typeof customBody === 'string' ? customBody : undefined,
         })}
         {edited && <MessageEditedContent />}
+        {trailing}
       </MessageTextBody>
       {renderUrlsPreview && urls && urls.length > 0 && renderUrlsPreview(urls)}
     </Box>
@@ -121,6 +124,7 @@ export function MEmote({
   renderBody,
   renderUrlsPreview,
 }: MEmoteProps) {
+  const trailing = useMessageTrailing();
   const { body, formatted_body: customBody } = content;
 
   if (typeof body !== 'string') return <BrokenContent />;
@@ -141,6 +145,7 @@ export function MEmote({
           customBody: typeof customBody === 'string' ? customBody : undefined,
         })}
         {edited && <MessageEditedContent />}
+        {trailing}
       </MessageTextBody>
       {renderUrlsPreview && urls && urls.length > 0 && renderUrlsPreview(urls)}
     </Box>
@@ -154,6 +159,7 @@ type MNoticeProps = {
   renderUrlsPreview?: (urls: string[]) => ReactNode;
 };
 export function MNotice({ edited, content, renderBody, renderUrlsPreview }: MNoticeProps) {
+  const trailing = useMessageTrailing();
   const { body, formatted_body: customBody } = content;
 
   if (typeof body !== 'string') return <BrokenContent />;
@@ -173,6 +179,7 @@ export function MNotice({ edited, content, renderBody, renderUrlsPreview }: MNot
           customBody: typeof customBody === 'string' ? customBody : undefined,
         })}
         {edited && <MessageEditedContent />}
+        {trailing}
       </MessageTextBody>
       {renderUrlsPreview && urls && urls.length > 0 && renderUrlsPreview(urls)}
     </Box>

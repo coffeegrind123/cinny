@@ -123,7 +123,9 @@ const fetchHistory = async (
     await Promise.all(
       chunk.map(async (raw) => {
         const mEvent = new MatrixEvent(raw);
-        if (mEvent.isEncrypted() && crypto) {
+        // See decryptAllTimelineEvent: a redacted event still reports
+        // isEncrypted(), and retrying it only produces a decryption error.
+        if (mEvent.shouldAttemptDecryption() && crypto) {
           await to(mEvent.attemptDecryption(crypto as CryptoBackend));
         }
         events.push(mEvent);

@@ -6,5 +6,6 @@ export * from './Reply';
 export * from './content';
 export * from './Time';
 export * from './MsgTypeRenderers';
+export * from './MessageTrailing';
 export * from './FileHeader';
 export * from './RenderBody';

@@ -1,4 +1,4 @@
-import { style } from '@vanilla-extract/css';
+import { globalStyle, style } from '@vanilla-extract/css';
 import { DefaultReset, config, toRem } from 'folds';
 
 export const MessageBase = style({
@@ -91,6 +91,59 @@ export const MessageGutterTime = style({
    * changes both.
    */
   lineHeight: 'inherit',
+});
+
+/**
+ * Two pixels below the smallest type token, and its line box forced back onto
+ * the body's.
+ *
+ * `Time` renders `<Text as="time" size="T200">`, and T200 — 0.75rem — is the
+ * bottom of folds' scale, so there is no smaller size to pass; this is a
+ * gutter timestamp, not body copy, and it reads better a step under it. The
+ * size therefore has to be written here, and it has to be written at the
+ * `time` rather than on the wrapper, because the size token folds sets is a
+ * class on that element and a font-size on its parent cannot outrank it. A
+ * descendant selector can: one class plus one type beats one class.
+ *
+ * `line-height: inherit` travels with it, and is the part that keeps the
+ * timestamp centred. The wrapper already inherits the body's line-height so it
+ * gets a strut as tall as the message's first line; giving the `time` the same
+ * makes its own line box exactly that tall too, so the smaller glyphs centre
+ * inside it instead of hanging off a shared baseline. That holds at any body
+ * size — including the font-size bump this app applies on mobile — where a
+ * fixed nudge would have to be re-guessed each time.
+ *
+ * Not passed as a `style` prop on `Time`: that component sets its own inline
+ * style, and props spread after it, so an incoming `style` would replace it
+ * wholesale and silently drop the `user-select: none` that keeps timestamps
+ * out of a dragged selection.
+ */
+globalStyle(`${MessageGutterTime} time`, {
+  fontSize: toRem(10),
+  lineHeight: 'inherit',
+});
+
+/**
+ * Read receipts riding in the message's own inline flow.
+ *
+ * `inline-flex` rather than `flex`: the whole point is to be an inline-level box
+ * so it follows the last character of the last line and wraps with it, while the
+ * avatars inside still lay out in a row. `vertical-align: middle` is what centres
+ * it on that line's text instead of hanging it off the baseline, where 16px
+ * circles sit visibly low.
+ *
+ * `user-select: none` is not optional here. Beside the block these avatars were
+ * outside any selection you could drag across the text; inside it they are not,
+ * and without this the `+2` overflow label and the initial inside a fallback
+ * avatar would come along in the copied text. Same reasoning as the timestamp
+ * and the sender name — chrome is not content.
+ */
+export const MessageInlineReceipts = style({
+  display: 'inline-flex',
+  verticalAlign: 'middle',
+  marginLeft: config.space.S200,
+  cursor: 'pointer',
+  userSelect: 'none',
 });
 
 export const BubbleAvatarBase = style({

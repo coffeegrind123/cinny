@@ -396,9 +396,21 @@ export const isMembershipChanged = (mEvent: MatrixEvent): boolean =>
 export const decryptAllTimelineEvent = async (mx: MatrixClient, timeline: EventTimeline) => {
   const crypto = mx.getCrypto();
   if (!crypto) return;
+  /**
+   * `shouldAttemptDecryption()` rather than `isEncrypted()`.
+   *
+   * `isEncrypted()` is only `type === 'm.room.encrypted'`, and a redaction does
+   * not change the type — it empties the content. Retrying one of those hands
+   * the Rust crypto a content object with no `algorithm` field, which it
+   * rejects with `DecryptionError[missing field 'algorithm' at line 1 column
+   * 124]`; the number is small because what is left after a redaction is a
+   * stub. The SDK's own predicate already excludes redacted events, plus ones
+   * that are mid-flight or already decrypted, so this stops re-decrypting the
+   * whole timeline on every retry as well.
+   */
   const decryptionPromises = timeline
     .getEvents()
-    .filter((event) => event.isEncrypted())
+    .filter((event) => event.shouldAttemptDecryption())
     .reverse()
     .map((event) => event.attemptDecryption(crypto as CryptoBackend, { isRetry: true }));
   await Promise.allSettled(decryptionPromises);
