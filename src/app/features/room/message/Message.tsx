@@ -1036,8 +1036,43 @@ export const Message = as<'div', MessageProps>(
 
     const [readReceiptOpen, setReadReceiptOpen] = useState(false);
 
+    /**
+     * Whether the body column spans the row instead of shrink-wrapping.
+     *
+     * A press in the blank strip to the RIGHT of a message resolves to a caret
+     * position, and which one depends on what else is in the column. With the
+     * body column shrink-wrapped (`alignSelf="Start"`) and a full-width header
+     * sibling above it — which is exactly a group's FIRST message — Chromium
+     * resolves that press to offset 0 of the body instead of the end of the
+     * line. A drag started there therefore anchors at the start of the message
+     * and paints from the left, and the half of the text it selects is the
+     * wrong half. Collapsed messages have no header, so they never showed it,
+     * and a message wide enough to leave no blank strip never showed it either.
+     *
+     * Stretching the column puts that strip inside the body's own block and the
+     * press resolves to the end of the line, matching a collapsed message
+     * exactly. `alignItems="Start"` hands the shrink-wrapping to the children,
+     * so the reply preview, the reactions and the receipts keep the widths they
+     * had. Only Modern layout needs it: Compact puts this column in a ROW, where
+     * `alignSelf` is the vertical axis and means something else entirely, and
+     * Bubble keeps its header outside the bubble so the two are never siblings.
+     *
+     * Measured, not reasoned about: a press at the right of a one-line group
+     * leader dragged back to 45% of the text selected the leading "short lead"
+     * and painted from the message's left edge; with this it selects the
+     * trailing "ing message" and paints from the pointer, which is what the
+     * collapsed control did all along.
+     */
+    const stretchBodyColumn =
+      messageLayout !== MessageLayout.Compact && messageLayout !== MessageLayout.Bubble;
+
     const msgContentJSX = (
-      <Box direction="Column" alignSelf="Start" style={{ maxWidth: '100%' }}>
+      <Box
+        direction="Column"
+        alignSelf={stretchBodyColumn ? undefined : 'Start'}
+        alignItems={stretchBodyColumn ? 'Start' : undefined}
+        style={{ maxWidth: '100%' }}
+      >
         {reply}
         {edit && onEditId ? (
           <MessageEditor

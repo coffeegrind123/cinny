@@ -1,7 +1,6 @@
 import { MatrixEvent, Room, RoomEvent } from 'matrix-js-sdk';
-import { useCallback, useEffect, useMemo } from 'react';
-import { useStateEventCallback } from './useStateEventCallback';
-import { useForceUpdate } from './useForceUpdate';
+import { useCallback, useSyncExternalStore } from 'react';
+import { subscribeToStateEvents } from './useStateEventCallback';
 import { getStateEvents } from '../utils/room';
 import { MessageEvent, StateEvent } from '../../types/matrix/room';
 import { sanitizeBotInfo, type BotInfo } from '../../types/matrix/bot';
@@ -49,6 +48,105 @@ const collectBots = (room: Room): RoomBots => {
 };
 
 /**
+ * Whether a recompute actually changed anything.
+ *
+ * `useSyncExternalStore` compares snapshots by identity, and `collectBots`
+ * builds a fresh Map of freshly sanitized objects every time, so without this
+ * every timeline event would re-render every badge on screen. The values are
+ * sanitized JSON with a fixed key order, so serializing them is a sound
+ * comparison and not a shortcut.
+ */
+const sameBots = (a: RoomBots, b: RoomBots): boolean => {
+  if (a === b) return true;
+  if (a.size !== b.size) return false;
+  for (const [userId, info] of a) {
+    const other = b.get(userId);
+    if (!other) return false;
+    if (JSON.stringify(info) !== JSON.stringify(other)) return false;
+  }
+  return true;
+};
+
+type BotsStore = {
+  snapshot: RoomBots;
+  subscribers: Set<() => void>;
+  detach?: () => void;
+};
+
+/**
+ * ONE subscription and ONE `collectBots` per room, shared by every caller.
+ *
+ * `BotBadge` calls `useIsBot`, and a badge renders in the header of every
+ * group-leading message, so there is a caller per message on screen.
+ * Subscribing per component put a `Room.timeline` listener on the emitter for
+ * each of them and tripped matrix-js-sdk's own `MaxListenersExceededWarning:
+ * 51 Room.timeline listeners added` — and, worse, ran `collectBots` (a room
+ * state read plus a 200-event timeline scan) once per badge for a single
+ * incoming event. Which bots have advertised in a room does not depend on
+ * which message asks, so it is computed once and handed to all of them.
+ *
+ * Same shape as `useElementReadReceipts`, which was fixed for the same reason.
+ */
+const storeByRoom = new WeakMap<Room, BotsStore>();
+
+const getStore = (room: Room): BotsStore => {
+  const existing = storeByRoom.get(room);
+  if (existing) return existing;
+
+  const store: BotsStore = {
+    snapshot: collectBots(room),
+    subscribers: new Set(),
+  };
+  storeByRoom.set(room, store);
+  return store;
+};
+
+const refresh = (room: Room, store: BotsStore): void => {
+  const next = collectBots(room);
+  if (sameBots(store.snapshot, next)) return;
+  store.snapshot = next;
+  store.subscribers.forEach((notify) => notify());
+};
+
+const subscribeToBots = (room: Room, onChange: () => void): (() => void) => {
+  const store = getStore(room);
+  store.subscribers.add(onChange);
+
+  if (!store.detach) {
+    // Bound to the Room rather than the client, so the handler only runs for
+    // this room's timeline and no roomId guard is needed.
+    const handleTimeline = (event: MatrixEvent) => {
+      if (event.getType() !== MessageEvent.BotInfo) return;
+      refresh(room, store);
+    };
+    const handleStateEvent = (event: MatrixEvent) => {
+      if (event.getRoomId() !== room.roomId) return;
+      if (event.getType() !== StateEvent.BotInfo) return;
+      refresh(room, store);
+    };
+
+    room.on(RoomEvent.Timeline, handleTimeline);
+    const detachStateEvents = subscribeToStateEvents(room.client, handleStateEvent);
+    store.detach = () => {
+      room.removeListener(RoomEvent.Timeline, handleTimeline);
+      detachStateEvents();
+    };
+
+    // Anything that landed between the snapshot getStore took and the listeners
+    // going on is invisible otherwise.
+    refresh(room, store);
+  }
+
+  return () => {
+    store.subscribers.delete(onChange);
+    if (store.subscribers.size > 0) return;
+    store.detach?.();
+    store.detach = undefined;
+    storeByRoom.delete(room);
+  };
+};
+
+/**
  * Every bot advertising itself in this room.
  *
  * This is the client half of Telegram's `setMyCommands`: Matrix has no
@@ -56,37 +154,13 @@ const collectBots = (room: Room): RoomBots => {
  * has written them, and this is where the client reads them back.
  */
 export const useRoomBots = (room: Room): RoomBots => {
-  const [updateCount, forceUpdate] = useForceUpdate();
-
-  useStateEventCallback(
-    room.client,
-    useCallback(
-      (event: MatrixEvent) => {
-        if (event.getRoomId() !== room.roomId) return;
-        if (event.getType() !== StateEvent.BotInfo) return;
-        forceUpdate();
-      },
-      [room, forceUpdate],
-    ),
+  const subscribe = useCallback(
+    (onChange: () => void) => subscribeToBots(room, onChange),
+    [room]
   );
+  const getSnapshot = useCallback(() => getStore(room).snapshot, [room]);
 
-  useEffect(() => {
-    const handleTimeline = (event: MatrixEvent, eventRoom: Room | undefined) => {
-      if (eventRoom?.roomId !== room.roomId) return;
-      if (event.getType() !== MessageEvent.BotInfo) return;
-      forceUpdate();
-    };
-    room.client.on(RoomEvent.Timeline, handleTimeline);
-    return () => {
-      room.client.removeListener(RoomEvent.Timeline, handleTimeline);
-    };
-  }, [room, forceUpdate]);
-
-  return useMemo(
-    () => collectBots(room),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [room, updateCount],
-  );
+  return useSyncExternalStore(subscribe, getSnapshot);
 };
 
 /** The advertisement for one user in a room, if they published one. */

@@ -32,7 +32,16 @@ type Subscription = { callback: StateEventCallback };
 const clientSubscribers = new WeakMap<MatrixClient, Set<Subscription>>();
 const clientDispatchers = new WeakMap<MatrixClient, StateEventCallback>();
 
-const subscribe = (mx: MatrixClient, callback: StateEventCallback): (() => void) => {
+/**
+ * Exported for stores that multiplex per room rather than per component, and so
+ * cannot use the hook. `useRoomBots` is one: it keeps a single snapshot per room
+ * and needs the state subscription attached to that snapshot's lifetime, not to
+ * any one of the many components reading it.
+ */
+export const subscribeToStateEvents = (
+  mx: MatrixClient,
+  callback: StateEventCallback
+): (() => void) => {
   let subscribers = clientSubscribers.get(mx);
 
   if (!subscribers) {
@@ -69,5 +78,5 @@ const subscribe = (mx: MatrixClient, callback: StateEventCallback): (() => void)
 };
 
 export const useStateEventCallback = (mx: MatrixClient, onStateEvent: StateEventCallback) => {
-  useEffect(() => subscribe(mx, onStateEvent), [mx, onStateEvent]);
+  useEffect(() => subscribeToStateEvents(mx, onStateEvent), [mx, onStateEvent]);
 };
