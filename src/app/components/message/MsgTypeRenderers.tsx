@@ -1,7 +1,8 @@
 import { CSSProperties, ReactNode } from 'react';
 import { Box, Chip, Icon, Icons, Text, toRem } from 'folds';
 import { IContent } from 'matrix-js-sdk';
-import { isJumboEmoji, URL_REG } from '../../utils/regex';
+import { isJumboEmoji } from '../../utils/regex';
+import { extractPreviewUrls } from '../../utils/messageUrls';
 import { trimReplyFromBody } from '../../utils/room';
 import { MessageTextBody } from './layout';
 import { useMessageTrailing } from './MessageTrailing';
@@ -88,8 +89,9 @@ export function MText({ edited, content, renderBody, renderUrlsPreview, style }:
 
   if (typeof body !== 'string') return <BrokenContent />;
   const trimmedBody = trimReplyFromBody(body);
-  const urlsMatch = renderUrlsPreview && trimmedBody.match(URL_REG);
-  const urls = urlsMatch ? [...new Set(urlsMatch)] : undefined;
+  const urls = renderUrlsPreview
+    ? extractPreviewUrls(trimmedBody, typeof customBody === 'string' ? customBody : undefined)
+    : undefined;
 
   return (
     <Box direction="Column">
@@ -129,8 +131,9 @@ export function MEmote({
 
   if (typeof body !== 'string') return <BrokenContent />;
   const trimmedBody = trimReplyFromBody(body);
-  const urlsMatch = renderUrlsPreview && trimmedBody.match(URL_REG);
-  const urls = urlsMatch ? [...new Set(urlsMatch)] : undefined;
+  const urls = renderUrlsPreview
+    ? extractPreviewUrls(trimmedBody, typeof customBody === 'string' ? customBody : undefined)
+    : undefined;
 
   return (
     <Box direction="Column">
@@ -164,8 +167,9 @@ export function MNotice({ edited, content, renderBody, renderUrlsPreview }: MNot
 
   if (typeof body !== 'string') return <BrokenContent />;
   const trimmedBody = trimReplyFromBody(body);
-  const urlsMatch = renderUrlsPreview && trimmedBody.match(URL_REG);
-  const urls = urlsMatch ? [...new Set(urlsMatch)] : undefined;
+  const urls = renderUrlsPreview
+    ? extractPreviewUrls(trimmedBody, typeof customBody === 'string' ? customBody : undefined)
+    : undefined;
 
   return (
     <Box direction="Column">
