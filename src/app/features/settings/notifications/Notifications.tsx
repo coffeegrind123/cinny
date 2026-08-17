@@ -1,6 +1,7 @@
 import { Box, Text, IconButton, Icon, Icons, Scroll } from 'folds';
 import { Page, PageContent, PageContentCenter, PageHeader } from '../../../components/page';
 import { SystemNotification } from './SystemNotification';
+import { PushDiagnostics } from './PushDiagnostics';
 import { AllMessagesNotifications } from './AllMessages';
 import { SpecialMessagesNotifications } from './SpecialMessages';
 import { KeywordMessagesNotifications } from './KeywordMessages';
@@ -35,6 +36,7 @@ export function Notifications({ requestClose }: NotificationsProps) {
             <PageContentCenter>
               <Box direction="Column" gap="700">
                 <SystemNotification />
+                <PushDiagnostics />
                 <AllMessagesNotifications />
                 <SpecialMessagesNotifications />
                 <KeywordMessagesNotifications />

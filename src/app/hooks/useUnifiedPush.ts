@@ -59,6 +59,48 @@ async function resolveGateway(endpoint: string): Promise<string> {
 }
 
 /**
+ * Delete our own pushers that point at an endpoint this device no longer has.
+ *
+ * A distributor may hand out a new endpoint whenever it likes, including while
+ * the app is dead. The next launch registers a pusher for the new one — but the
+ * old pusher is not replaced by that, because a pusher's identity is
+ * (app_id, pushkey) and the pushkey is exactly the part that changed. `append:
+ * false` does not help either: it only clears the same pair for OTHER users.
+ *
+ * So every rotation left another pusher behind, each aimed at a retired
+ * endpoint, and the homeserver dutifully pushed to all of them forever. Element
+ * X and FluffyChat both prune; FluffyChat goes further and deletes by a legacy
+ * app_id as well, which we have no history of needing.
+ *
+ * Scoped to OUR app_id — other clients' pushers on the same account are not
+ * ours to remove, and one of them is very likely the user's desktop.
+ */
+async function pruneStalePushers(mx: MatrixClient, currentEndpoint: string) {
+  try {
+    const { pushers } = await mx.getPushers();
+    const stale = pushers.filter(
+      (pusher) => pusher.app_id === UP_APP_ID && pusher.pushkey !== currentEndpoint
+    );
+    await Promise.all(
+      stale.map(async (pusher) => {
+        try {
+          await mx.removePusher(pusher.pushkey, pusher.app_id);
+        } catch (err) {
+          console.warn('[UnifiedPush] Could not remove a stale pusher:', pusher.pushkey, err);
+        }
+      })
+    );
+    if (stale.length > 0) {
+      console.info(`[UnifiedPush] Removed ${stale.length} pusher(s) for retired endpoints.`);
+    }
+  } catch (err) {
+    // Never fatal: the pusher we just registered is already live, and a failure
+    // to tidy up behind it changes nothing about whether push works now.
+    console.warn('[UnifiedPush] Could not enumerate pushers to prune:', err);
+  }
+}
+
+/**
  * Registers the UnifiedPush endpoint as a Matrix HTTP pusher.
  */
 async function registerMatrixPusher(mx: MatrixClient, endpoint: string) {
@@ -106,6 +148,7 @@ async function registerMatrixPusher(mx: MatrixClient, endpoint: string) {
       },
       append: false,
     });
+    await pruneStalePushers(mx, endpoint);
   } catch (err) {
     // Loudly, and with the values that decide whether it works. This failing
     // quietly is half of why the Android side looked like it had no push

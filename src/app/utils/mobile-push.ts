@@ -78,6 +78,36 @@ export async function registerUnifiedPush(): Promise<string> {
 }
 
 /**
+ * Everything the device knows about its own push setup.
+ *
+ * `distributors` is every UnifiedPush app installed; `savedDistributor` is the
+ * one chosen; `ackDistributor` is the one that has actually completed a
+ * handshake. They differ in ways that matter: none installed is a different
+ * fault, with a different fix, from one installed but never chosen, or one
+ * chosen that never answered.
+ */
+export interface UnifiedPushStatus {
+  distributors: string[];
+  savedDistributor: string;
+  ackDistributor: string;
+  endpoint: string;
+  notificationsPermitted: boolean;
+}
+
+/**
+ * Read the device-side push state. Android only; resolves to null elsewhere.
+ */
+export async function getUnifiedPushStatus(): Promise<UnifiedPushStatus | null> {
+  try {
+    return await invoke<UnifiedPushStatus>('plugin:unifiedpush|get_status');
+  } catch {
+    // Not Android, or the plugin is unreachable — either way there is no
+    // device-side push state to report.
+    return null;
+  }
+}
+
+/**
  * Get the currently saved endpoint (if already registered).
  */
 export async function getUnifiedPushEndpoint(): Promise<string | null> {
