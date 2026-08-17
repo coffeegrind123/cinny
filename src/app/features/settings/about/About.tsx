@@ -19,6 +19,7 @@ import PrinnySVG from '../../../../../public/res/svg/prinny.svg';
 import { clearCacheAndReload } from '../../../../client/initMatrix';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { useUpdateCheck } from '../../../hooks/useUpdateCheck';
+import { useIsAndroid } from '../../../hooks/useIsAndroid';
 import { version } from '../../../../../package.json';
 
 // What the update button says and does, per state. An update button that only
@@ -61,6 +62,17 @@ export function About({ requestClose }: AboutProps) {
     manual: true,
   });
   const updateAction = updateButton(status, update);
+  /**
+   * Android updates itself, so there is no button here.
+   *
+   * `UpdateChecker.kt` runs from `MainActivity.onCreate`, pulls the APK through
+   * DownloadManager and prompts to install it; `tauri-plugin-updater` is not
+   * even compiled for mobile targets. `checkForUpdate` returns immediately on
+   * Android as a result, which left the button permanently reading "Check for
+   * Updates" and doing nothing whatsoever when tapped — the worst kind of
+   * control, one that looks like it works.
+   */
+  const androidSelfUpdates = useIsAndroid();
 
   return (
     <Page>
@@ -114,29 +126,31 @@ export function About({ requestClose }: AboutProps) {
                       >
                         <Text size="B300">Source Code</Text>
                       </Button>
-                      <Button
-                        onClick={updateAction.install ? downloadAndInstall : checkForUpdate}
-                        disabled={updateAction.busy}
-                        variant={updateAction.install ? 'Primary' : 'Secondary'}
-                        fill="Soft"
-                        size="300"
-                        radii="300"
-                        before={
-                          updateAction.busy ? (
-                            <Spinner size="100" variant="Secondary" />
-                          ) : (
-                            <Icon
-                              src={updateAction.install ? Icons.Download : Icons.Reload}
-                              size="100"
-                              filled
-                            />
-                          )
-                        }
-                      >
-                        <Text size="B300">{updateAction.label}</Text>
-                      </Button>
+                      {!androidSelfUpdates && (
+                        <Button
+                          onClick={updateAction.install ? downloadAndInstall : checkForUpdate}
+                          disabled={updateAction.busy}
+                          variant={updateAction.install ? 'Primary' : 'Secondary'}
+                          fill="Soft"
+                          size="300"
+                          radii="300"
+                          before={
+                            updateAction.busy ? (
+                              <Spinner size="100" variant="Secondary" />
+                            ) : (
+                              <Icon
+                                src={updateAction.install ? Icons.Download : Icons.Reload}
+                                size="100"
+                                filled
+                              />
+                            )
+                          }
+                        >
+                          <Text size="B300">{updateAction.label}</Text>
+                        </Button>
+                      )}
                     </Box>
-                    {status === 'error' && error && (
+                    {!androidSelfUpdates && status === 'error' && error && (
                       <Text size="T200" style={{ color: color.Critical.Main }}>
                         {error}
                       </Text>

@@ -154,9 +154,26 @@ export function Settings({ initialPage, requestClose }: SettingsProps) {
   // container stuck translated out of view — a softlock. Snapping back to 0
   // (commitOffset 0) lets the content swap underneath while staying on screen;
   // the modal's own close animation covers the menu→close case.
+  //
+  // Edge-initiated here, unlike the nav swipes, which take a drag starting
+  // anywhere on the screen.
+  //
+  // That works for the room and the room list: they are near enough full-screen
+  // reading surfaces, so a horizontal drag across one means nothing else and
+  // may as well mean "back". Settings is the opposite — it is dense with
+  // controls, and a swipe-from-anywhere makes every horizontal movement over
+  // one of them a navigation, which is how you end up leaving the page you were
+  // trying to adjust. Requiring the gesture to start at the left edge is both
+  // the Android convention and the thing that stops a control from being able
+  // to trigger it at all.
+  //
+  // `edgeWidth` is wider than the 32px default on purpose: in gesture-nav mode
+  // Android reserves roughly the outer 24-48dp for its own back gesture and
+  // those touches never reach the WebView, so a narrow region here would be
+  // mostly swallowed by the system before it could match.
   useSwipeGesture(swipeRef, {
     edge: 'left',
-    anywhere: true,
+    edgeWidth: 48,
     threshold: 80,
     onSwipe: handleSwipeBack,
     trackElement: swipeRef,

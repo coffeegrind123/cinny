@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Box, Button, Icon, Icons, Spinner, Text, color } from 'folds';
 import { SequenceCard } from '../../../components/sequence-card';
 import { SequenceCardStyle } from '../styles.css';
@@ -10,7 +10,7 @@ import {
   registerUnifiedPush,
   type UnifiedPushStatus,
 } from '../../../utils/mobile-push';
-import { isAndroid } from '../../../utils/platform';
+import { useIsAndroid } from '../../../hooks/useIsAndroid';
 
 /** Must match `UP_APP_ID` in `hooks/useUnifiedPush.ts`. */
 const UP_APP_ID = 'in.prinny.app.unifiedpush';
@@ -166,21 +166,7 @@ function buildChecks(status: UnifiedPushStatus, pusherEndpoints: string[] | unde
  */
 export function PushDiagnostics() {
   const mx = useMatrixClient();
-  const [android, setAndroid] = useState<boolean>();
-
-  useEffect(() => {
-    let live = true;
-    isAndroid()
-      .then((value) => {
-        if (live) setAndroid(value);
-      })
-      .catch(() => {
-        if (live) setAndroid(false);
-      });
-    return () => {
-      live = false;
-    };
-  }, []);
+  const android = useIsAndroid();
 
   const [state, refresh] = useAsyncCallback(
     useCallback(async () => {
