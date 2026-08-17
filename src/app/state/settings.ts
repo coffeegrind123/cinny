@@ -13,6 +13,14 @@ export type DateFormat =
   | 'YYYY-MM-DD'
   | '';
 export type MessageSpacing = '0' | '100' | '200' | '300' | '400' | '500';
+/**
+ * Which tab the Inbox opens on.
+ *
+ * Stored as the tab's own name rather than a path, so the setting survives any
+ * later change to the routes and does not put a URL in local storage.
+ */
+export type InboxTabId = 'all' | 'notifications' | 'invites';
+
 export enum MessageLayout {
   Modern = 0,
   Compact = 1,
@@ -48,6 +56,7 @@ export interface Settings {
    */
   replyOnDoubleClick: boolean;
   scrollOnSend: boolean;
+  defaultInboxTab: InboxTabId;
   messageLayout: MessageLayout;
   messageSpacing: MessageSpacing;
   hideMembershipEvents: boolean;
@@ -212,6 +221,7 @@ const defaultSettings: Settings = {
   // On by default: this is the behaviour the client already had.
   replyOnDoubleClick: true,
   scrollOnSend: true,
+  defaultInboxTab: 'all',
   messageLayout: 0,
   messageSpacing: '400',
   hideMembershipEvents: false,

@@ -9,20 +9,16 @@ import {
 } from '../../../components/sidebar';
 import { allInvitesAtom } from '../../../state/room-list/inviteList';
 import {
-  getInboxInvitesPath,
-  getInboxNotificationsPath,
   getInboxPath,
-  joinPathComponent,
 } from '../../pathUtils';
-import { useInboxSelected } from '../../../hooks/router/useInbox';
+import { useDefaultInboxPath, useInboxSelected } from '../../../hooks/router/useInbox';
 import { UnreadBadge } from '../../../components/unread-badge';
 import { ScreenSize, useScreenSizeContext } from '../../../hooks/useScreenSize';
-import { useNavToActivePathAtom } from '../../../state/hooks/navToActivePath';
 
 export function InboxTab() {
   const screenSize = useScreenSizeContext();
   const navigate = useNavigate();
-  const navToActivePath = useAtomValue(useNavToActivePathAtom());
+  const defaultInboxPath = useDefaultInboxPath();
   const inboxSelected = useInboxSelected();
   const allInvites = useAtomValue(allInvitesAtom);
   const inviteCount = allInvites.length;
@@ -32,14 +28,15 @@ export function InboxTab() {
       navigate(getInboxPath());
       return;
     }
-    const activePath = navToActivePath.get('inbox');
-    if (activePath) {
-      navigate(joinPathComponent(activePath));
-      return;
-    }
-
-    const path = inviteCount > 0 ? getInboxInvitesPath() : getInboxNotificationsPath();
-    navigate(path);
+    // The configured default tab, and nothing else.
+    //
+    // This used to resume the last inbox path from local storage, then fall
+    // back to Invites-if-any / Notifications. Both defeated the setting: the
+    // remembered path meant anyone who had ever opened Notifications kept
+    // landing there forever, so changing the default appeared to do nothing at
+    // all. A setting named "default tab" has to be the thing that decides,
+    // otherwise it is not one.
+    navigate(defaultInboxPath);
   };
 
   return (

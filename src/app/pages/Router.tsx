@@ -5,6 +5,7 @@ import {
   createHashRouter,
   createRoutesFromElements,
   redirect,
+  Navigate,
 } from 'react-router-dom';
 
 import { ClientConfig } from '../hooks/useClientConfig';
@@ -35,7 +36,6 @@ import {
   getAppPathFromHref,
   getExploreFeaturedPath,
   getHomePath,
-  getInboxAllPath,
   getLoginPath,
   getOriginBaseUrl,
   getSpaceLobbyPath,
@@ -47,6 +47,7 @@ import { Rooms, RoomsRouteRoomProvider, RoomsSearch } from './client/rooms';
 import { RouteSpaceProvider, Space, SpaceRouteRoomProvider, SpaceSearch } from './client/space';
 import { Explore, FeaturedRooms, PublicRooms } from './client/explore';
 import { Notifications, Inbox, Invites, InboxAll } from './client/inbox';
+import { useDefaultInboxPath } from '../hooks/router/useInbox';
 import { setAfterLoginRedirectPath } from './afterLoginRedirectPath';
 import { Room } from '../features/room';
 import { Lobby } from '../features/lobby';
@@ -91,6 +92,21 @@ function RouteLoading() {
       <Spinner variant="Secondary" size="600" />
     </SplashScreen>
   );
+}
+
+/**
+ * `/inbox/` -> whichever tab `defaultInboxTab` names.
+ *
+ * A component, not a `loader` redirect like the neighbouring index routes: a
+ * loader runs outside React and cannot read a setting, and the sidebar button
+ * resolves the same setting through the same hook. Two entry points reading one
+ * source is the whole point — they previously disagreed, which is how the
+ * default came to depend on how you opened the Inbox.
+ */
+function InboxIndexRedirect() {
+  const defaultInboxPath = useDefaultInboxPath();
+
+  return <Navigate to={defaultInboxPath} replace />;
 }
 
 export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize) => {
@@ -373,11 +389,13 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
           }
         >
           {mobile ? null : (
-            <Route
-              index
-              loader={() => redirect(getInboxAllPath())}
-              element={<WelcomePage />}
-            />
+            /*
+              An element rather than a `loader` redirect, unlike its siblings.
+              A loader runs outside React and so cannot read the
+              `defaultInboxTab` setting; this needs to, or `/inbox/` lands
+              somewhere other than the sidebar button does.
+            */
+            <Route index element={<InboxIndexRedirect />} />
           )}
           {/* Wrap in MobileSwipeBack like Room: on mobile this provides the
               absolute, opaque z-index:1 layer that covers the nav backdrop

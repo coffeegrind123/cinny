@@ -36,7 +36,13 @@ import { PrivacySettings } from './PrivacySettings';
 import { AudioSettings } from './AudioSettings';
 import { useAutostart } from '../../../hooks/useAutostart';
 import { useSetting } from '../../../state/hooks/settings';
-import { DateFormat, MessageLayout, MessageSpacing, settingsAtom } from '../../../state/settings';
+import {
+  DateFormat,
+  InboxTabId,
+  MessageLayout,
+  MessageSpacing,
+  settingsAtom,
+} from '../../../state/settings';
 import { SettingTile } from '../../../components/setting-tile';
 import { KeySymbol } from '../../../utils/key-symbol';
 import { isMacOS } from '../../../utils/user-agent';
@@ -665,6 +671,80 @@ function CustomDateFormat({ value, onChange }: CustomDateFormatProps) {
         </Button>
       </Box>
     </SettingTile>
+  );
+}
+
+const INBOX_TAB_ITEMS: { id: InboxTabId; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'notifications', label: 'Notifications' },
+  { id: 'invites', label: 'Invites' },
+];
+
+function SelectDefaultInboxTab() {
+  const [defaultInboxTab, setDefaultInboxTab] = useSetting(settingsAtom, 'defaultInboxTab');
+  const [menuCords, setMenuCords] = useState<RectCords>();
+
+  const handleMenu: MouseEventHandler<HTMLButtonElement> = (evt) => {
+    setMenuCords(evt.currentTarget.getBoundingClientRect());
+  };
+
+  const handleSelect = (tab: InboxTabId) => {
+    setDefaultInboxTab(tab);
+    setMenuCords(undefined);
+  };
+
+  const current = INBOX_TAB_ITEMS.find((item) => item.id === defaultInboxTab) ?? INBOX_TAB_ITEMS[0];
+
+  return (
+    <>
+      <Button
+        size="300"
+        variant="Secondary"
+        outlined
+        fill="Soft"
+        radii="300"
+        after={<Icon size="300" src={Icons.ChevronBottom} />}
+        onClick={handleMenu}
+      >
+        <Text size="T300">{current.label}</Text>
+      </Button>
+      <PopOut
+        anchor={menuCords}
+        offset={5}
+        position="Bottom"
+        align="End"
+        content={
+          <FocusTrap
+            focusTrapOptions={{
+              initialFocus: false,
+              onDeactivate: () => setMenuCords(undefined),
+              clickOutsideDeactivates: true,
+              isKeyForward: (evt: KeyboardEvent) =>
+                evt.key === 'ArrowDown' || evt.key === 'ArrowRight',
+              isKeyBackward: (evt: KeyboardEvent) =>
+                evt.key === 'ArrowUp' || evt.key === 'ArrowLeft',
+              escapeDeactivates: stopPropagation,
+            }}
+          >
+            <Menu>
+              <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
+                {INBOX_TAB_ITEMS.map((item) => (
+                  <MenuItem
+                    key={item.id}
+                    size="300"
+                    variant={defaultInboxTab === item.id ? 'Primary' : 'Surface'}
+                    radii="300"
+                    onClick={() => handleSelect(item.id)}
+                  >
+                    <Text size="T300">{item.label}</Text>
+                  </MenuItem>
+                ))}
+              </Box>
+            </Menu>
+          </FocusTrap>
+        }
+      />
+    </>
   );
 }
 
@@ -1324,6 +1404,13 @@ function ForkFeatures() {
               onChange={setTopBarProfile}
             />
           }
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Default Inbox Tab"
+          description="Which tab the Inbox opens on, from the sidebar or from its own address."
+          after={<SelectDefaultInboxTab />}
         />
       </SequenceCard>
       <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">

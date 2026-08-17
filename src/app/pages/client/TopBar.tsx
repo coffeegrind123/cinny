@@ -3,22 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { useAtomValue } from 'jotai';
 import { allInvitesAtom } from '../../state/room-list/inviteList';
 import {
-  getInboxInvitesPath,
-  getInboxNotificationsPath,
   getInboxPath,
-  joinPathComponent,
 } from '../pathUtils';
-import { useInboxSelected } from '../../hooks/router/useInbox';
+import { useDefaultInboxPath, useInboxSelected } from '../../hooks/router/useInbox';
 import { UnreadBadge } from '../../components/unread-badge';
 import { ScreenSize, useScreenSizeContext } from '../../hooks/useScreenSize';
-import { useNavToActivePathAtom } from '../../state/hooks/navToActivePath';
 import { ContainerColor } from '../../styles/ContainerColor.css';
 import { TopBarProfile } from './TopBarProfile';
 
 function InboxButton() {
   const screenSize = useScreenSizeContext();
   const navigate = useNavigate();
-  const navToActivePath = useAtomValue(useNavToActivePathAtom());
+  const defaultInboxPath = useDefaultInboxPath();
   const inboxSelected = useInboxSelected();
   const allInvites = useAtomValue(allInvitesAtom);
   const inviteCount = allInvites.length;
@@ -28,14 +24,10 @@ function InboxButton() {
       navigate(getInboxPath());
       return;
     }
-    const activePath = navToActivePath.get('inbox');
-    if (activePath) {
-      navigate(joinPathComponent(activePath));
-      return;
-    }
-
-    const path = inviteCount > 0 ? getInboxInvitesPath() : getInboxNotificationsPath();
-    navigate(path);
+    // Same resolver as the sidebar button and the /inbox/ index route.
+    // Three ways in; one answer, or the setting means nothing from
+    // whichever one you happen to use.
+    navigate(defaultInboxPath);
   };
 
   return (
