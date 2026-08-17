@@ -4,6 +4,8 @@ User-facing changes per commit. Most recent at the top.
 
 ## 17.08.2026
 
+- `0956b9d` Fixed **Prinny failing to start** with "Server versions are not provided!". Introduced the same day by the notification-avatar caching: it asked about your homeserver's capabilities from a place in the app that is set up *before* that information exists, and the error took the whole client down to a blank error page rather than being contained. It now runs from a point where the connection is already established.
+
 - `570934d` Fixed **the same new message being flagged twice** when unread chats are shown as avatars in the left rail. The chat's own avatar lit up and so did Home, a few pixels apart, for one message. Home now leaves it to the avatar, which is the more useful of the two because it tells you *who*.
 - `570934d` Fixed **the local-time hover flickering** when you held the pointer on a timestamp. The two versions of the text are different lengths, so swapping them resized the thing you were pointing at out from under the pointer, which ended the hover, which put it back — several times a second while you held perfectly still. The timestamp now reserves room for both, so nothing moves.
 - `570934d` Improved **what that hover actually says**. It was a bare time with no am/pm and nothing to say whose clock it was. It now follows your 12/24-hour setting like every other timestamp, and names the place — "07:40 AM Chicago" rather than "07:40".
