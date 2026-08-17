@@ -4,6 +4,8 @@ User-facing changes per commit. Most recent at the top.
 
 ## 17.08.2026
 
+- `0ed87bd` Fixed **the Windows taskbar button barely flashing** for a new message. It was asking Windows for the wrong kind of alert — one that blinks the button exactly four times and then goes quiet, so unless you happened to be looking at the taskbar in that second, nothing appeared to have happened at all. It now stays lit until you actually bring Prinny to the front, the way Discord does. Nothing flashes while you are already reading.
+
 - `6ab2314` Fixed **the Android back gesture closing Prinny** instead of going back. Swiping back or pressing Back quit the app from anywhere — including from a room you had just opened — so the only way back to your chat list was the on-screen controls. It now steps back through where you have been, and only leaves the app once there is nowhere left to go. One thing it still cannot dismiss is the Settings dialog, which isn't a place you navigated to; Back there moves the screen behind it instead.
 
 - `bfe1dcf` `e2a6624` Added **the sender's picture to Android notifications** that arrive while the app is closed. Those are posted by the app's Android half, which runs with no account and no connection of its own, so it had no way to fetch anyone's avatar and showed none. Pictures are now saved while the app is running and looked up by who sent the message, so nothing has to be downloaded — or signed in — at the moment a notification arrives. Someone messaging you for the very first time while the app is shut will still have no picture until the app next runs.
