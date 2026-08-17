@@ -158,10 +158,23 @@ function InviteNotifications() {
         });
       }
 
-      // Flash taskbar on Windows
+      // Flash the taskbar button until the window is looked at.
+      //
+      // `Critical`, not `Informational`. They are not degrees of loudness:
+      // tao maps Informational to `(FLASHW_TRAY, 4)` — exactly four blinks and
+      // then silence, which is over before you glance at the taskbar and is
+      // indistinguishable from nothing if you were not already looking.
+      // Critical is `FLASHW_ALL | FLASHW_TIMERNOFG` with a count of u32::MAX,
+      // i.e. keep flashing until the window comes to the foreground. That is
+      // the behaviour Discord has and the one that survives being away from
+      // the desk, which is the only time any of this matters.
+      //
+      // Safe to call unconditionally: tao returns early when this window is
+      // already the active one and not minimized, so a message arriving while
+      // you are reading does not flash anything.
       if (isTauri()) {
         getCurrentWindow()
-          .requestUserAttention(UserAttentionType.Informational)
+          .requestUserAttention(UserAttentionType.Critical)
           .catch(() => {});
       }
 
@@ -375,10 +388,23 @@ function MessageNotifications() {
         eventId,
       });
 
-      // Flash taskbar on Windows
+      // Flash the taskbar button until the window is looked at.
+      //
+      // `Critical`, not `Informational`. They are not degrees of loudness:
+      // tao maps Informational to `(FLASHW_TRAY, 4)` — exactly four blinks and
+      // then silence, which is over before you glance at the taskbar and is
+      // indistinguishable from nothing if you were not already looking.
+      // Critical is `FLASHW_ALL | FLASHW_TIMERNOFG` with a count of u32::MAX,
+      // i.e. keep flashing until the window comes to the foreground. That is
+      // the behaviour Discord has and the one that survives being away from
+      // the desk, which is the only time any of this matters.
+      //
+      // Safe to call unconditionally: tao returns early when this window is
+      // already the active one and not minimized, so a message arriving while
+      // you are reading does not flash anything.
       if (isTauri()) {
         getCurrentWindow()
-          .requestUserAttention(UserAttentionType.Informational)
+          .requestUserAttention(UserAttentionType.Critical)
           .catch(() => {});
       }
     };
