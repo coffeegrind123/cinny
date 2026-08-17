@@ -72,12 +72,20 @@ export function HomeTab() {
   // The badge counts what the Home nav actually lists, which is a settings
   // question — a merged Home that showed no DM count would be lying about the
   // list behind it, and a split one that showed it would be lying the other way.
+  //
+  // Except when the rail is already showing those DMs itself. `dmRailButtons`
+  // puts every unread direct message in the rail as its own avatar with its own
+  // badge, so counting them here too announced the same message twice, a few
+  // pixels apart — once as a dot on Home and once on the face it came from. The
+  // avatar is the better of the two, because it says WHICH chat; Home only says
+  // that something, somewhere, happened. So Home yields.
+  const directsCountedHere = layout.directsInHome && !layout.dmRailButtons;
   const rooms = useMemo(() => {
     const items: string[] = [];
     if (layout.roomsInHome) items.push(...orphanRooms);
-    if (layout.directsInHome) items.push(...directs);
+    if (directsCountedHere) items.push(...directs);
     return items;
-  }, [layout.roomsInHome, layout.directsInHome, orphanRooms, directs]);
+  }, [layout.roomsInHome, directsCountedHere, orphanRooms, directs]);
 
   const homeUnread = useRoomsUnread(rooms, roomToUnreadAtom);
   const homeSelected = useHomeSelected();

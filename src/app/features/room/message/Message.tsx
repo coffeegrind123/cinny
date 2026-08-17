@@ -1346,12 +1346,17 @@ export const Message = as<'div', MessageProps>(
     /**
      * Double-clicking a message stages a reply to it.
      *
-     * Two things must keep working: interactive children (a double-click on a
-     * link or button belongs to that element), and selecting a word, which is
-     * what a double-click on text means everywhere else. The second is decided
-     * by the element under the pointer — if it directly contains text, the user
-     * was aiming at the text — rather than by inspecting the selection, which
-     * has not settled yet when this fires.
+     * Interactive children keep their own behaviour: a double-click on a link,
+     * a button or an input belongs to that element, not to the message.
+     *
+     * It does NOT exclude the message text, and used to. The reasoning was that
+     * a double-click on text means "select this word" everywhere else, so
+     * landing on text was read as aiming at the text and skipped — which left
+     * the gesture working only on the blank strip beside a message. Since the
+     * text is the part anyone actually double-clicks, the feature read as
+     * simply broken. The word still gets selected either way; the browser does
+     * that itself and staging a reply does not undo it. Anyone who wants the
+     * old behaviour has the setting.
      *
      * Switchable via `replyOnDoubleClick`, which the keybind registry exposes
      * as the `reply-double-click` gesture so it sits beside the `r` binding
@@ -1364,10 +1369,6 @@ export const Message = as<'div', MessageProps>(
         if (edit) return;
         const target = evt.target as HTMLElement;
         if (target.closest('a, button, input, textarea, [contenteditable]')) return;
-        const hasText = Array.from(target.childNodes).some(
-          (node) => node.nodeType === Node.TEXT_NODE && (node.textContent?.trim().length ?? 0) > 0
-        );
-        if (hasText) return;
         onReplyClick(evt as unknown as Parameters<typeof onReplyClick>[0]);
       },
       [edit, onReplyClick, replyOnDoubleClick]

@@ -1,4 +1,4 @@
-import { MouseEventHandler, forwardRef, useState } from 'react';
+import { MouseEventHandler, forwardRef, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Icon, Icons, Menu, MenuItem, PopOut, RectCords, Text, config, toRem } from 'folds';
 import { FocusTrap } from 'focus-trap-react';
@@ -21,6 +21,7 @@ import { UnreadBadge } from '../../../components/unread-badge';
 import { ScreenSize, useScreenSizeContext } from '../../../hooks/useScreenSize';
 import { useNavToActivePathAtom } from '../../../state/hooks/navToActivePath';
 import { useDirectRooms } from '../direct/useDirectRooms';
+import { useShellLayout } from '../../../hooks/useShellLayout';
 import { markAsRead } from '../../../utils/notifications';
 import { stopPropagation } from '../../../utils/keyboard';
 import { settingsAtom } from '../../../state/settings';
@@ -68,7 +69,19 @@ export function DirectTab() {
 
   const mDirects = useAtomValue(mDirectAtom);
   const directs = useDirects(mx, allRoomsAtom, mDirects);
-  const directUnread = useRoomsUnread(directs, roomToUnreadAtom);
+  // Empty while the rail lists these same chats as avatars of their own.
+  //
+  // `dmRailButtons` gives every unread direct message its own button and its
+  // own badge, so a count here as well says the same thing twice within a few
+  // pixels. The avatar wins: it names the chat, where this can only say that
+  // something arrived. Passing an empty list rather than skipping the hook —
+  // it is a hook, and it is not allowed to be conditional.
+  const layout = useShellLayout();
+  const countedDirects = useMemo(
+    () => (layout.dmRailButtons ? [] : directs),
+    [layout.dmRailButtons, directs]
+  );
+  const directUnread = useRoomsUnread(countedDirects, roomToUnreadAtom);
   const [menuAnchor, setMenuAnchor] = useState<RectCords>();
 
   const directSelected = useDirectSelected();

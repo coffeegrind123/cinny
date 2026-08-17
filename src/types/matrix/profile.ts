@@ -119,6 +119,18 @@ export const formatTimeInTimezone = (tz: string, at: Date = new Date()): string 
 };
 
 /**
+ * The city half of an IANA zone id: `Europe/Helsinki` -> `Helsinki`.
+ *
+ * Shown because a bare time is not obviously anyone else's. "15:40" beside a
+ * message reads as a timestamp; "15:40 Helsinki" reads as where they are.
+ * The last segment is the city for every zone that has one, and for the ones
+ * that do not (`UTC`) it is the zone's own name, which is the right label
+ * anyway.
+ */
+export const timezoneCity = (tz: string): string =>
+  (tz.split('/').pop() ?? tz).replace(/_/g, ' ');
+
+/**
  * A specific instant, as the clock read in `tz`. Undefined if the zone is unusable.
  *
  * The date is included **only when the instant falls on a different calendar day
@@ -133,7 +145,11 @@ export const formatTimeInTimezone = (tz: string, at: Date = new Date()): string 
  * Not included when the day matches, because then it is noise: the surrounding
  * timeline already establishes the date.
  */
-export const formatInstantInTimezone = (tz: string, at: Date): string | undefined => {
+export const formatInstantInTimezone = (
+  tz: string,
+  at: Date,
+  hour24Clock: boolean
+): string | undefined => {
   try {
     const dayOpts: Intl.DateTimeFormatOptions = {
       year: 'numeric',
@@ -144,21 +160,27 @@ export const formatInstantInTimezone = (tz: string, at: Date): string | undefine
     const dayHere = new Intl.DateTimeFormat('en-CA', dayOpts).format(at);
     const dayThere = new Intl.DateTimeFormat('en-CA', { ...dayOpts, timeZone: tz }).format(at);
 
-    const time = new Intl.DateTimeFormat('en-GB', {
+    // Matches what the rest of the app renders for a timestamp, which is dayjs
+    // `HH:mm` or `hh:mm A`. The locale is chosen for that and nothing else:
+    // en-US spells the suffix `AM`/`PM`, where en-GB gives a lowercase `am` —
+    // measured, not assumed.
+    const time = new Intl.DateTimeFormat(hour24Clock ? 'en-GB' : 'en-US', {
       timeZone: tz,
       hour: '2-digit',
       minute: '2-digit',
-      hourCycle: 'h23',
+      ...(hour24Clock ? { hourCycle: 'h23' as const } : { hour12: true }),
     }).format(at);
 
-    if (dayHere === dayThere) return time;
+    const city = timezoneCity(tz);
+
+    if (dayHere === dayThere) return `${time} ${city}`;
 
     const date = new Intl.DateTimeFormat('en-GB', {
       timeZone: tz,
       day: 'numeric',
       month: 'short',
     }).format(at);
-    return `${date} ${time}`;
+    return `${date} ${time} ${city}`;
   } catch {
     return undefined;
   }

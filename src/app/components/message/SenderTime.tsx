@@ -3,6 +3,7 @@ import { useHover } from 'react-aria';
 import { Time, TimeProps } from './Time';
 import { useUserTimezone } from '../../hooks/useUserTimezone';
 import { formatInstantInTimezone } from '../../../types/matrix/profile';
+import * as css from './SenderTime.css';
 
 type SenderTimeProps = TimeProps & {
   /** Whose clock to show. Their MSC4175 time zone is looked up on hover. */
@@ -17,11 +18,12 @@ type SenderTimeProps = TimeProps & {
  * reply came at 03:40 their time is the difference between someone being slow
  * and someone being awake at four in the morning.
  *
- * The same instant in their zone, not the current time there: this is still the
- * message's timestamp, only on their clock. (What time it is for them *now*
- * already appears in their profile.) `formatInstantInTimezone` adds the date
- * when the zone shift moves the instant onto another day, which is exactly when
- * this is most worth reading.
+ * The same instant on their clock, not the current time there: this is still the
+ * message's timestamp, only somewhere else. (What time it is for them *now*
+ * already appears in their profile.) The zone's city is appended, because a bare
+ * time is not visibly anyone else's — "15:40" reads as an ordinary timestamp,
+ * "15:40 Helsinki" reads as where they are — and the date joins it when the zone
+ * shift moves the instant onto another day.
  *
  * Falls back to the ordinary timestamp whenever there is nothing better to
  * show: no zone set, a homeserver without extended profiles, or the lookup
@@ -41,18 +43,32 @@ export function SenderTime({
 
   const timezone = useUserTimezone(senderId, hovered);
   const senderLocal = timezone
-    ? formatInstantInTimezone(timezone, new Date(timeProps.ts))
+    ? formatInstantInTimezone(timezone, new Date(timeProps.ts), timeProps.hour24Clock)
     : undefined;
   const showing = hovered && senderLocal !== undefined;
 
+  // Hover belongs on the SLOT, not on the timestamp inside it. The slot is the
+  // thing that holds still; tracking the inner element would put the pointer
+  // back on a target that changes size under it, which is what made this
+  // flicker in the first place.
   return (
-    <Time
-      {...hoverProps}
-      {...timeProps}
-      overrideText={showing ? senderLocal : undefined}
-      // Names the zone, so the swapped-in time is not a number with no
-      // explanation. Only while it is actually swapped in.
-      title={showing ? `${senderLocal} — local time for ${senderId} (${timezone})` : undefined}
-    />
+    <span className={css.SenderTimeSlot} {...hoverProps}>
+      <Time
+        {...timeProps}
+        className={css.SenderTimeVisible}
+        overrideText={showing ? senderLocal : undefined}
+        // Names the zone in full, since the slot only has room for the city.
+        // Only while the swap is actually showing.
+        title={showing ? `Local time for ${senderId} (${timezone})` : undefined}
+      />
+      {senderLocal !== undefined && (
+        <Time
+          {...timeProps}
+          className={css.SenderTimeSizer}
+          overrideText={senderLocal}
+          aria-hidden
+        />
+      )}
+    </span>
   );
 }
