@@ -327,16 +327,28 @@ async function resolveBrowserIcon(url: string): Promise<string | undefined> {
   }
 }
 
-async function resolveTauriIconPath(
+/**
+ * Cache an image for a notification, optionally under a stable `key`.
+ *
+ * A key makes the cached file findable by something that knows only WHO a
+ * notification is from — namely the Android push receiver, which posts
+ * background notifications from Kotlin with no JavaScript running and no way
+ * to resolve an avatar URL. See `cacheAvatarsForNotifications`.
+ */
+export async function resolveTauriIconPath(
   url: string,
   authHeader?: string,
-  homeserver?: string
+  homeserver?: string,
+  key?: string
 ): Promise<string | undefined> {
-  if (iconCache.has(url)) return iconCache.get(url);
+  // The in-memory map is keyed by URL, and a keyed call writes a DIFFERENT
+  // file for the same URL, so it must not be answered from the URL's entry.
+  if (!key && iconCache.has(url)) return iconCache.get(url);
   try {
     const { invoke } = await import('@tauri-apps/api/core');
     const path = await invoke<string>('cache_notification_icon', {
       url,
+      key: key ?? null,
       authHeader: authHeader ?? null,
       // The Rust side only forwards `authHeader` when `url` is under this
       // homeserver's `/_matrix/` media endpoint — prevents the access token
@@ -344,7 +356,7 @@ async function resolveTauriIconPath(
       homeserver: homeserver ?? null,
     });
     if (typeof path === 'string' && path.length > 0) {
-      iconCache.set(url, path);
+      if (!key) iconCache.set(url, path);
       return path;
     }
   } catch (err) {

@@ -39,6 +39,7 @@ import { ServerSoftwareProvider } from '../../hooks/useServerSoftware';
 import { getFallbackSession } from '../../state/sessions';
 import { AutoDiscovery } from './AutoDiscovery';
 import { useUnifiedPush } from '../../hooks/useUnifiedPush';
+import { useNotificationAvatarCache } from '../../hooks/useNotificationAvatarCache';
 import { useWebPush } from '../../hooks/useWebPush';
 
 function ClientRootLoading() {
@@ -189,6 +190,7 @@ export function ClientRoot({ children }: ClientRootProps) {
 
   useUnifiedPush(mx);
   useWebPush(mx);
+  useNotificationAvatarCache(mx);
 
   return (
     <AutoDiscovery userId={userId!} baseUrl={baseUrl!}>
