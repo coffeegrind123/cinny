@@ -103,7 +103,14 @@ async function pruneStalePushers(mx: MatrixClient, currentEndpoint: string) {
 /**
  * Registers the UnifiedPush endpoint as a Matrix HTTP pusher.
  */
-async function registerMatrixPusher(mx: MatrixClient, endpoint: string) {
+export type PusherRegistration =
+  | { ok: true; gateway: string }
+  | { ok: false; gateway?: string; reason: string };
+
+export async function registerMatrixPusher(
+  mx: MatrixClient,
+  endpoint: string
+): Promise<PusherRegistration> {
   // The endpoint is supplied by the installed UnifiedPush distributor, which is
   // just another app on the device. Refuse anything that is not an absolute
   // https URL rather than asking the homeserver to POST our push traffic to it
@@ -111,11 +118,9 @@ async function registerMatrixPusher(mx: MatrixClient, endpoint: string) {
   // registration, so neither the initial setup nor endpoint rotation can skip
   // it.
   if (!isValidPushEndpoint(endpoint)) {
-    console.warn(
-      '[UnifiedPush] Refusing to register pusher: endpoint is not an https URL:',
-      endpoint
-    );
-    return;
+    const reason = `The distributor issued "${endpoint}", which is not an absolute https URL. A self-hosted push server reachable only over http cannot be used: the homeserver would send every notification to it in the clear.`;
+    console.warn('[UnifiedPush]', reason);
+    return { ok: false, reason };
   }
   const gateway = await resolveGateway(endpoint);
   try {
@@ -149,6 +154,7 @@ async function registerMatrixPusher(mx: MatrixClient, endpoint: string) {
       append: false,
     });
     await pruneStalePushers(mx, endpoint);
+    return { ok: true, gateway };
   } catch (err) {
     // Loudly, and with the values that decide whether it works. This failing
     // quietly is half of why the Android side looked like it had no push
@@ -165,6 +171,13 @@ async function registerMatrixPusher(mx: MatrixClient, endpoint: string) {
       '\n  error   :',
       err
     );
+    // Returned as well as logged. A console message inside a WebView on a phone
+    // is not evidence anyone can reach; the diagnostics panel shows this.
+    const detail =
+      (err as { data?: { error?: string } })?.data?.error ??
+      (err as { message?: string })?.message ??
+      String(err);
+    return { ok: false, gateway, reason: detail };
   }
 }
 

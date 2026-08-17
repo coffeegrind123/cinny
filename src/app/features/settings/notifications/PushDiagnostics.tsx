@@ -10,6 +10,7 @@ import {
   registerUnifiedPush,
   type UnifiedPushStatus,
 } from '../../../utils/mobile-push';
+import { registerMatrixPusher, type PusherRegistration } from '../../../hooks/useUnifiedPush';
 import { useIsAndroid } from '../../../hooks/useIsAndroid';
 
 /** Must match `UP_APP_ID` in `hooks/useUnifiedPush.ts`. */
@@ -196,6 +197,32 @@ export function PushDiagnostics() {
     }, [])
   );
 
+  /**
+   * Register the pusher on demand, and report what the homeserver said.
+   *
+   * The automatic attempt happens once at startup and reports failure only to
+   * the console — which on a phone is nowhere. So "Homeserver pusher" could sit
+   * red with the cause sitting in a log nobody can open, and every cause looks
+   * the same from the outside. This runs the same code path on demand and puts
+   * the homeserver's own words on screen.
+   */
+  const [pusherState, registerPusher] = useAsyncCallback(
+    useCallback(async (): Promise<PusherRegistration> => {
+      const status = await getUnifiedPushStatus();
+      if (!status?.endpoint) {
+        return {
+          ok: false,
+          reason: 'No endpoint on this device yet — use Re-register first.',
+        };
+      }
+      return registerMatrixPusher(mx, status.endpoint);
+    }, [mx])
+  );
+
+  useEffect(() => {
+    if (pusherState.status === AsyncStatus.Success) refresh();
+  }, [pusherState.status, refresh]);
+
   useEffect(() => {
     if (android) refresh();
   }, [android, refresh]);
@@ -261,6 +288,42 @@ export function PushDiagnostics() {
             {`${reRegisterState.error}`}
           </Text>
         )}
+        {pusherState.status === AsyncStatus.Success && (
+          <Box direction="Column" gap="100">
+            <Text
+              size="T200"
+              style={{
+                color: pusherState.data.ok ? color.Success.Main : color.Critical.Main,
+                wordBreak: 'break-all',
+              }}
+            >
+              {pusherState.data.ok
+                ? 'The homeserver accepted the pusher.'
+                : `The homeserver refused the pusher: ${pusherState.data.reason}`}
+            </Text>
+            {pusherState.data.gateway && (
+              /*
+                The gateway is shown because it is chosen silently and is not
+                always the one you would assume. It is discovered by asking the
+                push server whether it speaks Matrix, and that request is made
+                from the WebView — so a push server that answers without CORS
+                headers (ntfy.sh does exactly this on its gateway path) fails
+                the check and everything falls back to the public gateway at
+                matrix.gateway.unifiedpush.org. That still delivers, but it puts
+                a third party in the path of every notification, so it should be
+                visible rather than inferred.
+              */
+              <Text size="T200" priority="300" style={{ wordBreak: 'break-all' }}>
+                {`Gateway in use: ${pusherState.data.gateway}`}
+              </Text>
+            )}
+          </Box>
+        )}
+        {pusherState.status === AsyncStatus.Error && (
+          <Text size="T200" style={{ color: color.Critical.Main }}>
+            {`${pusherState.error}`}
+          </Text>
+        )}
         <Box gap="200">
           <Button
             size="300"
@@ -276,6 +339,21 @@ export function PushDiagnostics() {
             }
           >
             <Text size="B300">Re-register</Text>
+          </Button>
+          <Button
+            size="300"
+            variant="Secondary"
+            fill="Soft"
+            radii="300"
+            onClick={() => registerPusher()}
+            disabled={pusherState.status === AsyncStatus.Loading}
+            before={
+              pusherState.status === AsyncStatus.Loading ? (
+                <Spinner size="100" variant="Secondary" />
+              ) : undefined
+            }
+          >
+            <Text size="B300">Register pusher</Text>
           </Button>
           <Button
             size="300"
