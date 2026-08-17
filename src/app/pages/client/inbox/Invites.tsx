@@ -337,6 +337,7 @@ function InviteCard({
 }
 
 enum InviteFilter {
+  All,
   Known,
   Unknown,
   Spam,
@@ -355,12 +356,30 @@ function InviteFilters({
   unknownInvites,
   spamInvites,
 }: InviteFiltersProps) {
+  const isAll = filter === InviteFilter.All;
   const isKnown = filter === InviteFilter.Known;
   const isUnknown = filter === InviteFilter.Unknown;
   const isSpam = filter === InviteFilter.Spam;
+  const totalInvites = knownInvites.length + unknownInvites.length + spamInvites.length;
 
   return (
-    <Box gap="200">
+    <Box gap="200" wrap="Wrap">
+      <Chip
+        variant={isAll ? 'Primary' : 'Surface'}
+        aria-selected={isAll}
+        outlined={!isAll}
+        onClick={() => onFilter(InviteFilter.All)}
+        before={isAll && <Icon size="100" src={Icons.Check} />}
+        after={
+          totalInvites > 0 && (
+            <Badge variant={isAll ? 'Primary' : 'Secondary'} fill="Solid" radii="Pill">
+              <Text size="L400">{totalInvites}</Text>
+            </Badge>
+          )
+        }
+      >
+        <Text size="T200">All</Text>
+      </Chip>
       <Chip
         variant={isKnown ? 'Success' : 'Surface'}
         aria-selected={isKnown}
@@ -691,14 +710,37 @@ function SpamInvites({
   );
 }
 
-export function Invites() {
+/**
+ * The invites list itself, with no page chrome around it.
+ *
+ * Split out so the combined inbox can show invites above the notification list
+ * without nesting a second scroll container inside the first — the
+ * notification list is virtualised against its own scroll element, and a
+ * scroller inside a scroller breaks that measurement.
+ */
+type InvitesContentProps = {
+  /**
+   * Show the category chips. The combined inbox turns them off: it exists to
+   * show everything at once, and a second "Filter" row directly above the
+   * notification list's own would be two controls of the same name doing
+   * different things. Filtering stays on the dedicated Invites page.
+   */
+  showFilters?: boolean;
+};
+export function InvitesContent({ showFilters = true }: InvitesContentProps) {
   const mx = useMatrixClient();
   const useAuthentication = useMediaAuthentication();
   const { navigateRoom, navigateSpace } = useRoomNavigate();
   const allRooms = useAtomValue(allRoomsAtom);
   const allInviteIds = useAtomValue(allInvitesAtom);
 
-  const [filter, setFilter] = useState(InviteFilter.Known);
+  // "All" is the default. Opening Invites on a single category meant an invite
+  // sorted into either of the other two was not merely deprioritised, it was
+  // invisible — and which category an invite lands in is decided by heuristics
+  // (shared rooms, bad words, whether the sender is banned somewhere) that this
+  // page never asked the user to agree with. Landing on everything makes those
+  // heuristics a way to *sort* the list rather than a way to hide most of it.
+  const [filter, setFilter] = useState(InviteFilter.All);
 
   const invitesData = allInviteIds
     .map((inviteId) => mx.getRoom(inviteId))
@@ -730,9 +772,8 @@ export function Invites() {
   const [compact, setCompact] = useState(document.body.clientWidth <= COMPACT_CARD_WIDTH);
   useElementSizeObserver(
     useCallback(() => containerRef.current, []),
-    useCallback((width) => setCompact(width <= COMPACT_CARD_WIDTH), [])
+    useCallback((width) => setCompact(width <= COMPACT_CARD_WIDTH), []),
   );
-  const screenSize = useScreenSizeContext();
 
   const [hour24Clock] = useSetting(settingsAtom, 'hour24Clock');
   const [dateFormatString] = useSetting(settingsAtom, 'dateFormatString');
@@ -744,6 +785,89 @@ export function Invites() {
     }
     navigateRoom(roomId);
   };
+
+  /**
+   * "All" stacks the three sections rather than merging them into one list.
+   *
+   * Merging would have to drop what makes each section safe to read. Spam sits
+   * behind a warning and a reveal, Public carries its own Decline All, and
+   * Primary is the trusted one — a flat list either loses those or, worse,
+   * seats a spam invite next to an invite from someone you share rooms with and
+   * presents them identically. Keeping the sections means "All" adds the
+   * missing invites without taking away the context that says what they are.
+   *
+   * An empty section is skipped here, because three stacked "No Invites" heroes
+   * is not a view of anything. When all three are empty the page still has to
+   * say so, so one empty state stands in for them.
+   */
+  const totalInvites = knownInvites.length + unknownInvites.length + spamInvites.length;
+  const showingAll = filter === InviteFilter.All;
+  const showKnown = showingAll ? knownInvites.length > 0 : filter === InviteFilter.Known;
+  const showUnknown = showingAll ? unknownInvites.length > 0 : filter === InviteFilter.Unknown;
+  const showSpam = showingAll ? spamInvites.length > 0 : filter === InviteFilter.Spam;
+
+  return (
+    <Box ref={containerRef} direction="Column" gap="600">
+      {showFilters && (
+        <Box direction="Column" gap="100">
+          <span data-spacing-node />
+          <Text size="L400">Filter</Text>
+          <InviteFilters
+            filter={filter}
+            onFilter={setFilter}
+            knownInvites={knownInvites}
+            unknownInvites={unknownInvites}
+            spamInvites={spamInvites}
+          />
+        </Box>
+      )}
+      {showKnown && (
+        <KnownInvites
+          invites={knownInvites}
+          compact={compact}
+          hour24Clock={hour24Clock}
+          dateFormatString={dateFormatString}
+          handleNavigate={handleNavigate}
+        />
+      )}
+
+      {showUnknown && (
+        <UnknownInvites
+          invites={unknownInvites}
+          compact={compact}
+          hour24Clock={hour24Clock}
+          dateFormatString={dateFormatString}
+          handleNavigate={handleNavigate}
+        />
+      )}
+
+      {showSpam && (
+        <SpamInvites
+          invites={spamInvites}
+          compact={compact}
+          hour24Clock={hour24Clock}
+          dateFormatString={dateFormatString}
+          handleNavigate={handleNavigate}
+        />
+      )}
+
+      {showingAll && totalInvites === 0 && (
+        <PageHeroEmpty>
+          <PageHeroSection>
+            <PageHero
+              icon={<Icon size="600" src={Icons.Mail} />}
+              title="No Invites"
+              subTitle="Invites to rooms and spaces will show up here."
+            />
+          </PageHeroSection>
+        </PageHeroEmpty>
+      )}
+    </Box>
+  );
+}
+
+export function Invites() {
+  const screenSize = useScreenSizeContext();
 
   return (
     <Page>
@@ -773,48 +897,7 @@ export function Invites() {
         <Scroll hideTrack visibility="Hover">
           <PageContent>
             <PageContentCenter>
-              <Box ref={containerRef} direction="Column" gap="600">
-                <Box direction="Column" gap="100">
-                  <span data-spacing-node />
-                  <Text size="L400">Filter</Text>
-                  <InviteFilters
-                    filter={filter}
-                    onFilter={setFilter}
-                    knownInvites={knownInvites}
-                    unknownInvites={unknownInvites}
-                    spamInvites={spamInvites}
-                  />
-                </Box>
-                {filter === InviteFilter.Known && (
-                  <KnownInvites
-                    invites={knownInvites}
-                    compact={compact}
-                    hour24Clock={hour24Clock}
-                    dateFormatString={dateFormatString}
-                    handleNavigate={handleNavigate}
-                  />
-                )}
-
-                {filter === InviteFilter.Unknown && (
-                  <UnknownInvites
-                    invites={unknownInvites}
-                    compact={compact}
-                    hour24Clock={hour24Clock}
-                    dateFormatString={dateFormatString}
-                    handleNavigate={handleNavigate}
-                  />
-                )}
-
-                {filter === InviteFilter.Spam && (
-                  <SpamInvites
-                    invites={spamInvites}
-                    compact={compact}
-                    hour24Clock={hour24Clock}
-                    dateFormatString={dateFormatString}
-                    handleNavigate={handleNavigate}
-                  />
-                )}
-              </Box>
+              <InvitesContent />
             </PageContentCenter>
           </PageContent>
         </Scroll>

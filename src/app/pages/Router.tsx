@@ -25,6 +25,7 @@ import {
   _JOIN_PATH,
   _LOBBY_PATH,
   _NOTIFICATIONS_PATH,
+  _ALL_PATH,
   _ROOM_PATH,
   _SEARCH_PATH,
   _SERVER_PATH,
@@ -45,7 +46,7 @@ import { Direct, DirectCreate, DirectRouteRoomProvider } from './client/direct';
 import { Rooms, RoomsRouteRoomProvider, RoomsSearch } from './client/rooms';
 import { RouteSpaceProvider, Space, SpaceRouteRoomProvider, SpaceSearch } from './client/space';
 import { Explore, FeaturedRooms, PublicRooms } from './client/explore';
-import { Notifications, Inbox, Invites } from './client/inbox';
+import { Notifications, Inbox, Invites, InboxAll } from './client/inbox';
 import { setAfterLoginRedirectPath } from './afterLoginRedirectPath';
 import { Room } from '../features/room';
 import { Lobby } from '../features/lobby';
@@ -383,6 +384,14 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
               (MobileFriendlyPageNav renders the Inbox list behind at z 0).
               Without it the absolute backdrop paints over this static content
               and the page looks broken. Also adds the swipe-back gesture. */}
+          <Route
+            path={_ALL_PATH}
+            element={
+              <MobileSwipeBack>
+                <InboxAll />
+              </MobileSwipeBack>
+            }
+          />
           <Route
             path={_NOTIFICATIONS_PATH}
             element={

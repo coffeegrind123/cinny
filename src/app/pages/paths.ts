@@ -87,12 +87,14 @@ export const CREATE_PATH = '/create';
 
 export const _NOTIFICATIONS_PATH = 'notifications/';
 export const _INVITES_PATH = 'invites/';
+export const _ALL_PATH = 'all/';
 export const INBOX_PATH = '/inbox/';
 export type InboxNotificationsPathSearchParams = {
   only?: string;
 };
 export const INBOX_NOTIFICATIONS_PATH = `/inbox/${_NOTIFICATIONS_PATH}`;
 export const INBOX_INVITES_PATH = `/inbox/${_INVITES_PATH}`;
+export const INBOX_ALL_PATH = `/inbox/${_ALL_PATH}`;
 
 export const SPACE_SETTINGS_PATH = '/space-settings/';
 

@@ -1,5 +1,13 @@
 /* eslint-disable react/destructuring-assignment */
-import { MouseEventHandler, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  MouseEventHandler,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   Avatar,
   Box,
@@ -19,6 +27,7 @@ import {
   INotificationsResponse,
   IRoomEvent,
   JoinRule,
+  MatrixEvent,
   Method,
   RelationType,
   Room,
@@ -69,6 +78,7 @@ import { Image } from '../../../components/media';
 import { ImageViewer } from '../../../components/image-viewer';
 import { GetContentCallback, MessageEvent, StateEvent } from '../../../../types/matrix/room';
 import { useMatrixEventRenderer } from '../../../hooks/useMatrixEventRenderer';
+import { useMemberEventParser } from '../../../hooks/useMemberEventParser';
 import * as customHtmlCss from '../../../styles/CustomHtml.css';
 import { useRoomNavigate } from '../../../hooks/useRoomNavigate';
 import { useRoomUnread } from '../../../state/hooks/unread';
@@ -237,6 +247,7 @@ function RoomNotificationsGroupComp({
   const accessibleTagColors = useAccessiblePowerTagColors(theme.kind, creatorsTag, powerLevelTags);
 
   const mentionClickHandler = useMentionClickHandler(room.roomId);
+  const parseMemberEvent = useMemberEventParser();
   const spoilerClickHandler = useSpoilerClickHandler();
 
   const linkifyOpts = useMemo<LinkifyOpts>(
@@ -369,6 +380,30 @@ function RoomNotificationsGroupComp({
               />
             )}
           />
+        );
+      },
+      /**
+       * An invite arrives as an `m.room.member` state event, and without this it
+       * fell through to the generic branch below and rendered as the literal
+       * text "`m.room.member` event" — the notification that most needs to say
+       * what it is was the one saying least.
+       *
+       * Parsed with the same `useMemberEventParser` the timeline uses, rather
+       * than a second set of phrasings written here: membership has more cases
+       * than invite (knock, accepted knock, kick, ban, unban, profile changes),
+       * and two independent renderings of them drift. The parser wants a
+       * `MatrixEvent`, so the raw notification JSON is wrapped in one —
+       * `unsigned.prev_content` comes through, which is what tells an accepted
+       * knock apart from an ordinary invite.
+       */
+      [StateEvent.RoomMember]: (event) => {
+        const { body } = parseMemberEvent(new MatrixEvent(event));
+        return (
+          <Box grow="Yes" direction="Column">
+            <Text size="T400" priority="300">
+              {body}
+            </Text>
+          </Box>
         );
       },
       [StateEvent.RoomTombstone]: (event) => {
@@ -561,7 +596,21 @@ const useNotificationsSearchParams = (
 
 const DEFAULT_REFRESH_MS = 7000;
 
-export function Notifications() {
+type NotificationsProps = {
+  /** Page title. The combined inbox reuses this page under its own name. */
+  title?: string;
+  /**
+   * Rendered inside this page's scroll container, above the filter chips.
+   *
+   * A slot rather than a separate page, because the notification list is
+   * virtualised against the `Scroll` element below — putting it inside another
+   * scroller would leave the virtualiser measuring a viewport that never
+   * scrolls, so it would render only the first screenful and stop. The combined
+   * inbox therefore puts the invites INTO this scroller instead of wrapping it.
+   */
+  before?: ReactNode;
+};
+export function Notifications({ title = 'Notification Messages', before }: NotificationsProps) {
   const mx = useMatrixClient();
   const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
   const [mediaAutoLoad] = useSetting(settingsAtom, 'mediaAutoLoad');
@@ -652,7 +701,7 @@ export function Notifications() {
           <Box alignItems="Center" gap="200">
             {screenSize !== ScreenSize.Mobile && <Icon size="400" src={Icons.Message} />}
             <Text size="H3" truncate>
-              Notification Messages
+              {title}
             </Text>
           </Box>
           <Box grow="Yes" basis="No" />
@@ -664,6 +713,7 @@ export function Notifications() {
           <PageContent>
             <PageContentCenter>
               <Box direction="Column" gap="200">
+                {before}
                 <Box ref={scrollTopAnchorRef} direction="Column" gap="100">
                   <span data-spacing-node />
                   <Text size="L400">Filter</Text>

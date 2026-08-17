@@ -161,6 +161,7 @@ export enum Command {
   Delete = 'delete',
   Acl = 'acl',
   Nick = 'nick',
+  Status = 'status',
   MyAvatar = 'myavatar',
   Topic = 'topic',
   RoomName = 'roomname',
@@ -563,6 +564,33 @@ export const useCommands = (mx: MatrixClient, room: Room): CommandRecord => {
           const nick = payload.trim();
           if (nick === '') return;
           await mx.setDisplayName(nick);
+        },
+      },
+      [Command.Status]: {
+        name: Command.Status,
+        description:
+          'Set your status message, shown to everyone wherever you appear. Run it with nothing after it to clear. Example: /status Out for lunch',
+        exe: async (payload) => {
+          const status = payload.trim();
+          // Your account-wide status, NOT the room topic — this is the same
+          // field as Settings > Account > Status, and it follows you into every
+          // room and every client.
+          //
+          // `presence` is sent alongside it because the API replaces the whole
+          // presence state rather than merging into it: posting only a status
+          // message would quietly reset an `unavailable` back to `online`.
+          const currentPresence = mx.getUser(mx.getSafeUserId())?.presence;
+          await mx.setPresence({
+            presence:
+              currentPresence === 'offline' || currentPresence === 'unavailable'
+                ? currentPresence
+                : 'online',
+            // Empty clears it. Unlike /nick, where an empty payload is a slip
+            // worth ignoring, `/status` with nothing after it has an obvious
+            // and useful reading, and it is the only way to take a status down
+            // from the composer.
+            status_msg: status,
+          });
         },
       },
       [Command.MyAvatar]: {

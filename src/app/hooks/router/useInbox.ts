@@ -1,5 +1,6 @@
 import { useMatch } from 'react-router-dom';
 import {
+  getInboxAllPath,
   getInboxInvitesPath,
   getInboxNotificationsPath,
   getInboxPath,
@@ -18,6 +19,16 @@ export const useInboxSelected = (): boolean => {
 export const useInboxNotificationsSelected = (): boolean => {
   const match = useMatch({
     path: getInboxNotificationsPath(),
+    caseSensitive: true,
+    end: false,
+  });
+
+  return !!match;
+};
+
+export const useInboxAllSelected = (): boolean => {
+  const match = useMatch({
+    path: getInboxAllPath(),
     caseSensitive: true,
     end: false,
   });
