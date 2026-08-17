@@ -35,7 +35,7 @@ import {
   getAppPathFromHref,
   getExploreFeaturedPath,
   getHomePath,
-  getInboxNotificationsPath,
+  getInboxAllPath,
   getLoginPath,
   getOriginBaseUrl,
   getSpaceLobbyPath,
@@ -375,7 +375,7 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
           {mobile ? null : (
             <Route
               index
-              loader={() => redirect(getInboxNotificationsPath())}
+              loader={() => redirect(getInboxAllPath())}
               element={<WelcomePage />}
             />
           )}

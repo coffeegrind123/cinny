@@ -117,3 +117,49 @@ export const formatTimeInTimezone = (tz: string, at: Date = new Date()): string 
     return undefined;
   }
 };
+
+/**
+ * A specific instant, as the clock read in `tz`. Undefined if the zone is unusable.
+ *
+ * The date is included **only when the instant falls on a different calendar day
+ * there than it does here**, and that condition is the whole point of the
+ * function rather than a detail. A message sent at 23:30 in London is 08:30 the
+ * NEXT DAY in Tokyo; rendering that as a bare "08:30" beside a message dated
+ * yesterday is not a time-zone conversion, it is a wrong timestamp — and the
+ * cases where the reader most wants to know the sender's local time (someone
+ * messaging in the middle of their night) are exactly the cases where the day
+ * has rolled over.
+ *
+ * Not included when the day matches, because then it is noise: the surrounding
+ * timeline already establishes the date.
+ */
+export const formatInstantInTimezone = (tz: string, at: Date): string | undefined => {
+  try {
+    const dayOpts: Intl.DateTimeFormatOptions = {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    };
+    // en-CA gives ISO-ordered YYYY-MM-DD, so the two are comparable as strings.
+    const dayHere = new Intl.DateTimeFormat('en-CA', dayOpts).format(at);
+    const dayThere = new Intl.DateTimeFormat('en-CA', { ...dayOpts, timeZone: tz }).format(at);
+
+    const time = new Intl.DateTimeFormat('en-GB', {
+      timeZone: tz,
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).format(at);
+
+    if (dayHere === dayThere) return time;
+
+    const date = new Intl.DateTimeFormat('en-GB', {
+      timeZone: tz,
+      day: 'numeric',
+      month: 'short',
+    }).format(at);
+    return `${date} ${time}`;
+  } catch {
+    return undefined;
+  }
+};

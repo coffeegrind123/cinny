@@ -44,7 +44,7 @@ import {
   MessageBase,
   MessageTrailingContext,
   ModernLayout,
-  Time,
+  SenderTime,
   Username,
   UsernameBold,
 } from '../../../components/message';
@@ -1012,7 +1012,8 @@ export const Message = as<'div', MessageProps>(
               </Text>
             </Username>
             <BotBadge room={room} userId={senderId} />
-            <Time
+            <SenderTime
+              senderId={senderId}
               ts={mEvent.getTs()}
               compact={messageLayout === MessageLayout.Compact}
               hour24Clock={hour24Clock}
@@ -1050,7 +1051,8 @@ export const Message = as<'div', MessageProps>(
         // same class, and which of two equally specific rules wins is settled
         // by stylesheet order — not something to hang alignment on.
         <div className={css.MessageGutterTime}>
-          <Time
+          <SenderTime
+            senderId={senderId}
             ts={mEvent.getTs()}
             compact
             hour24Clock={hour24Clock}

@@ -7,6 +7,14 @@ export type TimeProps = {
   ts: number;
   hour24Clock: boolean;
   dateFormatString: string;
+  /**
+   * Shown instead of the computed timestamp while set.
+   *
+   * Exists so `SenderTime` can swap in the sender's local time on hover without
+   * a second component that styles a timestamp its own way — the wrapper stays
+   * the single place a `<time>` is dressed, and only the text differs.
+   */
+  overrideText?: string;
 };
 
 /**
@@ -22,11 +30,13 @@ export type TimeProps = {
  * @returns {React.ReactElement} A <Text as="time"> element with the formatted date/time.
  */
 export const Time = as<'span', TimeProps & ComponentProps<typeof Text>>(
-  ({ compact, hour24Clock, dateFormatString, ts, ...props }, ref) => {
+  ({ compact, hour24Clock, dateFormatString, ts, overrideText, ...props }, ref) => {
     const formattedTime = timeHourMinute(ts, hour24Clock);
 
     let time = '';
-    if (compact) {
+    if (overrideText) {
+      time = overrideText;
+    } else if (compact) {
       time = formattedTime;
     } else if (today(ts)) {
       time = formattedTime;
