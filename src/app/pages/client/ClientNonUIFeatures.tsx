@@ -43,6 +43,7 @@ import { getMxIdLocalPart, mxcUrlToHttp } from '../../utils/matrix';
 import { useSelectedRoom } from '../../hooks/router/useSelectedRoom';
 import { useInboxNotificationsSelected } from '../../hooks/router/useInbox';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
+import { useNotificationAvatarCache } from '../../hooks/useNotificationAvatarCache';
 import { getCurrentWindow, UserAttentionType } from '@tauri-apps/api/window';
 import { GlobalKeybinds } from '../../components/global-keybinds/GlobalKeybinds';
 import { MatrixLinkHandler } from '../../components/MatrixLinkHandler';
@@ -144,6 +145,14 @@ function InviteNotifications() {
   const invites = useAtomValue(allInvitesAtom);
   const perviousInviteLen = usePreviousValue(invites.length, 0);
   const mx = useMatrixClient();
+
+  // Mounted HERE rather than in ClientRoot, and it matters which: this reads
+  // `useMediaAuthentication`, which reads `useSpecVersions`, and that context is
+  // provided by a component ClientRoot RENDERS — so a hook called in ClientRoot's
+  // own body runs outside it and throws "Server versions are not provided!",
+  // taking the whole app to an error screen on startup. Everything in this file
+  // is already inside both providers.
+  useNotificationAvatarCache(mx);
 
   const navigate = useNavigate();
   const [showNotifications] = useSetting(settingsAtom, 'showNotifications');
