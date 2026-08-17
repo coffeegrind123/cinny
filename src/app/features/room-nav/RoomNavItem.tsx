@@ -75,7 +75,8 @@ import { useCallPreferencesAtom } from '../../state/hooks/callPreferences';
 import { useAutoDiscoveryInfo } from '../../hooks/useAutoDiscoveryInfo';
 import { livekitSupport } from '../../hooks/useLivekitSupport';
 import { useUserPresence } from '../../hooks/useUserPresence';
-import { AvatarPresence, PresenceBadge } from '../../components/presence';
+import { useUserRichPresence } from '../../hooks/useUserRichPresence';
+import { AvatarPresence, PresenceBadge, PresenceStatus } from '../../components/presence';
 import { StateEvent } from '../../../types/matrix/room';
 import { webRTCSupported } from '../../utils/rtc';
 import { useRoomFavourite, useToggleRoomFavourite } from '../../hooks/useRoomFavourites';
@@ -419,6 +420,25 @@ export function RoomNavItem({
 
   const dmUserId = direct ? guessDmRoomUserId(room, mx.getSafeUserId()) : undefined;
   const dmUserPresence = useUserPresence(dmUserId ?? '');
+  /**
+   * Costs nothing on a non-DM row, and nothing at all while the setting is
+   * off: `useUserRichPresence` bails before it fetches on an empty user id or
+   * a disabled `showRichPresence`, so neither the profile request nor its
+   * three-minute refresh timer exists for a room nav full of group rooms.
+   */
+  const dmUserRichPresence = useUserRichPresence(dmUserId ?? '');
+  const dmUserStatus = dmUserPresence?.status?.trim() || undefined;
+  // The line under the name only exists when it has something on it — an empty
+  // one would make every DM row taller than a group room's for nothing.
+  const dmStatusJSX = direct && (dmUserStatus || dmUserRichPresence) && (
+    <PresenceStatus
+      className={css.DmStatus}
+      status={dmUserStatus}
+      richPresence={dmUserRichPresence}
+      // What they are doing beats what they once wrote about themselves.
+      prefer="activity"
+    />
+  );
 
   const handleContextMenu: MouseEventHandler<HTMLElement> = (evt) => {
     evt.preventDefault();
@@ -524,10 +544,11 @@ export function RoomNavItem({
                 )}
               </Avatar>
             </AvatarPresence>
-            <Box as="span" grow="Yes">
+            <Box as="span" grow="Yes" direction="Column">
               <Text priority={unread ? '500' : '300'} as="span" size="Inherit" truncate>
                 {roomName}
               </Text>
+              {dmStatusJSX}
             </Box>
             {pinnable && pinned && !optionsVisible && (
               <Icon size="50" src={Icons.Pin} filled aria-label="Pinned" />

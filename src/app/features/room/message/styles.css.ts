@@ -23,11 +23,29 @@ export const MessageBaseBubbleCollapsed = style({
   paddingTop: 0,
 });
 
+/**
+ * The hover toolbar's own vertical geometry, as numbers.
+ *
+ * The sender-mxid label is positioned directly under the bar, so "where does
+ * the bar end" has to be a value both can be derived from rather than a number
+ * copied into two places. It has already drifted once: the comment on
+ * `MessageSenderMxId` said the bar reached +6px while the measurement two
+ * paragraphs later said +10px, and the label was placed off the wrong one.
+ *
+ * Height is a 2rem (32px) IconButton plus the Menu's S100 padding above and
+ * below it. Top is a deliberate negative — the bar floats over the end of the
+ * PREVIOUS message, Discord-style, so it costs this row almost nothing.
+ */
+const MESSAGE_OPTIONS_TOP = -30;
+const MESSAGE_OPTIONS_HEIGHT = 40;
+/** Where the bar's bottom edge lands, measured from this row's top. */
+const MESSAGE_OPTIONS_BOTTOM = MESSAGE_OPTIONS_TOP + MESSAGE_OPTIONS_HEIGHT;
+
 export const MessageOptionsBase = style([
   DefaultReset,
   {
     position: 'absolute',
-    top: toRem(-30),
+    top: toRem(MESSAGE_OPTIONS_TOP),
     // Floats over the end of the message, Discord-style. The row no longer
     // reserves a strip for it — that cost width on every message, and on phones
     // that never show a toolbar, to solve a problem it turned out not to be
@@ -53,12 +71,13 @@ export const MessageOptionsBar = style([
 /**
  * How much of a row's right edge the hover toolbar occupies, plus a gap.
  *
- * Defined ONCE and consumed by everything that has to keep out of its way.
- * This existing in one place is the actual fix: the sender-mxid label was
- * offset by this and the group header was not, so the same label sat 144px
- * apart depending on whether it was a group's first message — and the flush
- * one was the broken one, sitting under the toolbar and having its glyph tops
- * clipped.
+ * Defined ONCE and consumed by everything that has to keep out of its way,
+ * which is now the group header line alone: it reserves this much on its right
+ * so a long display name is truncated before it reaches the bar, or the
+ * sender-mxid label sitting under it, rather than running beneath either.
+ *
+ * The label itself no longer spends it — it stacks UNDER the bar at `right: 0`
+ * (see `MessageSenderMxId`) instead of standing beside it.
  *
  * 148px is the bar at its widest: four 2rem IconButtons, three S100 gaps
  * between them, and S100 of Menu padding either side. Fewer buttons render
@@ -176,11 +195,7 @@ export const MessageInlineReceipts = style({
  *
  * Absolutely positioned for the same reason `MessageGutterTime` is: in flow it
  * would sit after the message body and drag the row's width around as the
- * pointer moved down the timeline. `line-height: inherit` puts it on the
- * message's own FIRST line rather than the top of the row, which both matches
- * where it appears on a group header and keeps its glyphs clear of the hover
- * toolbar — that floats from -30px to +6px, and a line box starting at the
- * row's 4px top padding centres its text well below 6px.
+ * pointer moved down the timeline.
  *
  * `pointer-events: none` because it is a label, not a target: the toolbar
  * overlaps its box slightly and must stay clickable, and a press here should
@@ -204,33 +219,60 @@ export const MessageInlineReceipts = style({
 export const MessageSenderMxId = recipe({
   base: {
     position: 'absolute',
-    top: config.space.S100,
     /**
-     * Clear of the hover toolbar, which shares this corner and wins.
+     * Under the hover toolbar, not beside it.
      *
-     * Both appear on hover, so they are always on screen together and cannot
-     * share the space. Measured rather than reasoned about, and the first
-     * attempt was wrong: the toolbar was assumed to reach 6px into its own row,
-     * so a label on the first line would clear it. It reaches 10px — a 32px
-     * IconButton plus the Menu's S100 padding is 40px tall against a -30px
-     * offset — and it covered the top 5px of the glyphs across 64px of their
-     * width, clipping the letters.
+     * The two share this corner and both appear on hover, so they cannot share
+     * the space. Stacking them is what makes the label's width its own problem
+     * instead of the bar's: it used to be held 152px clear of the right edge so
+     * it could sit BESIDE the bar, which spent the whole right end of the
+     * header line on a gap and put the label where nothing else was.
      *
-     * 148px is the widest that toolbar gets: four IconButtons at 2rem, three
-     * S100 gaps between them, and S100 of Menu padding either side. Fewer
-     * buttons render when the event does not permit them, which only leaves
-     * this label further from the bar than it needs to be. Sized off the bar
-     * rather than a round number so it stays correct if a button is added.
+     * `MESSAGE_OPTIONS_BOTTOM` rather than a literal, because the number that
+     * matters here is where the bar ends, and that is a function of the bar.
+     * The one time it was copied by hand it was copied wrong (+6px against a
+     * real +10px) and the label sat under an opaque toolbar with the tops of
+     * its glyphs clipped.
      */
-    right: messageOptionsClearance,
+    top: toRem(MESSAGE_OPTIONS_BOTTOM),
+    right: 0,
     maxWidth: '40%',
+    /**
+     * The band between the bar's bottom edge and the end of the header line —
+     * 16px of the row's first line, and all the height this label may take.
+     *
+     * Fixed rather than inherited: the row's own line-height is the body's, so
+     * an inherited line box would start under the bar and finish INSIDE the
+     * first line of message text, painting its opaque ground over the tops of
+     * those glyphs. Centring the 18px T200 line box in 16px trims leading, not
+     * letters — a 12px face leaves ~3px of half-leading either side.
+     */
+    height: toRem(16),
+    display: 'flex',
+    alignItems: 'center',
     overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    lineHeight: 'inherit',
     paddingLeft: config.space.S200,
     userSelect: 'none',
     pointerEvents: 'none',
+    '@media': {
+      /**
+       * Phones do not get it at all.
+       *
+       * Not a size tweak — there is nothing to show. The label is hover chrome,
+       * and a touch screen has no hover, so on a phone this can only ever
+       * appear as a stray box after a long-press. Cut in CSS rather than by
+       * reading the screen size in `Message`, which renders once per event and
+       * should not take a context subscription to answer a question a media
+       * query already answers for free.
+       *
+       * 750px is `MOBILE_BREAKPOINT` from `hooks/useScreenSize` — kept as a
+       * literal because that module pulls in React, and a `.css.ts` is
+       * evaluated at build time.
+       */
+      'screen and (max-width: 750px)': {
+        display: 'none',
+      },
+    },
   },
   variants: {
     rowHover: {

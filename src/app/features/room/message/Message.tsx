@@ -1095,7 +1095,13 @@ export const Message = as<'div', MessageProps>(
         // background the label paints over itself, and the row is only tinted
         // when the pointer is actually on it.
         <div className={css.MessageSenderMxId({ rowHover: hover })}>
-          <Text as="span" size="T200" priority="300">
+          {/*
+            `truncate` lives on the Text, not the wrapper: the wrapper is a
+            flex container now (it centres this line in the band under the
+            hover toolbar), and `text-overflow` applies to the box whose own
+            content overflows — which is this one.
+          */}
+          <Text as="span" size="T200" priority="300" truncate>
             {senderId}
           </Text>
         </div>

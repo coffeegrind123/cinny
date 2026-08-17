@@ -5,8 +5,22 @@ export const CategoryButton = style({
   flexGrow: 1,
 });
 
+/**
+ * A DM's presence line, on the row under the name in the chat list.
+ *
+ * Height is pinned to the T200 line box rather than left to the content. The
+ * line can be prefixed by an icon, and letting the tallest thing on it decide
+ * the row height means two chats with the same amount of writing get different
+ * heights depending on which icon they drew — a raggedness the eye picks up
+ * immediately down a list, and one the virtualiser has to re-measure to place
+ * the rows after it.
+ *
+ * No negative offset here. The nav row already carries a 36px minimum against
+ * ~19px of name, so the second line lands in space the row was reserving
+ * anyway and the pair sits centred without being pulled about.
+ */
 export const DmStatus = style({
-  transform: `translateY(calc(-1 * ${config.space.S100}))`,
+  height: config.lineHeight.T200,
 });
 export const CategoryButtonIcon = style({
   opacity: config.opacity.P400,
