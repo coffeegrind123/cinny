@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { MatrixClient } from 'matrix-js-sdk';
+import { invoke } from '@tauri-apps/api/core';
 import { isAndroid } from '../utils/platform';
+import { isTauri } from '../utils/desktop-notifications';
 import {
   registerUnifiedPush,
   getUnifiedPushEndpoint,
@@ -46,6 +48,32 @@ async function resolveGateway(endpoint: string): Promise<string> {
     return PUBLIC_GATEWAY;
   }
   const candidate = `${origin}${GATEWAY_PATH}`;
+
+  // Probe from Rust when there is a shell to do it, because the same request
+  // made from here is subject to CORS and the answer we need is not served with
+  // it. ntfy.sh returns the correct discovery body from nginx with no
+  // `access-control-allow-origin` header at all — measured, and controlled
+  // against `/v1/health` on the same host, which does send one. So `fetch`
+  // rejects a response that arrived intact and said exactly the right thing,
+  // the `catch` below reads that as "not a gateway", and every ntfy user is
+  // quietly downgraded to the public gateway: an extra third party in the path
+  // of notifications that carry sender and body for unencrypted rooms.
+  //
+  // Element X avoids this by probing with OkHttp rather than a browser.
+  if (isTauri()) {
+    try {
+      const nativeGateway = await invoke<string | null>('probe_push_gateway', { endpoint });
+      // `null` is a real answer — the host replied and is not a gateway — so it
+      // ends the search rather than falling through to the fetch below.
+      return nativeGateway ?? PUBLIC_GATEWAY;
+    } catch (err) {
+      // The probe itself failed (offline, DNS, blocked address). Fall through:
+      // on desktop the webview `fetch` may still succeed, and the public
+      // gateway is the backstop for both.
+      console.warn('[UnifiedPush] Native gateway probe failed, falling back:', err);
+    }
+  }
+
   try {
     const res = await fetch(candidate, { method: 'GET' });
     if (res.ok) {
