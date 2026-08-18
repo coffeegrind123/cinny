@@ -78,6 +78,7 @@ import { getFallbackSession } from '../state/sessions';
 import { CallStatusRenderer } from './CallStatusRenderer';
 import { CallEmbedProvider } from '../components/CallEmbedProvider';
 import { SplashScreen } from '../components/splash-screen';
+import { RouteError } from './RouteError';
 import { Spinner } from 'folds';
 
 // Shown while the router runs its initial loaders. Doubles as the index route's
@@ -114,7 +115,7 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
   const mobile = screenSize === ScreenSize.Mobile;
 
   const routes = createRoutesFromElements(
-    <Route HydrateFallback={RouteLoading}>
+    <Route HydrateFallback={RouteLoading} errorElement={<RouteError />}>
       <Route
         index
         element={<RouteLoading />}

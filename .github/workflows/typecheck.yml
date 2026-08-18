@@ -35,3 +35,9 @@ jobs:
       - run: npm ci
 
       - run: npm run typecheck
+
+      # Catches a hook that reads a context its own component mounts —
+      # the shape of the "Server versions are not provided!" startup crash,
+      # which type-checks and lints cleanly and only shows up at runtime,
+      # as the whole app replaced by an error page.
+      - run: npm run check:contexts
