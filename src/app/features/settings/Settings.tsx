@@ -20,6 +20,7 @@ import { General } from './general';
 import { PageNav, PageNavHeader, PageRoot } from '../../components/page';
 import { ScreenSize, useScreenSizeContext } from '../../hooks/useScreenSize';
 import { useSwipeGesture } from '../../hooks/useSwipeGesture';
+import { BackDismissResult, useBackDismiss } from '../../hooks/useBackDismiss';
 import { Account } from './account';
 import { useUserProfile } from '../../hooks/useUserProfile';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
@@ -135,17 +136,32 @@ export function Settings({ initialPage, requestClose }: SettingsProps) {
     requestClose();
   };
 
-  // Mobile: left-to-right swipe acts as the X button. If we're on a
-  // subpage, go back to the menu list (matching the per-page X behavior).
-  // If we're already on the menu list, close the modal entirely.
+  // One step "back" out of Settings, whichever gesture asked for it. On a
+  // mobile subpage that means returning to the menu list (matching the
+  // per-page X behavior); anywhere else it closes the dialog.
+  const handleBack = useCallback((): BackDismissResult => {
+    if (screenSize === ScreenSize.Mobile && activePage !== undefined) {
+      setActivePage(undefined);
+      return 'consumed';
+    }
+    requestClose();
+    return 'closed';
+  }, [screenSize, activePage, requestClose]);
+
+  // The system Back gesture and Back button. On Android in gesture-nav mode the
+  // left-edge swipe below never happens: the system claims those touches for
+  // its own back gesture and hands the WebView a history pop instead, so
+  // without this the swipe appeared to do nothing while quietly moving the
+  // route behind the dialog. See useBackDismiss for the mechanism.
+  useBackDismiss(handleBack);
+
+  // Mobile: left-to-right swipe acts as the X button. Still the only thing that
+  // works on a device with three-button navigation, where nothing claims the
+  // edge and there is no back gesture to intercept.
   const handleSwipeBack = useCallback(() => {
     if (screenSize !== ScreenSize.Mobile) return;
-    if (activePage !== undefined) {
-      setActivePage(undefined);
-    } else {
-      requestClose();
-    }
-  }, [screenSize, activePage, requestClose]);
+    handleBack();
+  }, [screenSize, handleBack]);
 
   // NOTE: no commitOffset here. The nav swipes (MobileSwipeBack/Open) slide
   // their element fully off-screen on commit and rely on a route change to
