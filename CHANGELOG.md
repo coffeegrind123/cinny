@@ -2,6 +2,11 @@
 
 User-facing changes per commit. Most recent at the top.
 
+## 18.08.2026
+
+- `79bead6` Added **a proper error screen** for the kind of failure that takes the whole app down. Until now that landed on the router's own developer page — "Unexpected Application Error!", a minified stack, and a note addressed to whoever wrote the app — which is where yesterday's "Server versions are not provided!" crash left you: nothing to do about it, no way back, and nothing to say it was even Prinny. It now explains itself, keeps the technical detail behind a fold for when it is worth reporting, and offers **Reload**, plus **Reset app data and sign out** for a failure that comes back on every launch.
+- `79bead6` Added **a build check for the mistake behind that crash** — a part of the app asking for something that is only set up by the very thing asking. It passes type-checking and linting and shows itself only at runtime, as the entire client replaced by an error page on startup, which is exactly how it reached a release. The build now refuses it and names the component, the hook and the missing piece.
+
 ## 17.08.2026
 
 - `0956b9d` Fixed **Prinny failing to start** with "Server versions are not provided!". Introduced the same day by the notification-avatar caching: it asked about your homeserver's capabilities from a place in the app that is set up *before* that information exists, and the error took the whole client down to a blank error page rather than being contained. It now runs from a point where the connection is already established.
