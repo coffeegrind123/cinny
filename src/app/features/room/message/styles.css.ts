@@ -115,6 +115,25 @@ export const MessageGutterTime = style({
    * padding, which is empty, rather than right into the text.
    */
   right: `calc(-1 * ${config.space.S300} / 2)`,
+  /**
+   * The left edge is pinned to the row's own left edge, which is what keeps
+   * this inside the window.
+   *
+   * With only `right` set, an absolutely positioned box is shrink-to-fit and
+   * grows leftwards without limit — fine on desktop, where the timeline has
+   * padding of its own to spill into, and wrong on a phone, where the row's
+   * left edge IS the screen's and the overhang was simply off-screen. The app
+   * bumps the root font size on mobile, so the same `hh:mm A` is wider there
+   * exactly where there is least room for it.
+   *
+   * Giving it both `left` and `right` makes it a box of a known width — the
+   * row's left padding, plus the avatar slot, plus the half-gap hang — and
+   * `text-align: right` keeps the timestamp against the message rather than
+   * floating in the middle of it. Nothing is clipped: the box is wider than
+   * the string at every size the app renders.
+   */
+  left: `calc(-1 * ${config.space.S400})`,
+  textAlign: 'right',
   whiteSpace: 'nowrap',
   /**
    * Sits on the message's own first line rather than at the top of the row.

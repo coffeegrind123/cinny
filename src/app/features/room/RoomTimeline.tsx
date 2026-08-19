@@ -98,7 +98,7 @@ import {
   getIntersectionObserverEntry,
   useIntersectionObserver,
 } from '../../hooks/useIntersectionObserver';
-import { markAsRead } from '../../utils/notifications';
+import { markAsRead, releaseAutoMarkAsRead } from '../../utils/notifications';
 import { useIsRoomBackdrop } from '../../hooks/useRoomBackdrop';
 import { useDebounce } from '../../hooks/useDebounce';
 import { getResizeObserverEntry, useResizeObserver } from '../../hooks/useResizeObserver';
@@ -755,7 +755,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
             // Check if the document is in focus (user is actively viewing the app),
             // and either there are no unread messages or the latest message is from the current user.
             // If either condition is met, trigger the markAsRead function to send a read receipt.
-            requestAnimationFrame(() => markAsRead(mx, mEvt.getRoomId()!, hideActivity));
+            requestAnimationFrame(() => markAsRead(mx, mEvt.getRoomId()!, hideActivity, { auto: true }));
           }
 
           if (!document.hasFocus() && !unreadInfo) {
@@ -793,7 +793,7 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
           scrollToBottomRef.current.count += 1;
           scrollToBottomRef.current.smooth = false;
           if (!isBackdrop && document.hasFocus()) {
-            requestAnimationFrame(() => markAsRead(mx, mEvt.getRoomId()!, hideActivity));
+            requestAnimationFrame(() => markAsRead(mx, mEvt.getRoomId()!, hideActivity, { auto: true }));
           }
           return;
         }
@@ -899,6 +899,21 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
     useCallback(() => roomInputRef.current, [roomInputRef])
   );
 
+  /**
+   * Leaving the room ends the "I marked this unread while sitting in it"
+   * suppression.
+   *
+   * Coming back is itself the act of reading the room, so the next visit must
+   * be free to report it read normally. Without this the flag would survive
+   * every later visit and the room would look permanently unread.
+   */
+  useEffect(
+    () => () => {
+      releaseAutoMarkAsRead(room.roomId);
+    },
+    [room.roomId]
+  );
+
   const tryAutoMarkAsRead = useCallback(() => {
     // A backdrop room is mounted behind the room list purely so a swipe has
     // something to uncover. Reporting it read would clear an unread badge the
@@ -906,13 +921,13 @@ export function RoomTimeline({ room, eventId, roomInputRef, editor }: RoomTimeli
     if (isBackdrop) return;
     const readUptoEventId = readUptoEventIdRef.current;
     if (!readUptoEventId) {
-      requestAnimationFrame(() => markAsRead(mx, room.roomId, hideActivity));
+      requestAnimationFrame(() => markAsRead(mx, room.roomId, hideActivity, { auto: true }));
       return;
     }
     const evtTimeline = getEventTimeline(room, readUptoEventId);
     const latestTimeline = evtTimeline && getFirstLinkedTimeline(evtTimeline, Direction.Forward);
     if (latestTimeline === room.getLiveTimeline()) {
-      requestAnimationFrame(() => markAsRead(mx, room.roomId, hideActivity));
+      requestAnimationFrame(() => markAsRead(mx, room.roomId, hideActivity, { auto: true }));
     }
   }, [mx, room, hideActivity, isBackdrop]);
 

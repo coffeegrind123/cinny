@@ -1,4 +1,4 @@
-import { ComponentProps, useState } from 'react';
+import { ComponentProps, ReactNode, useState } from 'react';
 import { useHover } from 'react-aria';
 import { Time, TimeProps } from './Time';
 import { useUserTimezone } from '../../hooks/useUserTimezone';
@@ -8,6 +8,16 @@ import * as css from './SenderTime.css';
 type SenderTimeProps = TimeProps & {
   /** Whose clock to show. Their MSC4175 time zone is looked up on hover. */
   senderId: string;
+  /**
+   * Rendered immediately after the timestamp text — a sending clock, a status
+   * dot, anything that reads as belonging TO the time rather than next to it.
+   *
+   * It belongs in here rather than as a sibling of `SenderTime` because the
+   * slot is sized to the sender-local string, which is wider than the timestamp
+   * and invisible. A sibling therefore sat at the far edge of a gap it could
+   * not see the cause of, looking unrelated to the message it was reporting on.
+   */
+  trailing?: ReactNode;
 };
 
 /**
@@ -33,6 +43,7 @@ type SenderTimeProps = TimeProps & {
  */
 export function SenderTime({
   senderId,
+  trailing,
   ...timeProps
 }: SenderTimeProps & ComponentProps<typeof Time>) {
   const [hovered, setHovered] = useState(false);
@@ -58,21 +69,24 @@ export function SenderTime({
   // flicker in the first place.
   return (
     <span className={css.SenderTimeSlot} {...hoverProps}>
-      <Time
-        {...timeProps}
-        className={css.SenderTimeVisible}
-        overrideText={showing ? senderLocal : undefined}
-        // Names the zone in full, since the slot only has room for the city.
-        // Only while the swap is actually showing.
-        title={showing ? `Local time for ${senderId} (${timezone})` : undefined}
-      />
-      {senderLocal !== undefined && (
+      <span className={css.SenderTimeVisible}>
         <Time
           {...timeProps}
-          className={css.SenderTimeSizer}
-          overrideText={senderLocal}
-          aria-hidden
+          overrideText={showing ? senderLocal : undefined}
+          // Names the zone in full, since the slot only has room for the city.
+          // Only while the swap is actually showing.
+          title={showing ? `Local time for ${senderId} (${timezone})` : undefined}
         />
+        {trailing}
+      </span>
+      {senderLocal !== undefined && (
+        // The measuring copy carries `trailing` too: the swap must not change
+        // the slot's width, and it would if only one of the two strings had the
+        // icon's width added to it.
+        <span className={css.SenderTimeSizer} aria-hidden>
+          <Time {...timeProps} overrideText={senderLocal} />
+          {trailing}
+        </span>
       )}
     </span>
   );

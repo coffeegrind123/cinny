@@ -36,9 +36,55 @@ async function clearRoomMarkedUnread(mx: MatrixClient, roomId: string) {
   }
 }
 
-export async function markAsRead(mx: MatrixClient, roomId: string, privateReceipt: boolean) {
+/**
+ * Rooms the user has explicitly flagged unread while still looking at them.
+ *
+ * Marking a message unread does not close the room, and an open room reports
+ * itself read constantly — on scroll, on focus, on every arriving event. Those
+ * automatic reports would clear the flag within a frame of it being set, which
+ * is exactly what "mark unread does nothing" looked like from the outside: the
+ * account data was written and then immediately overwritten by the timeline.
+ *
+ * A plain module-level set rather than state, because nothing renders from it:
+ * it only gates the automatic path, and every read of it happens inside an
+ * event handler. It is cleared when the user leaves the room (RoomTimeline's
+ * cleanup) or deliberately marks the room read.
+ */
+const autoReadSuppressedRooms = new Set<string>();
+
+export const suppressAutoMarkAsRead = (roomId: string) => {
+  autoReadSuppressedRooms.add(roomId);
+};
+
+export const releaseAutoMarkAsRead = (roomId: string) => {
+  autoReadSuppressedRooms.delete(roomId);
+};
+
+export type MarkAsReadOptions = {
+  /**
+   * Set by the timeline's own "you are looking at the bottom of this room"
+   * reporting. Such a call is skipped while the room is flagged unread; a call
+   * without it is the user asking for it, and always goes through.
+   */
+  auto?: boolean;
+};
+
+export async function markAsRead(
+  mx: MatrixClient,
+  roomId: string,
+  privateReceipt: boolean,
+  options?: MarkAsReadOptions
+) {
   const room = mx.getRoom(roomId);
   if (!room) return;
+
+  // An automatic report loses to an explicit unread flag; a deliberate one
+  // clears the suppression along with the flag.
+  if (options?.auto) {
+    if (autoReadSuppressedRooms.has(roomId)) return;
+  } else {
+    releaseAutoMarkAsRead(roomId);
+  }
 
   // Reading the room clears an explicit unread flag, per MSC2867. Done before
   // the early returns below: a room that was marked unread but has no new
@@ -67,9 +113,31 @@ export async function markAsRead(mx: MatrixClient, roomId: string, privateReceip
   );
 }
 
+/**
+ * "Mark unread from here": rewind the read receipt to just before `eventId`,
+ * and flag the room unread.
+ *
+ * Both halves are needed and they do different jobs. The receipt is what puts
+ * the new-message divider back above the chosen message, so returning to the
+ * room lands in the right place. The MSC2867 flag is what the room list draws
+ * its dot from — a rewound receipt on its own moves nothing there, because the
+ * badge is fed by the server's notification counts, and those do not grow again
+ * just because a receipt moved backwards. That is why this looked like it did
+ * nothing: the timeline was correct and the room list, the only place anyone
+ * was looking, was unchanged.
+ *
+ * The flag is set even when the receipt cannot be rewound — the target being
+ * the first event held in the live timeline, or the one before it still
+ * sending. Doing nothing at all in those cases is worse than flagging the room
+ * without moving the divider.
+ */
 export async function markAsUnread(mx: MatrixClient, roomId: string, eventId: string) {
   const room = mx.getRoom(roomId);
   if (!room) return;
+
+  // Before the awaits: the room is open, so the timeline is free to report it
+  // read at any moment, and an await is exactly where that would get in.
+  suppressAutoMarkAsRead(roomId);
 
   const timeline = room.getLiveTimeline().getEvents();
 
@@ -80,10 +148,16 @@ export async function markAsUnread(mx: MatrixClient, roomId: string, eventId: st
       break;
     }
   }
-  if (targetIndex <= 0) return;
 
-  const previousEvent = timeline[targetIndex - 1];
-  if (!previousEvent || previousEvent.isSending()) return;
+  const previousEvent = targetIndex > 0 ? timeline[targetIndex - 1] : undefined;
+  if (previousEvent && !previousEvent.isSending()) {
+    try {
+      await mx.sendReadReceipt(previousEvent, ReceiptType.Read);
+    } catch {
+      // A homeserver that refuses a backwards receipt must not cost us the
+      // flag, which is the half the user actually sees.
+    }
+  }
 
-  await mx.sendReadReceipt(previousEvent, ReceiptType.Read);
+  await setRoomMarkedUnread(mx, roomId, true);
 }

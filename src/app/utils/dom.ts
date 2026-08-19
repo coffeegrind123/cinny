@@ -198,22 +198,78 @@ export const scrollToBottom = (scrollEl: HTMLElement, behavior?: 'auto' | 'insta
   });
 };
 
-export const copyToClipboard = (text: string) => {
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(text);
-  } else {
-    const host = document.body;
-    const copyInput = document.createElement('input');
-    copyInput.style.position = 'fixed';
-    copyInput.style.opacity = '0';
-    copyInput.value = text;
-    host.append(copyInput);
+/**
+ * The pre-Clipboard-API path: put the text in an off-screen field, select it,
+ * and let `execCommand` copy the selection.
+ *
+ * A TEXTAREA, not an input. `HTMLInputElement.value` runs the "value sanitization
+ * algorithm", which STRIPS every CR and LF from the string — so copying a
+ * multi-line code block through an `<input>` silently produced a single line
+ * with the newlines gone, and the paste looked like the message itself had
+ * been flattened. A textarea holds line breaks.
+ *
+ * The selection is saved and restored because `select()` replaces whatever the
+ * user had highlighted, and copying a message should not clear the text they
+ * were part-way through selecting.
+ */
+const legacyCopyToClipboard = (text: string): boolean => {
+  const field = document.createElement('textarea');
+  field.setAttribute('readonly', '');
+  field.style.position = 'fixed';
+  field.style.top = '0';
+  field.style.opacity = '0';
+  field.style.pointerEvents = 'none';
+  field.value = text;
+  document.body.append(field);
 
-    copyInput.select();
-    copyInput.setSelectionRange(0, 99999);
-    document.execCommand('Copy');
-    copyInput.remove();
+  const selection = document.getSelection();
+  const previous = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : undefined;
+
+  field.select();
+  // `text.length`, not a fixed 99999: a long code block would otherwise be
+  // copied truncated, which is worse than not copying it.
+  field.setSelectionRange(0, text.length);
+
+  let copied = false;
+  try {
+    copied = document.execCommand('copy');
+  } catch {
+    copied = false;
   }
+
+  field.remove();
+  if (selection && previous) {
+    selection.removeAllRanges();
+    selection.addRange(previous);
+  }
+  return copied;
+};
+
+/**
+ * Copies text, and says whether it worked.
+ *
+ * `navigator.clipboard.writeText` returns a promise that REJECTS when the
+ * document is not focused, when the permission is refused, or in an insecure
+ * context. The old code neither awaited nor caught it, so every one of those
+ * failures was silent — the caller still showed "Copied", and the clipboard
+ * still held whatever was in it before. A copy that quietly does nothing while
+ * claiming success is worse than one that fails visibly, because the next
+ * paste produces stale content and nothing points at the copy as the cause.
+ *
+ * The legacy path is kept as a fallback rather than an alternative: it runs
+ * when the modern one is missing AND when it rejects, which is the case that
+ * actually bites inside a WebView.
+ */
+export const copyToClipboard = async (text: string): Promise<boolean> => {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall through — the legacy path does not need focus or a permission.
+    }
+  }
+  return legacyCopyToClipboard(text);
 };
 
 export const setFavicon = (url: string): void => {

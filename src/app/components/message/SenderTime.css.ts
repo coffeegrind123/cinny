@@ -1,4 +1,5 @@
 import { style } from '@vanilla-extract/css';
+import { config } from 'folds';
 
 /**
  * A timestamp slot wide enough for BOTH the timestamp and the sender's local
@@ -26,10 +27,34 @@ export const SenderTimeSlot = style({
   // a stretched grid item would drag the timestamp off the line the name is on.
   alignItems: 'baseline',
   justifyItems: 'start',
+  /**
+   * One line, always — "15:40 Helsinki" and not "15:40" with the city dropped
+   * underneath it.
+   *
+   * The swap makes the timestamp two or three times its usual width, and in a
+   * header row narrow enough to matter (a phone) the flex layout answered that
+   * by wrapping the city onto its own line, which reads as a second timestamp
+   * rather than as part of the first. The header row wraps as a whole instead
+   * (`wrap="Wrap"` in Message.tsx), so the full string moves to the next line
+   * intact when it does not fit beside the name.
+   *
+   * `flex-shrink: 0` is the other half: a wrapping flex line still shrinks its
+   * items to fit, and a shrunk nowrap box just overflows its neighbours.
+   */
+  whiteSpace: 'nowrap',
+  flexShrink: 0,
 });
 
 const cell = {
   gridArea: 'time',
+  /**
+   * A row, not a bare cell: the timestamp can be followed by a status icon (a
+   * sending clock), and that icon has to hug the time text rather than the far
+   * edge of a slot that is sized for a string it cannot see.
+   */
+  display: 'inline-flex',
+  alignItems: 'baseline',
+  gap: config.space.S100,
 } as const;
 
 export const SenderTimeVisible = style(cell);

@@ -108,7 +108,11 @@ import {
   getVideoMsgContent,
   getVoiceMsgContent,
 } from './msgContent';
+import { FocusTrap } from 'focus-trap-react';
+import { stopPropagation } from '../../utils/keyboard';
 import { VoiceRecordBar } from './voice/VoiceRecordBar';
+import { MicPermissionDialog } from './voice/MicPermissionDialog';
+import { useMicrophonePermission } from '../../hooks/useMicrophonePermission';
 import { VoiceRecordStatus, useVoiceRecorder } from './voice/useVoiceRecorder';
 import { isVoiceRecordingSupported } from '../../plugins/voice-recorder';
 import { rainbowHtml } from '../../utils/rainbow';
@@ -287,6 +291,43 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
     }, [editor, emojiShortcodeMap, emojiShortcodeReplace]);
 
     const voiceRecorder = useVoiceRecorder(roomId);
+    const micPermission = useMicrophonePermission();
+    const [micPrompt, setMicPrompt] = useState(false);
+
+    /**
+     * Tapping record asks us before it asks the system.
+     *
+     * `getUserMedia` raises the platform prompt itself, so recording without
+     * this would work — but the user meets Android's bare "Allow Prinny to
+     * record audio?" with no idea what asked for it, and that prompt is only
+     * offered once. A refusal there is effectively permanent, which makes the
+     * explanation worth a tap.
+     *
+     * Only the first time, and only when the platform has not already said yes:
+     * `granted` records immediately, every time. `unknown` counts as
+     * "worth asking" rather than "denied" — the Permissions API does not have
+     * to implement the microphone descriptor, and treating silence as refusal
+     * would put the dialog in front of every recording forever.
+     */
+    const handleVoiceRecordClick = useCallback(() => {
+      if (voiceRecorder.status === VoiceRecordStatus.Recording) {
+        voiceRecorder.stop();
+        return;
+      }
+      if (voiceRecorder.status !== VoiceRecordStatus.Idle) return;
+      if (micPermission.state === 'granted') {
+        voiceRecorder.start();
+        return;
+      }
+      setMicPrompt(true);
+    }, [voiceRecorder, micPermission.state]);
+
+    const handleMicAllow = useCallback(async () => {
+      const result = await micPermission.request();
+      if (result.state !== 'granted') return;
+      setMicPrompt(false);
+      voiceRecorder.start();
+    }, [micPermission, voiceRecorder]);
     const [pollPrompt, setPollPrompt] = useState(false);
     const [locationPrompt, setLocationPrompt] = useState(false);
     // Location sharing needs somewhere to draw a map. Without a tile server
@@ -924,6 +965,25 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
             )}
           </UploadBoard>
         )}
+        {micPrompt && (
+          <Overlay open backdrop={<OverlayBackdrop />}>
+            <OverlayCenter>
+              <FocusTrap
+                focusTrapOptions={{
+                  onDeactivate: () => setMicPrompt(false),
+                  clickOutsideDeactivates: true,
+                  escapeDeactivates: stopPropagation,
+                }}
+              >
+                <MicPermissionDialog
+                  permission={micPermission}
+                  onAllow={handleMicAllow}
+                  onClose={() => setMicPrompt(false)}
+                />
+              </FocusTrap>
+            </OverlayCenter>
+          </Overlay>
+        )}
         <Overlay
           open={dropZoneVisible}
           backdrop={<OverlayBackdrop />}
@@ -1114,13 +1174,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
                     voiceRecorder.status === VoiceRecordStatus.Starting ||
                     voiceRecorder.status === VoiceRecordStatus.Sending
                   }
-                  onClick={() => {
-                    if (voiceRecorder.status === VoiceRecordStatus.Recording) {
-                      voiceRecorder.stop();
-                    } else if (voiceRecorder.status === VoiceRecordStatus.Idle) {
-                      voiceRecorder.start();
-                    }
-                  }}
+                  onClick={handleVoiceRecordClick}
                 >
                   <Icon
                     src={

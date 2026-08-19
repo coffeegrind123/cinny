@@ -115,11 +115,31 @@ export const CodeBlockHeader = style([
     gap: config.space.S200,
   },
 ]);
+/**
+ * Long lines wrap instead of running off the side.
+ *
+ * `<pre>` gives `white-space: pre`, so a code block containing one very long
+ * line renders as exactly that — a single line with a horizontal scrollbar
+ * under it, which is unreadable and is what "code blocks appear as one line"
+ * described. Prose pasted into a fence (a log line, a changelog entry, a JSON
+ * blob) is the common case, and none of it is column-sensitive.
+ *
+ * `pre-wrap` rather than `pre-line`: leading indentation and runs of spaces are
+ * the part of a code block that must survive, and `pre-line` collapses both.
+ * `overflow-wrap: anywhere` is the backstop for a single unbroken token —
+ * a base64 blob, a long URL — which has no space to wrap at and would
+ * otherwise still overflow.
+ *
+ * The block keeps its horizontal scroll for the cases wrapping cannot fix,
+ * so nothing becomes unreachable.
+ */
 export const CodeBlockInternal = style([
   CodeFont,
   {
     padding: `${config.space.S200} ${config.space.S200} 0`,
     minWidth: toRem(200),
+    whiteSpace: 'pre-wrap',
+    overflowWrap: 'anywhere',
   },
 ]);
 

@@ -213,11 +213,24 @@ export const BubbleLeftArrow = style({
   zIndex: 1,
 });
 
+/**
+ * The sender's name, shown in full — never ellipsised.
+ *
+ * It used to be `overflow: hidden; white-space: nowrap; text-overflow:
+ * ellipsis`, which cut names off the moment the header row ran short of width:
+ * on a phone, and on a narrow desktop window. That is the wrong trade for the
+ * one piece of text in the row that says WHO is talking — there is a whole
+ * line below it doing nothing, and "Alexand…" identifies nobody.
+ *
+ * Wrapping instead of truncating is only safe because the header row wraps too
+ * (`wrap="Wrap"` on the header Box in Message.tsx): without that the name would
+ * push the timestamp out of the row rather than move it to the next line.
+ * `overflow-wrap: anywhere` is the backstop for a single unbroken name longer
+ * than the row — it breaks mid-word rather than overflowing the message.
+ */
 export const Username = style({
   userSelect: 'none',
-  overflow: 'hidden',
-  whiteSpace: 'nowrap',
-  textOverflow: 'ellipsis',
+  overflowWrap: 'anywhere',
   selectors: {
     'button&': {
       cursor: 'pointer',

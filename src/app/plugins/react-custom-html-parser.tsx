@@ -5,7 +5,9 @@ import {
   ReactEventHandler,
   Suspense,
   lazy,
-  useMemo,
+  useCallback,
+  useEffect,
+  useRef,
   useState,
 } from 'react';
 import {
@@ -18,7 +20,7 @@ import {
 import type { DOMNode } from 'html-react-parser';
 import { MatrixClient } from 'matrix-js-sdk';
 import classNames from 'classnames';
-import { Box, Chip, config, Header, Icon, IconButton, Icons, Scroll, Text, toRem } from 'folds';
+import { Box, Chip, config, Header, Icon, IconButton, Icons, Scroll, Text } from 'folds';
 import { IntermediateRepresentation, Opts as LinkifyOpts, OptFn } from 'linkifyjs';
 import Linkify from 'linkify-react';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -282,18 +284,62 @@ export function CodeBlock({
       ? languageClass.replace('language-', '')
       : languageClass;
 
-  const LINE_LIMIT = 14;
-  const largeCodeBlock = useMemo(
-    () => extractTextFromChildren(children).split('\n').length > LINE_LIMIT,
-    [children]
-  );
-
   const [expanded, setExpand] = useState(false);
+
+  /**
+   * Whether the block is taller than the collapsed box, MEASURED rather than
+   * guessed from the source.
+   *
+   * It used to be `text.split('\n').length > 14`, which is wrong in both
+   * directions now that long lines wrap: a single 700-character line has no
+   * newlines at all and fills the screen, while fifteen short lines may not
+   * reach the clamp. Only the rendered height knows.
+   *
+   * The clamp is applied whenever the block is collapsed, not only once it is
+   * known to overflow — otherwise the measurement is circular (no clamp means
+   * nothing ever overflows, so the clamp is never applied). Measuring is
+   * skipped while expanded, so the control does not disappear the moment it is
+   * used: there is no overflow to see when nothing is clamped.
+   */
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [overflowing, setOverflowing] = useState(false);
+
+  const measure = useCallback(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    // A pixel of slack: sub-pixel line heights make scrollHeight exceed
+    // clientHeight by a fraction on blocks that visibly fit.
+    setOverflowing(element.scrollHeight > element.clientHeight + 1);
+  }, []);
+
+  useEffect(() => {
+    if (expanded) return undefined;
+    const element = scrollRef.current;
+    if (!element) return undefined;
+
+    measure();
+    // Fonts load late and the window resizes, and both change how many lines
+    // the same text occupies — a one-shot measurement on mount is wrong within
+    // a second of being taken.
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [expanded, measure, children]);
   const [copied, setCopied] = useTimeoutToggle();
 
+  const [copyFailed, setCopyFailed] = useState(false);
+
   const handleCopy = () => {
-    copyToClipboard(extractTextFromChildren(children));
-    setCopied();
+    setCopyFailed(false);
+    // Only claim success when the clipboard actually took it. `writeText`
+    // rejects when the window is not focused or the permission is refused, and
+    // a chip that says "Copied" regardless sends the user to paste something
+    // that was never copied.
+    copyToClipboard(extractTextFromChildren(children)).then(
+      (ok) => (ok ? setCopied() : setCopyFailed(true)),
+      () => setCopyFailed(true)
+    );
   };
 
   const toggleExpand = () => {
@@ -310,15 +356,15 @@ export function CodeBlock({
         </Box>
         <Box shrink="No" gap="200">
           <Chip
-            variant={copied ? 'Success' : 'Surface'}
+            variant={copyFailed ? 'Critical' : copied ? 'Success' : 'Surface'}
             fill="None"
             radii="Pill"
             onClick={handleCopy}
             before={copied && <Icon size="50" src={Icons.Check} />}
           >
-            <Text size="B300">{copied ? 'Copied' : 'Copy'}</Text>
+            <Text size="B300">{copyFailed ? 'Copy failed' : copied ? 'Copied' : 'Copy'}</Text>
           </Chip>
-          {largeCodeBlock && (
+          {overflowing && (
             <IconButton
               size="300"
               variant="SurfaceVariant"
@@ -333,9 +379,13 @@ export function CodeBlock({
         </Box>
       </Header>
       <Scroll
+        ref={scrollRef}
         style={{
-          maxHeight: largeCodeBlock && !expanded ? toRem(300) : undefined,
-          paddingBottom: largeCodeBlock ? config.space.S400 : undefined,
+          // In `em`, so the collapsed box is a fixed number of LINES rather
+          // than a fixed number of pixels — the app bumps the font size on
+          // mobile, where a pixel clamp would show barely half as much.
+          maxHeight: expanded ? undefined : '20em',
+          paddingBottom: overflowing ? config.space.S400 : undefined,
         }}
         direction="Both"
         variant="SurfaceVariant"
@@ -347,7 +397,7 @@ export function CodeBlock({
           {domToReact(toDOMNodes(children), opts)}
         </div>
       </Scroll>
-      {largeCodeBlock && !expanded && <Box className={css.CodeBlockBottomShadow} />}
+      {overflowing && !expanded && <Box className={css.CodeBlockBottomShadow} />}
     </Text>
   );
 }

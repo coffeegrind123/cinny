@@ -6,6 +6,7 @@ import { SettingTile } from '../../../components/setting-tile';
 import { useSetting } from '../../../state/hooks/settings';
 import { settingsAtom } from '../../../state/settings';
 import { acquireMicrophone } from '../../../utils/capture';
+import { useMicrophonePermission } from '../../../hooks/useMicrophonePermission';
 
 type Device = { deviceId: string; label: string };
 
@@ -22,6 +23,8 @@ export function AudioSettings() {
   const [echoCancellation, setEchoCancellation] = useSetting(settingsAtom, 'echoCancellation');
   const [noiseSuppression, setNoiseSuppression] = useSetting(settingsAtom, 'noiseSuppression');
   const [autoGainControl, setAutoGainControl] = useSetting(settingsAtom, 'autoGainControl');
+
+  const micPermission = useMicrophonePermission();
 
   const [devices, setDevices] = useState<Device[]>([]);
   const [labelled, setLabelled] = useState(false);
@@ -57,6 +60,56 @@ export function AudioSettings() {
   return (
     <Box direction="Column" gap="100">
       <Text size="L400">Microphone</Text>
+
+      {/*
+        The permission gets a row of its own rather than living only behind the
+        first recording. A permission you can only reach by starting to do the
+        thing it guards is one you cannot fix after saying no by accident, and
+        on mobile the platform prompt is offered exactly once.
+      */}
+      <SequenceCard
+        className={SequenceCardStyle}
+        variant="SurfaceVariant"
+        direction="Column"
+        gap="400"
+      >
+        <SettingTile
+          title="Microphone access"
+          description={
+            micPermission.state === 'denied' ? (
+              <Text as="span" style={{ color: color.Critical.Main }} size="T200">
+                Blocked. Allow the microphone for Prinny in your system settings, then reopen this
+                screen.
+              </Text>
+            ) : micPermission.state === 'granted' ? (
+              <span>Allowed. Used for voice messages and calls, only while recording.</span>
+            ) : (
+              <span>Needed for voice messages and calls. Opened only while recording.</span>
+            )
+          }
+          after={
+            micPermission.state === 'granted' ? (
+              <Text size="T200" priority="300">
+                Allowed
+              </Text>
+            ) : (
+              <Button
+                size="300"
+                radii="300"
+                onClick={() => micPermission.request().then(() => loadDevices())}
+                disabled={micPermission.requesting || micPermission.state === 'denied'}
+              >
+                <Text size="B300">Allow</Text>
+              </Button>
+            )
+          }
+        />
+        {micPermission.error && micPermission.state !== 'denied' && (
+          <Text style={{ color: color.Critical.Main }} size="T200">
+            {micPermission.error}
+          </Text>
+        )}
+      </SequenceCard>
 
       <SequenceCard
         className={SequenceCardStyle}

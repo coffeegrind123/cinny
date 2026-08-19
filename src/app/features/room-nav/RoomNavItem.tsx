@@ -37,7 +37,11 @@ import { useRoomUnread } from '../../state/hooks/unread';
 import { roomToUnreadAtom } from '../../state/room/roomToUnread';
 import { getPowersLevelFromMatrixEvent, usePowerLevels } from '../../hooks/usePowerLevels';
 import { copyToClipboard, getMouseEventCords } from '../../utils/dom';
-import { markAsRead, setRoomMarkedUnread } from '../../utils/notifications';
+import {
+  markAsRead,
+  setRoomMarkedUnread,
+  suppressAutoMarkAsRead,
+} from '../../utils/notifications';
 import { UseStateProvider } from '../../components/UseStateProvider';
 import { LeaveRoomPrompt } from '../../components/leave-room-prompt';
 import { useRoomTypingMember } from '../../hooks/useRoomTypingMembers';
@@ -80,7 +84,6 @@ import { AvatarPresence, PresenceBadge, PresenceStatus } from '../../components/
 import { StateEvent } from '../../../types/matrix/room';
 import { webRTCSupported } from '../../utils/rtc';
 import { useRoomFavourite, useToggleRoomFavourite } from '../../hooks/useRoomFavourites';
-import { useSelectedRoom } from '../../hooks/router/useSelectedRoom';
 import * as css from './styles.css';
 
 type RoomNavItemMenuProps = {
@@ -95,12 +98,12 @@ const RoomNavItemMenu = forwardRef<HTMLDivElement, RoomNavItemMenuProps>(
     const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
     const unread = useRoomUnread(room.roomId, roomToUnreadAtom);
     const markedUnread = unread?.marked ?? false;
-    // The open room auto-marks itself read (`tryAutoMarkAsRead` in
-    // RoomTimeline), and `markAsRead` now clears the MSC2867 flag — so setting
-    // it on the room you are looking at would be undone within a frame. Offer
-    // the action only where it can survive, rather than letting it silently
-    // fail.
-    const isOpenRoom = useSelectedRoom() === room.roomId;
+    // The open room used to be excluded here: it auto-marks itself read
+    // (`tryAutoMarkAsRead` in RoomTimeline), and `markAsRead` clears the
+    // MSC2867 flag, so setting it on the room you were looking at was undone
+    // within a frame. Automatic reads are now suppressed for a room that was
+    // deliberately flagged (see `suppressAutoMarkAsRead`), so the action
+    // survives and no longer needs to be withheld.
     const pinned = useRoomFavourite(room.roomId);
     const toggleFavourite = useToggleRoomFavourite();
     const [pinning, setPinning] = useState(false);
@@ -123,6 +126,10 @@ const RoomNavItemMenu = forwardRef<HTMLDivElement, RoomNavItemMenuProps>(
     // sends receipts and clears real notifications, which is a different and
     // much less reversible action than setting a flag.
     const handleMarkAsUnread = () => {
+      // The open room reports itself read on scroll and on focus, which would
+      // undo the flag before it was visible. Suppressed until the user leaves
+      // the room, the same as marking a message unread from inside it.
+      suppressAutoMarkAsRead(room.roomId);
       setRoomMarkedUnread(mx, room.roomId, true);
       requestClose();
     };
@@ -201,7 +208,7 @@ const RoomNavItemMenu = forwardRef<HTMLDivElement, RoomNavItemMenuProps>(
             size="300"
             after={<Icon size="100" src={Icons.MessageUnread} />}
             radii="300"
-            disabled={markedUnread || isOpenRoom}
+            disabled={markedUnread}
           >
             <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
               Mark as Unread

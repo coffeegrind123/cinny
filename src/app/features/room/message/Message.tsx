@@ -1,5 +1,6 @@
 import {
   Avatar,
+  Badge,
   Box,
   Button,
   Dialog,
@@ -60,6 +61,7 @@ import {
   mxcUrlToHttp,
 } from '../../../utils/matrix';
 import { markAsUnread } from '../../../utils/notifications';
+import { getWebhookIdentity } from '../../../utils/webhook';
 import { ForwardPrompt } from './ForwardPrompt';
 import { EditHistoryPrompt } from './EditHistoryPrompt';
 import {
@@ -951,9 +953,24 @@ export const Message = as<'div', MessageProps>(
       });
     }, [mEvent, edit]);
 
+    /**
+     * A webhook posts under a name of its own — "CI", "Deploy", "Alerts" — and
+     * the message is attributed to that rather than to the bot account that
+     * relayed it. Without this every integration in a room reads as one sender,
+     * which is the whole reason Discord webhooks carry a username at all.
+     *
+     * Self-asserted, and labelled as such by the WEBHOOK badge beside it. The
+     * account underneath is unchanged: it still owns the avatar (unless the
+     * webhook supplied an `mxc://` one), and the full mxid still appears on
+     * hover.
+     */
+    const webhookIdentity = getWebhookIdentity(mEvent);
     const senderDisplayName =
-      getMemberDisplayName(room, senderId) ?? getMxIdLocalPart(senderId) ?? senderId;
-    const senderAvatarMxc = getMemberAvatarMxc(room, senderId);
+      webhookIdentity?.username ??
+      getMemberDisplayName(room, senderId) ??
+      getMxIdLocalPart(senderId) ??
+      senderId;
+    const senderAvatarMxc = webhookIdentity?.avatarUrl ?? getMemberAvatarMxc(room, senderId);
     const senderPresence = useUserPresence(senderId);
 
     // Local echo status. Sends were fire-and-forget: a message that never
@@ -995,7 +1012,13 @@ export const Message = as<'div', MessageProps>(
         grow="Yes"
       >
         <Box alignItems="Baseline" gap="200" grow="Yes">
-          <Box alignItems="Baseline" gap="100">
+          {/*
+            Wraps rather than squeezing. The name is shown in full now (see
+            `Username` in layout.css.ts), so when the row runs out of width the
+            timestamp moves to the next line instead of the name losing its tail
+            — which is what happened on a phone and on a narrow window.
+          */}
+          <Box alignItems="Baseline" gap="100" wrap="Wrap">
             <Username
               as="button"
               style={{ color: usernameColor }}
@@ -1003,30 +1026,40 @@ export const Message = as<'div', MessageProps>(
               onContextMenu={onUserClick}
               onClick={onUsernameClick}
             >
-              <Text
-                as="span"
-                size={messageLayout === MessageLayout.Bubble ? 'T300' : 'T400'}
-                truncate
-              >
+              <Text as="span" size={messageLayout === MessageLayout.Bubble ? 'T300' : 'T400'}>
                 <UsernameBold>{senderDisplayName}</UsernameBold>
               </Text>
             </Username>
-            <BotBadge room={room} userId={senderId} />
+            {webhookIdentity ? (
+              <Badge as="span" size="400" variant="Secondary" fill="Soft" radii="300">
+                <Text as="span" size="L400">
+                  WEBHOOK
+                </Text>
+              </Badge>
+            ) : (
+              <BotBadge room={room} userId={senderId} />
+            )}
             <SenderTime
               senderId={senderId}
               ts={mEvent.getTs()}
               compact={messageLayout === MessageLayout.Compact}
               hour24Clock={hour24Clock}
               dateFormatString={dateFormatString}
+              // Inside the timestamp's own slot, not beside it. That slot is
+              // sized to the (invisible) sender-local string so the hover swap
+              // moves nothing, so a clock placed after it floated a word's
+              // width away from the time it qualifies.
+              trailing={
+                isSending && (
+                  <Icon
+                    className={css.MessageStatusSending}
+                    size="50"
+                    src={Icons.Clock}
+                    aria-label="Sending"
+                  />
+                )
+              }
             />
-            {isSending && (
-              <Icon
-                className={css.MessageStatusSending}
-                size="50"
-                src={Icons.Clock}
-                aria-label="Sending"
-              />
-            )}
           </Box>
           {tagIconSrc && <PowerIcon size="100" iconSrc={tagIconSrc} />}
         </Box>
