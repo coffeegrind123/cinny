@@ -49,6 +49,7 @@ import { _RoomSearchParams } from '../../paths';
 import { factoryRoomIdByActivity, factoryRoomIdByAtoZ, factoryRoomIdByPinned } from '../../../utils/sort';
 import { useScrollElement } from '../../../hooks/useScrollElement';
 import { useScrollMargin } from '../../../hooks/useScrollMargin';
+import { useRegisterNavRoomOrder } from '../../../state/hooks/navRoomOrder';
 
 /**
  * Which route tree the orphan-room list is being rendered under. The two are
@@ -196,6 +197,10 @@ export function RoomsNavList({ base, scrollRef }: RoomsNavListProps) {
     }
     return items;
   }, [mx, rooms, pinned, roomToUnread, selectedRoomId, unreadOnly]);
+
+  // See DirectsNavList: keyboard navigation steps through what is rendered
+  // here, sort order, pins, unread filter and all.
+  useRegisterNavRoomOrder(10, sortedRooms);
 
   const virtualizer = useVirtualizer({
     count: sortedRooms.length,

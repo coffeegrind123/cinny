@@ -54,6 +54,7 @@ import { useCategoryHandler } from '../../../hooks/useCategoryHandler';
 import { useNavToActivePathMapper } from '../../../hooks/useNavToActivePathMapper';
 import { useRoomName } from '../../../hooks/useRoomMeta';
 import { useSpaceJoinedHierarchy } from '../../../hooks/useSpaceHierarchy';
+import { useRegisterNavRoomOrder } from '../../../state/hooks/navRoomOrder';
 import {
   useRoomOrderContent,
   useReorderRoom,
@@ -507,6 +508,24 @@ export function Space() {
     sortMode,
     customOrders
   );
+
+  // The rooms this nav renders, in hierarchy order — categories, custom order,
+  // sort mode and collapsed sections already applied, since that is what the
+  // hierarchy is. Space rows are headers rather than destinations, and an item
+  // with no joined room renders nothing, so neither belongs in the order
+  // keyboard navigation steps through.
+  const listedRooms = useMemo(
+    () =>
+      hierarchy
+        .filter((item) => !('space' in item))
+        .map((item) => item.roomId)
+        .filter((roomId) => {
+          const room = getRoom(roomId);
+          return room !== undefined && !room.isSpaceRoom();
+        }),
+    [hierarchy, getRoom]
+  );
+  useRegisterNavRoomOrder(10, listedRooms);
 
   const parentRooms = useMemo(
     () =>

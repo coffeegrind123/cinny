@@ -29,6 +29,7 @@ import {
 import { factoryRoomIdByActivity, factoryRoomIdByPinned } from '../../../utils/sort';
 import { useScrollElement } from '../../../hooks/useScrollElement';
 import { useScrollMargin } from '../../../hooks/useScrollMargin';
+import { useRegisterNavRoomOrder } from '../../../state/hooks/navRoomOrder';
 
 /**
  * Create Chat. Direct messages keep their own `/direct` route tree whichever
@@ -91,6 +92,10 @@ export function DirectsNavList({ scrollRef }: DirectsNavListProps) {
     }
     return items;
   }, [mx, directs, pinned, roomToUnread, selectedRoomId, unreadOnly]);
+
+  // Publish the rendered order so keyboard navigation moves through this list
+  // rather than an internal one. Chats sit below rooms wherever both are shown.
+  useRegisterNavRoomOrder(20, sortedDirects);
 
   const virtualizer = useVirtualizer({
     count: sortedDirects.length,

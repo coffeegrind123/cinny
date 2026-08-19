@@ -17,6 +17,7 @@ import { roomToUnreadAtom } from '../../state/room/roomToUnread';
 import { mDirectAtom } from '../../state/mDirectList';
 import { roomToParentsAtom } from '../../state/room/roomToParents';
 import { useSpaces } from '../../state/hooks/roomList';
+import { useNavRoomOrder } from '../../state/hooks/navRoomOrder';
 import { markAsRead } from '../../utils/notifications';
 import { isSpace } from '../../utils/room';
 
@@ -108,14 +109,30 @@ export function GlobalKeybinds() {
   });
 
   // ── Sibling rooms within the current view ────────────────────
-  // Pick the ordered list of rooms that are siblings of the currently
-  // selected one, matching whichever sidebar is open:
+  // The room lists publish what they render (see navRoomOrderAtom), and that
+  // is what these keys step through: the same sequence, top to bottom, that
+  // the sidebar is showing — pinned chats first, sorted by activity or A-Z as
+  // that list sorts, filtered by "show unread only", and inside a space in
+  // hierarchy order with collapsed categories left out.
+  //
+  // Deriving it here instead was the bug: filtering the room list by "is a DM"
+  // gives the right rooms in the wrong order, because the visible order is not
+  // a property of the rooms — it is pins, a sort mode and a filter that only
+  // the list knows about. Alt+Up/Down therefore landed on whichever DM
+  // happened to sit next in an internal list rather than the one below the
+  // current chat on screen.
+  //
+  // The derivation stays as a fallback for a screen with no room list mounted
+  // at all (Explore, the inbox), where there is nothing to publish and no
+  // visible order to honour. A list that is mounted and empty is NOT that
+  // case — it means the sidebar is showing nothing, so neither key moves:
   //   • inside a space  → that space's rooms
-  //   • Direct Messages → DMs only (previously this fell through to the
-  //     all-rooms branch below, so Alt+Up/Down jumped to arbitrary
-  //     non-DM rooms instead of the next/previous DM)
+  //   • Direct Messages → DMs only
   //   • Home            → orphan rooms (non-space, non-DM, no parent space)
+  const navRoomOrder = useNavRoomOrder();
+
   const visibleRoomIds = useCallback((): string[] => {
+    if (navRoomOrder !== undefined) return navRoomOrder;
     if (selectedSpaceId) {
       return allRooms.filter((rid) => {
         const room = mx.getRoom(rid);
@@ -133,7 +150,7 @@ export function GlobalKeybinds() {
       if (mDirects.has(rid)) return false;
       return !roomToParents.has(rid);
     });
-  }, [allRooms, mx, roomToParents, selectedSpaceId, directSelected, mDirects]);
+  }, [navRoomOrder, allRooms, mx, roomToParents, selectedSpaceId, directSelected, mDirects]);
 
   useKeybind('nav-channels-up', () => {
     const list = visibleRoomIds();
