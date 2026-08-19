@@ -2,6 +2,11 @@
 
 User-facing changes per commit. Most recent at the top.
 
+## 19.08.2026
+
+- `d31ce06` Fixed **Alt+Up/Down jumping to the wrong chat**. They moved through your chats in an order that had nothing to do with the one on screen — pinned chats were not first, the sort was not applied, and "Show unread only" was ignored — so pressing Alt+Down went to some other chat rather than the one below. They now follow the list exactly as it reads, in every sidebar: chats, rooms and inside a space, including collapsed sections and your own ordering. Where Home shows rooms above chats, Alt+Down off the last room carries on into the first chat. One consequence worth knowing: with "Show unread only" on, these keys now cycle only the unread chats, because that is what the list is showing.
+- `2bc1923` Fixed **the sender's local time on hover ignoring your date format**. Hovering a timestamp shows the same moment on the sender's clock, and adds the date when it lands on a different day where they are — that date was always written "19 Aug" instead of the format set in Settings → General. It now uses your date and 12/24-hour settings, the same as every other timestamp in the app.
+
 ## 18.08.2026
 
 - `35eaff8` Fixed **swiping in from the left in Settings on Android doing nothing**, and the Back button with it. Android keeps the outer edge of the screen for its own back gesture, so that swipe never reached Prinny at all — what arrived was a plain "go back", and Settings is not somewhere you navigated to, so going back moved the screen *behind* it and left Settings sitting there. It now steps back the way the X does: out of a section to the list, and off the list to close. Pressing Back does the same.
