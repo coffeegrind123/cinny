@@ -43,7 +43,12 @@ export function SenderTime({
 
   const timezone = useUserTimezone(senderId, hovered);
   const senderLocal = timezone
-    ? formatInstantInTimezone(timezone, new Date(timeProps.ts), timeProps.hour24Clock)
+    ? formatInstantInTimezone(
+        timezone,
+        new Date(timeProps.ts),
+        timeProps.hour24Clock,
+        timeProps.dateFormatString
+      )
     : undefined;
   const showing = hovered && senderLocal !== undefined;
 

@@ -1,4 +1,11 @@
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
 import { RICH_PRESENCE_PROFILE_FIELDS } from './richPresence';
+
+// Both are needed for `.tz()`: the timezone plugin is built on utc.
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 export const MSC4247_PRONOUNS = 'io.fsky.nyx.pronouns';
 export const M_PRONOUNS = 'm.pronouns';
@@ -148,39 +155,24 @@ export const timezoneCity = (tz: string): string =>
 export const formatInstantInTimezone = (
   tz: string,
   at: Date,
-  hour24Clock: boolean
+  hour24Clock: boolean,
+  dateFormatString: string
 ): string | undefined => {
   try {
-    const dayOpts: Intl.DateTimeFormatOptions = {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    };
-    // en-CA gives ISO-ordered YYYY-MM-DD, so the two are comparable as strings.
-    const dayHere = new Intl.DateTimeFormat('en-CA', dayOpts).format(at);
-    const dayThere = new Intl.DateTimeFormat('en-CA', { ...dayOpts, timeZone: tz }).format(at);
-
-    // Matches what the rest of the app renders for a timestamp, which is dayjs
-    // `HH:mm` or `hh:mm A`. The locale is chosen for that and nothing else:
-    // en-US spells the suffix `AM`/`PM`, where en-GB gives a lowercase `am` —
-    // measured, not assumed.
-    const time = new Intl.DateTimeFormat(hour24Clock ? 'en-GB' : 'en-US', {
-      timeZone: tz,
-      hour: '2-digit',
-      minute: '2-digit',
-      ...(hour24Clock ? { hourCycle: 'h23' as const } : { hour12: true }),
-    }).format(at);
-
+    // Formatted through dayjs with the caller's settings rather than a fixed
+    // locale, so a timestamp reads the same whichever clock it is on: the same
+    // `HH:mm` / `hh:mm A` the timeline uses for the 24-hour setting, and the
+    // date pattern chosen in Settings -> General rather than a hardcoded
+    // "19 Aug". `.tz()` throws on an unusable zone, which the catch answers.
+    const there = dayjs(at).tz(tz);
+    const time = there.format(hour24Clock ? 'HH:mm' : 'hh:mm A');
     const city = timezoneCity(tz);
 
-    if (dayHere === dayThere) return `${time} ${city}`;
+    // ISO-ordered on both sides, so the days are comparable as strings.
+    const sameDay = there.format('YYYY-MM-DD') === dayjs(at).format('YYYY-MM-DD');
+    if (sameDay) return `${time} ${city}`;
 
-    const date = new Intl.DateTimeFormat('en-GB', {
-      timeZone: tz,
-      day: 'numeric',
-      month: 'short',
-    }).format(at);
-    return `${date} ${time} ${city}`;
+    return `${there.format(dateFormatString)} ${time} ${city}`;
   } catch {
     return undefined;
   }
