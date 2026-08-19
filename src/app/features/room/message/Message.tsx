@@ -1047,8 +1047,8 @@ export const Message = as<'div', MessageProps>(
               dateFormatString={dateFormatString}
               // Inside the timestamp's own slot, not beside it. That slot is
               // sized to the (invisible) sender-local string so the hover swap
-              // moves nothing, so a clock placed after it floated a word's
-              // width away from the time it qualifies.
+              // moves nothing, so a clock placed after it floated away from the
+              // time it qualifies whenever that string was the wider of the two.
               trailing={
                 isSending && (
                   <Icon

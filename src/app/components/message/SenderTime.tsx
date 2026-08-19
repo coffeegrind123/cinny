@@ -13,9 +13,10 @@ type SenderTimeProps = TimeProps & {
    * dot, anything that reads as belonging TO the time rather than next to it.
    *
    * It belongs in here rather than as a sibling of `SenderTime` because the
-   * slot is sized to the sender-local string, which is wider than the timestamp
-   * and invisible. A sibling therefore sat at the far edge of a gap it could
-   * not see the cause of, looking unrelated to the message it was reporting on.
+   * slot is sized to the sender-local string, which is invisible and — on the
+   * days that string carries a date — wider than the timestamp. A sibling
+   * therefore sat at the far edge of a gap it could not see the cause of,
+   * looking unrelated to the message it was reporting on.
    */
   trailing?: ReactNode;
 };
@@ -30,10 +31,10 @@ type SenderTimeProps = TimeProps & {
  *
  * The same instant on their clock, not the current time there: this is still the
  * message's timestamp, only somewhere else. (What time it is for them *now*
- * already appears in their profile.) The zone's city is appended, because a bare
- * time is not visibly anyone else's — "15:40" reads as an ordinary timestamp,
- * "15:40 Helsinki" reads as where they are — and the date joins it when the zone
- * shift moves the instant onto another day.
+ * already appears in their profile.) Just the time, with no city after it — the
+ * zone's name lives in the `title` instead, so the swapped-in string is the same
+ * width as the timestamp it replaces. The date joins it only when the zone shift
+ * moves the instant onto another day.
  *
  * Falls back to the ordinary timestamp whenever there is nothing better to
  * show: no zone set, a homeserver without extended profiles, or the lookup
@@ -73,8 +74,9 @@ export function SenderTime({
         <Time
           {...timeProps}
           overrideText={showing ? senderLocal : undefined}
-          // Names the zone in full, since the slot only has room for the city.
-          // Only while the swap is actually showing.
+          // Names the zone in full — the visible string is now only a time, so
+          // this is the one place that says WHERE that clock is. Only while the
+          // swap is actually showing.
           title={showing ? `Local time for ${senderId} (${timezone})` : undefined}
         />
         {trailing}

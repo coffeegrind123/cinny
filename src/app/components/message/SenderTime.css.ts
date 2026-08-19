@@ -6,13 +6,20 @@ import { config } from 'folds';
  * time, so swapping between them moves nothing.
  *
  * This is the fix for the hover flickering, and the cause is worth stating
- * because it is not obvious from the symptom. The two strings are different
- * widths ("15:40" against "15:40 Helsinki"). Swapping them resized the element
- * under the pointer; if that resize moved its edge past the pointer, the hover
- * ended, which restored the short string, which put the element back under the
- * pointer, which started the hover again — several times a second, for as long
- * as you held still. Nothing was wrong with the hover tracking; the element was
- * moving out from under it.
+ * because it is not obvious from the symptom. Where the two strings are
+ * different widths, swapping them resized the element under the pointer; if
+ * that resize moved its edge past the pointer, the hover ended, which restored
+ * the short string, which put the element back under the pointer, which
+ * started the hover again — several times a second, for as long as you held
+ * still. Nothing was wrong with the hover tracking; the element was moving out
+ * from under it.
+ *
+ * Since the city was dropped from the sender-local string the two are usually
+ * the SAME width, and then this slot reserves nothing extra — which is the
+ * point: the invisible copy used to hold a city's width open on every message,
+ * visibly shoving the right-aligned gutter timestamp leftwards. It still earns
+ * its place on the day-rollover case, where the string picks up a date and the
+ * widths diverge again.
  *
  * A grid with both strings in the SAME cell sizes that cell to the wider of the
  * two, and the visible one then changes inside a box that never moves. The
@@ -28,12 +35,12 @@ export const SenderTimeSlot = style({
   alignItems: 'baseline',
   justifyItems: 'start',
   /**
-   * One line, always — "15:40 Helsinki" and not "15:40" with the city dropped
+   * One line, always — a date and a time, never the date with the time dropped
    * underneath it.
    *
-   * The swap makes the timestamp two or three times its usual width, and in a
+   * On the day-rollover case the swap still widens the timestamp, and in a
    * header row narrow enough to matter (a phone) the flex layout answered that
-   * by wrapping the city onto its own line, which reads as a second timestamp
+   * by wrapping the tail onto its own line, which reads as a second timestamp
    * rather than as part of the first. The header row wraps as a whole instead
    * (`wrap="Wrap"` in Message.tsx), so the full string moves to the next line
    * intact when it does not fit beside the name.

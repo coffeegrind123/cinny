@@ -126,18 +126,6 @@ export const formatTimeInTimezone = (tz: string, at: Date = new Date()): string 
 };
 
 /**
- * The city half of an IANA zone id: `Europe/Helsinki` -> `Helsinki`.
- *
- * Shown because a bare time is not obviously anyone else's. "15:40" beside a
- * message reads as a timestamp; "15:40 Helsinki" reads as where they are.
- * The last segment is the city for every zone that has one, and for the ones
- * that do not (`UTC`) it is the zone's own name, which is the right label
- * anyway.
- */
-export const timezoneCity = (tz: string): string =>
-  (tz.split('/').pop() ?? tz).replace(/_/g, ' ');
-
-/**
  * A specific instant, as the clock read in `tz`. Undefined if the zone is unusable.
  *
  * The date is included **only when the instant falls on a different calendar day
@@ -151,6 +139,16 @@ export const timezoneCity = (tz: string): string =>
  *
  * Not included when the day matches, because then it is noise: the surrounding
  * timeline already establishes the date.
+ *
+ * The zone's CITY is deliberately not part of the string. It used to be
+ * appended ("15:40 Helsinki") on the argument that a bare time is not visibly
+ * anyone else's, but it cost more than it explained: the slot in `SenderTime`
+ * is sized to hold this string, so every message from a sender with a
+ * published zone reserved a city's width of invisible space, and in the
+ * avatar-gutter timestamp — which is right-aligned inside a fixed box — that
+ * pushed the visible time bodily to the left of where it belongs. The zone is
+ * still named in full in the element's `title`, which is where someone asking
+ * "where are they?" rather than "what time is it for them?" can read it.
  */
 export const formatInstantInTimezone = (
   tz: string,
@@ -166,13 +164,12 @@ export const formatInstantInTimezone = (
     // "19 Aug". `.tz()` throws on an unusable zone, which the catch answers.
     const there = dayjs(at).tz(tz);
     const time = there.format(hour24Clock ? 'HH:mm' : 'hh:mm A');
-    const city = timezoneCity(tz);
 
     // ISO-ordered on both sides, so the days are comparable as strings.
     const sameDay = there.format('YYYY-MM-DD') === dayjs(at).format('YYYY-MM-DD');
-    if (sameDay) return `${time} ${city}`;
+    if (sameDay) return time;
 
-    return `${there.format(dateFormatString)} ${time} ${city}`;
+    return `${there.format(dateFormatString)} ${time}`;
   } catch {
     return undefined;
   }
