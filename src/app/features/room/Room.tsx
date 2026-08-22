@@ -2,10 +2,11 @@ import { useCallback, useEffect } from 'react';
 import { Box } from 'folds';
 import { useParams } from 'react-router-dom';
 import { isKeyHotkey } from '../../utils/is-hotkey';
-import { useAtom, useAtomValue } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { RoomView } from './RoomView';
 import { MembersDrawer } from './MembersDrawer';
 import { roomSearchOpenAtom } from '../../state/roomSearch';
+import { mediaFeedRequestAtom, roomGalleryOpenAtom } from '../../state/roomGallery';
 import { ScreenSize, useScreenSizeContext } from '../../hooks/useScreenSize';
 import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
@@ -41,7 +42,7 @@ export function Room() {
   const callEmbed = useCallEmbed();
 
   const [isDrawer] = useSetting(settingsAtom, 'isPeopleDrawer');
-  const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
+  const [hideReadReceipts] = useSetting(settingsAtom, 'hideReadReceipts');
   const [searchOpen, setSearchOpen] = useAtom(roomSearchOpenAtom);
   const screenSize = useScreenSizeContext();
 
@@ -50,6 +51,20 @@ export function Room() {
     setSearchOpen(false);
     return () => setSearchOpen(false);
   }, [room.roomId, setSearchOpen]);
+
+  // So is the gallery, and the feed opened out of it: both belong to the room
+  // they were opened in, and neither should be the first thing you see in the
+  // next one.
+  const setGalleryOpen = useSetAtom(roomGalleryOpenAtom);
+  const setMediaFeedRequest = useSetAtom(mediaFeedRequestAtom);
+  useEffect(() => {
+    setGalleryOpen(false);
+    setMediaFeedRequest(undefined);
+    return () => {
+      setGalleryOpen(false);
+      setMediaFeedRequest(undefined);
+    };
+  }, [room.roomId, setGalleryOpen, setMediaFeedRequest]);
 
   const [threadView, setThreadView] = useAtom(threadViewAtom);
   const closeThread = useCallback(() => setThreadView(undefined), [setThreadView]);
@@ -73,11 +88,11 @@ export function Room() {
       (evt) => {
         if (isBackdrop) return;
         if (isKeyHotkey('escape', evt)) {
-          markAsRead(mx, room.roomId, hideActivity);
+          markAsRead(mx, room.roomId, hideReadReceipts);
         }
       },
-      [mx, room.roomId, hideActivity, isBackdrop]
-    )
+      [mx, room.roomId, hideReadReceipts, isBackdrop],
+    ),
   );
 
   const callView = callEmbed?.roomId === room.roomId || room.isCallRoom() || callMembers.length > 0;
@@ -91,23 +106,23 @@ export function Room() {
       <ChatEffects />
       <MobileSwipeBack>
         <Box grow="Yes">
-        {callView && (screenSize === ScreenSize.Desktop || !chat) && (
-          <Box grow="Yes" direction="Column">
-            <RoomViewHeader callView />
-            <Box grow="Yes">
-              <CallView />
+          {callView && (screenSize === ScreenSize.Desktop || !chat) && (
+            <Box grow="Yes" direction="Column">
+              <RoomViewHeader callView />
+              <Box grow="Yes">
+                <CallView />
+              </Box>
             </Box>
-          </Box>
-        )}
-        {!callView && (
-          <Box grow="Yes" direction="Column" style={{ position: 'relative' }}>
-            <RoomViewHeader />
-            <RoomKnocksBar room={room} />
-            <LiveLocationBanner room={room} />
-            <Box grow="Yes">
-              <RoomView eventId={eventId} />
-            </Box>
-            {/* On anything narrower than desktop the thread takes over the
+          )}
+          {!callView && (
+            <Box grow="Yes" direction="Column" style={{ position: 'relative' }}>
+              <RoomViewHeader />
+              <RoomKnocksBar room={room} />
+              <LiveLocationBanner room={room} />
+              <Box grow="Yes">
+                <RoomView eventId={eventId} />
+              </Box>
+              {/* On anything narrower than desktop the thread takes over the
                 room, matching how search behaves — a 360px panel beside a
                 phone-width timeline would leave neither usable. */}
             {openThreadRootId && screenSize !== ScreenSize.Desktop && (

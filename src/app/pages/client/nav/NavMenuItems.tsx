@@ -42,12 +42,12 @@ type MarkAsReadMenuItemProps = {
 /** Marks every room the surrounding nav lists as read. */
 export function MarkAsReadMenuItem({ rooms, requestClose }: MarkAsReadMenuItemProps) {
   const mx = useMatrixClient();
-  const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
+  const [hideReadReceipts] = useSetting(settingsAtom, 'hideReadReceipts');
   const unread = useRoomsUnread(rooms, roomToUnreadAtom);
 
   const handleMarkAsRead = () => {
     if (!unread) return;
-    rooms.forEach((rId) => markAsRead(mx, rId, hideActivity));
+    rooms.forEach((rId) => markAsRead(mx, rId, hideReadReceipts));
     requestClose();
   };
 

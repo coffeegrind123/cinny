@@ -37,6 +37,7 @@ import { useSetting } from '../../state/hooks/settings';
 import { settingsAtom } from '../../state/settings';
 import { isYoutubeUrl, getYoutubeVideoId } from '../../utils/youtube';
 import { pipedEmbedUrl, usePipedInstance } from '../../utils/piped';
+import { useYoutubeMeta } from '../../hooks/useYoutubeMeta';
 import { fetchOgPreview } from '../../utils/tauri-og-preview';
 import { isWebUrl, webUrlOrUndefined } from '../../utils/safeUrl';
 import { GifImage, ProxiedImg, ProxiedVideo } from './GifMedia';
@@ -420,6 +421,16 @@ export const UrlPreviewCard = as<
   const [pipedInstance] = useSetting(settingsAtom, 'pipedInstance');
   const pipedBase = usePipedInstance(pipedInstance);
   const [clientPreviewFallback] = useSetting(settingsAtom, 'clientPreviewFallback');
+  // Asked for every YouTube link, from the same host the iframe embeds — see
+  // useYoutubeMeta. `isYoutubeUrl`/`getYoutubeVideoId` are recomputed here
+  // rather than reusing `ytVideoId` below because hooks cannot wait for it:
+  // several early returns sit between the two, and this must run on every
+  // render regardless of which branch the card takes.
+  const ytMeta = useYoutubeMeta(
+    isYoutubeUrl(url) ? getYoutubeVideoId(url) : null,
+    usePiped,
+    pipedBase
+  );
 
   // The previewed URL itself is message content, and it is rendered into five
   // separate `<a href>` positions below. Every value derived from the preview
@@ -1218,11 +1229,19 @@ export const UrlPreviewCard = as<
   const isDirectMediaLink =
     isWebUrl(url) && (isVideoUrl(url) || isAudioUrl(url) || isImageUrl(url));
 
+  // Same reasoning as a direct media link: the YouTube branch builds its player
+  // from the video id and its title from `ytMeta`, so it needs nothing the
+  // homeserver could have scraped. Without this a link whose preview YouTube
+  // refused to serve — the common case, not the rare one — rendered no card at
+  // all rather than a working embed.
+  const isEmbeddableYoutube = isYt && !!ytVideoId;
+
   if (
     !effectivePreview &&
     previewStatus.status !== AsyncStatus.Loading &&
     !fallbackPending &&
-    !isDirectMediaLink
+    !isDirectMediaLink &&
+    !isEmbeddableYoutube
   ) {
     return null;
   }
@@ -1312,9 +1331,14 @@ export const UrlPreviewCard = as<
     // the media, so it is its own preview.
     const directImageUrl = isImageUrl(url) && isWebUrl(url) ? url : '';
 
-    const title = prev['og:title'] as string | undefined;
+    // On a YouTube link the fetched metadata wins over the homeserver's scrape,
+    // which for this one host is usually empty or the literal string "YouTube".
+    // It is only ever a replacement, never a requirement: when the fetch failed
+    // this falls straight back to whatever the preview carried.
+    const title = (isYt ? ytMeta.title : undefined) ?? (prev['og:title'] as string | undefined);
     const description = prev['og:description'] as string | undefined;
-    const siteName = prev['og:site_name'] as string | undefined;
+    const siteName =
+      (isYt ? ytMeta.author : undefined) ?? (prev['og:site_name'] as string | undefined);
     const isVideo = isVideoUrl(url) || (prev['og:type'] as string)?.startsWith('video');
 
     // Sites that ship a tiny favicon-style og:image (48×48, 64×64 logo) want
@@ -1659,7 +1683,7 @@ export const UrlPreviewCard = as<
 
   return (
     <UrlPreview {...props} ref={ref}>
-      {effectivePreview || isDirectMediaLink ? (
+      {effectivePreview || isDirectMediaLink || isEmbeddableYoutube ? (
         // A direct media link renders from the URL alone, so an absent preview
         // is fine — without this it sat on the spinner forever waiting for
         // metadata a raw .mp4 will never provide.

@@ -1,8 +1,9 @@
-import { ReactNode } from 'react';
+import { ReactNode, useCallback } from 'react';
+import { useSetAtom } from 'jotai';
 import { IContent, MsgType } from 'matrix-js-sdk';
 import { HTMLReactParserOptions } from 'html-react-parser';
 import { Opts } from 'linkifyjs';
-import { Box, config } from 'folds';
+import { Box, Chip, Icon, Icons, Text, config } from 'folds';
 import {
   AudioContent,
   DownloadFile,
@@ -39,6 +40,7 @@ import { isMediaAutoEmbedUrl } from '../utils/mediaAutoEmbed';
 import { MediaAutoEmbed } from './message/content';
 import { useSetting } from '../state/hooks/settings';
 import { settingsAtom } from '../state/settings';
+import { mediaFeedRequestAtom } from '../state/roomGallery';
 
 type RenderMessageContentProps = {
   displayName: string;
@@ -53,6 +55,14 @@ type RenderMessageContentProps = {
   linkifyOpts: Opts;
   outlineAttachment?: boolean;
   renderLocationMap?: (position: { latitude: string; longitude: string }) => ReactNode;
+  /**
+   * Where this message lives. Both are needed to open the media feed on it —
+   * without them (search results, pinned previews) attachments keep the plain
+   * single-image viewer, which is the right fallback: there is no surrounding
+   * feed to swipe through in those places.
+   */
+  roomId?: string;
+  eventId?: string;
 };
 export function RenderMessageContent({
   displayName,
@@ -67,8 +77,18 @@ export function RenderMessageContent({
   linkifyOpts,
   outlineAttachment,
   renderLocationMap,
+  roomId,
+  eventId,
 }: RenderMessageContentProps) {
   const [autoEmbedHosts] = useSetting(settingsAtom, 'mediaAutoEmbedHosts');
+  const [mediaFeedViewer] = useSetting(settingsAtom, 'mediaFeedViewer');
+  const setMediaFeedRequest = useSetAtom(mediaFeedRequestAtom);
+
+  const feedAvailable = mediaFeedViewer && !!roomId && !!eventId;
+  const openInFeed = useCallback(() => {
+    if (!roomId || !eventId) return;
+    setMediaFeedRequest({ roomId, eventId });
+  }, [roomId, eventId, setMediaFeedRequest]);
   const renderUrlsPreview = (urls: string[]) => {
     const filteredUrls = urls.filter((url) => !testMatrixTo(url));
     if (filteredUrls.length === 0) return undefined;
@@ -151,7 +171,6 @@ export function RenderMessageContent({
             <DownloadFile body={body} mimeType={mimeType} url={url} encInfo={encInfo} info={info} />
           </FileContent>
         )}
-        outlined={outlineAttachment}
       />
       {renderCaption()}
     </>
@@ -221,7 +240,9 @@ export function RenderMessageContent({
             <ImageContent
               {...props}
               autoPlay={mediaAutoLoad}
-              renderImage={(p) => <Image {...p} loading="lazy" />}
+              renderImage={(p) => (
+                <Image {...p} loading="lazy" onClick={feedAvailable ? openInFeed : p.onClick} />
+              )}
               renderViewer={(p) => <ImageViewer {...p} />}
             />
           )}
@@ -255,9 +276,24 @@ export function RenderMessageContent({
                     )
                   : undefined
               }
+              renderOverlay={
+                feedAvailable
+                  ? () => (
+                      <Chip
+                        variant="Secondary"
+                        radii="Pill"
+                        size="400"
+                        onClick={openInFeed}
+                        before={<Icon size="50" src={Icons.Category} />}
+                        aria-label="Watch in the media feed"
+                      >
+                        <Text size="B300">Feed</Text>
+                      </Chip>
+                    )
+                  : undefined
+              }
             />
           )}
-          outlined={outlineAttachment}
         />
         {renderCaption()}
       </>
@@ -291,7 +327,6 @@ export function RenderMessageContent({
           content={audioContent as IAudioContent}
           renderAsFile={renderFile}
           renderAudioContent={(props) => <AudioContent {...props} />}
-          outlined={outlineAttachment}
         />
         {renderCaption()}
       </>

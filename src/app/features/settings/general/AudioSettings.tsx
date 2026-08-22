@@ -78,8 +78,8 @@ export function AudioSettings() {
           description={
             micPermission.state === 'denied' ? (
               <Text as="span" style={{ color: color.Critical.Main }} size="T200">
-                Blocked. Allow the microphone for Prinny in your system settings, then reopen this
-                screen.
+                Refused. Ask again to raise the prompt once more — if none appears, allow the
+                microphone for Prinny in your system settings.
               </Text>
             ) : micPermission.state === 'granted' ? (
               <span>Allowed. Used for voice messages and calls, only while recording.</span>
@@ -93,18 +93,22 @@ export function AudioSettings() {
                 Allowed
               </Text>
             ) : (
+              // Still enabled after a refusal, deliberately — see
+              // MicPermissionDialog: Android keeps re-prompting until the user
+              // has said no twice, and a disabled button made a first accidental
+              // no look permanent.
               <Button
                 size="300"
                 radii="300"
                 onClick={() => micPermission.request().then(() => loadDevices())}
-                disabled={micPermission.requesting || micPermission.state === 'denied'}
+                disabled={micPermission.requesting}
               >
-                <Text size="B300">Allow</Text>
+                <Text size="B300">{micPermission.state === 'denied' ? 'Ask again' : 'Allow'}</Text>
               </Button>
             )
           }
         />
-        {micPermission.error && micPermission.state !== 'denied' && (
+        {micPermission.error && (
           <Text style={{ color: color.Critical.Main }} size="T200">
             {micPermission.error}
           </Text>

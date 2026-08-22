@@ -1,4 +1,5 @@
 import { useCallback, useRef } from 'react';
+import { useAtomValue } from 'jotai';
 import { Box, Text, config } from 'folds';
 import { EventType } from 'matrix-js-sdk';
 import { isKeyHotkey } from '../../utils/is-hotkey';
@@ -22,6 +23,8 @@ import { useRoomPermissions } from '../../hooks/useRoomPermissions';
 import { useRoomCreators } from '../../hooks/useRoomCreators';
 import { useRoom } from '../../hooks/useRoom';
 import { PinnedMessageBanner } from './PinnedMessageBanner';
+import { MediaFeedHost, RoomGallery, RoomMediaProvider } from './gallery';
+import { mediaFeedRequestAtom, roomGalleryOpenAtom } from '../../state/roomGallery';
 
 const FN_KEYS_REGEX = /^F\d+$/;
 const shouldFocusMessageField = (evt: KeyboardEvent): boolean => {
@@ -58,7 +61,10 @@ export function RoomView({ eventId }: { eventId?: string }) {
   const roomInputRef = useRef<HTMLDivElement>(null);
   const roomViewRef = useRef<HTMLDivElement>(null);
 
-  const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
+  const [hideReadReceipts] = useSetting(settingsAtom, 'hideReadReceipts');
+
+  const galleryOpen = useAtomValue(roomGalleryOpenAtom);
+  const feedRequest = useAtomValue(mediaFeedRequestAtom);
 
   const room = useRoom();
   const { roomId } = room;
@@ -86,22 +92,35 @@ export function RoomView({ eventId }: { eventId?: string }) {
           safeFocusEditor(editor);
         }
       },
-      [editor]
-    )
+      [editor],
+    ),
   );
+
+  // The media scan walks the room's history, so it only runs once something is
+  // actually looking at it — the gallery, or a feed opened from a message.
+  const mediaActive = galleryOpen || feedRequest?.roomId === roomId;
 
   return (
     <Page ref={roomViewRef}>
-      <Box grow="Yes" direction="Column">
-        <RoomTimeline
-          key={roomId}
-          room={room}
-          eventId={eventId}
-          roomInputRef={roomInputRef}
-          editor={editor}
-        />
-        <RoomViewTyping room={room} />
-      </Box>
+      <RoomMediaProvider room={room} enabled={mediaActive}>
+        <Box grow="Yes" direction="Column">
+          {galleryOpen ? (
+            <RoomGallery />
+          ) : (
+            <>
+              <RoomTimeline
+                key={roomId}
+                room={room}
+                eventId={eventId}
+                roomInputRef={roomInputRef}
+                editor={editor}
+              />
+              <RoomViewTyping room={room} />
+            </>
+          )}
+        </Box>
+        <MediaFeedHost room={room} />
+      </RoomMediaProvider>
       <Box shrink="No" direction="Column">
         <div style={{ padding: `0 ${config.space.S400}` }}>
           <PinnedMessageBanner room={room} />
@@ -134,7 +153,7 @@ export function RoomView({ eventId }: { eventId?: string }) {
             </>
           )}
         </div>
-        {hideActivity ? <RoomViewFollowingPlaceholder /> : <RoomViewFollowing room={room} />}
+        {hideReadReceipts ? <RoomViewFollowingPlaceholder /> : <RoomViewFollowing room={room} />}
       </Box>
     </Page>
   );

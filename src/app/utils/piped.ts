@@ -19,6 +19,24 @@ export const PIPED_INSTANCES: string[] = [
 const DEFAULT_INSTANCE = PIPED_INSTANCES[0];
 
 /**
+ * Where each instance serves its JSON API.
+ *
+ * Not derivable from the frontend origin, which is why this is a table and not
+ * a rule: gmach puts the API on `pipedapi.<domain>` and private.coffee on
+ * `api.piped.<domain>`. Both were checked against the live hosts — the frontend
+ * origin answers `/streams/<id>` with the SPA's `text/html`, so asking it for
+ * metadata gets a 200 that is not JSON, which is the failure mode a derived
+ * guess would have produced silently.
+ *
+ * Every entry here is CORS-open (`access-control-allow-origin: *`), so this is
+ * readable from the web app as well as the shells.
+ */
+const PIPED_API_ORIGINS: Record<string, string> = {
+  'https://piped.gmach.online': 'https://pipedapi.gmach.online',
+  'https://piped.private.coffee': 'https://api.piped.private.coffee',
+};
+
+/**
  * Origins this context can even attempt.
  *
  * A no-op against the current list, which is all https and all real domains —
@@ -52,6 +70,17 @@ const trimSlash = (s: string): string => s.replace(/\/+$/, '');
 
 export const pipedEmbedUrl = (origin: string, videoId: string): string =>
   `${trimSlash(origin)}/embed/${videoId}`;
+
+/**
+ * The metadata endpoint for a video on `origin`'s instance, or undefined when
+ * that instance has no API host on file. Undefined means "do not ask" — never
+ * fall back to the frontend origin, which answers with HTML.
+ */
+export const pipedStreamsUrl = (origin: string, videoId: string): string | undefined => {
+  const api = PIPED_API_ORIGINS[trimSlash(origin)];
+  if (!api) return undefined;
+  return `${api}/streams/${encodeURIComponent(videoId)}`;
+};
 
 // A reachability probe. `no-cors` means we can't read the response status, but an
 // opaque resolve still tells us the host answered and — for https — that its

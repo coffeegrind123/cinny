@@ -37,7 +37,18 @@ export interface Settings {
   editorToolbar: boolean;
   twitterEmoji: boolean;
   pageZoom: number;
-  hideActivity: boolean;
+  /**
+   * Send read receipts privately, and hide everyone else's from this client.
+   *
+   * Split out of the old `hideActivity`, which switched this and typing
+   * together. They are unrelated signals — "don't broadcast what I have read"
+   * and "don't broadcast that I am composing" — and wanting one without the
+   * other is the normal case, not an edge one. `migrateSettings` carries an
+   * existing `hideActivity` onto both.
+   */
+  hideReadReceipts: boolean;
+  /** Send no typing notifications, and hide everyone else's from this client. */
+  hideTypingStatus: boolean;
 
   minimizeToTray: boolean;
 
@@ -62,6 +73,7 @@ export interface Settings {
   hideMembershipEvents: boolean;
   hideNickAvatarEvents: boolean;
   mediaAutoLoad: boolean;
+  mediaFeedViewer: boolean;
   urlPreview: boolean;
   encUrlPreview: boolean;
   showHiddenEvents: boolean;
@@ -208,7 +220,8 @@ const defaultSettings: Settings = {
   editorToolbar: false,
   twitterEmoji: true,
   pageZoom: 100,
-  hideActivity: false,
+  hideReadReceipts: false,
+  hideTypingStatus: false,
 
   minimizeToTray: true,
 
@@ -227,6 +240,11 @@ const defaultSettings: Settings = {
   hideMembershipEvents: false,
   hideNickAvatarEvents: true,
   mediaAutoLoad: true,
+  // Tapping a photo in the timeline opens the room's media feed at that photo
+  // rather than a single-image lightbox — the same list the gallery shows, so
+  // the next attachment is one flick away. Off puts the zoom/pan viewer back
+  // as the tap target; the feed keeps its own zoom control either way.
+  mediaFeedViewer: true,
   urlPreview: true,
   // On by default (product decision, 2026-08-11). Worth stating plainly rather
   // than leaving implicit: asking for a preview of a URL inside an end-to-end
@@ -302,6 +320,33 @@ const defaultSettings: Settings = {
   onlySignedDevices: false,
 };
 
+/** Settings that existed under a different shape in an older build. */
+type LegacySettings = Partial<Settings> & {
+  /** One switch over typing AND read receipts, split in two — see `Settings`. */
+  hideActivity?: boolean;
+};
+
+/**
+ * Bring a persisted blob up to the current shape.
+ *
+ * A migration rather than a default: someone who turned `hideActivity` on chose
+ * to be invisible, and silently reverting them to broadcasting because the key
+ * was renamed would be a privacy regression, not a cosmetic one. The old key is
+ * dropped from the result, so it disappears from storage on the next write.
+ */
+const migrateSettings = (stored: LegacySettings): Partial<Settings> => {
+  const { hideActivity, ...settings } = stored;
+  if (typeof hideActivity !== 'boolean') return settings;
+
+  return {
+    ...settings,
+    // An explicit value for either new key wins — the user has already answered
+    // this question in the new shape, and the old key is only a fallback.
+    hideReadReceipts: settings.hideReadReceipts ?? hideActivity,
+    hideTypingStatus: settings.hideTypingStatus ?? hideActivity,
+  };
+};
+
 export const getSettings = (): Settings => {
   const settings = localStorage.getItem(STORAGE_KEY);
   if (settings === null) return defaultSettings;
@@ -316,7 +361,7 @@ export const getSettings = (): Settings => {
     }
     return {
       ...defaultSettings,
-      ...(parsed as Partial<Settings>),
+      ...migrateSettings(parsed as LegacySettings),
     };
   } catch {
     return defaultSettings;

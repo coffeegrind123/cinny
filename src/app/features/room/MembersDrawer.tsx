@@ -391,8 +391,15 @@ export function MembersDrawer({ room, members, overlay, onClose }: MembersDrawer
         <Scroll ref={scrollRef} variant="Background" size="300" visibility="Hover" hideTrack>
           <Box className={css.MemberDrawerContent} direction="Column" gap="200">
             <Box ref={scrollTopAnchorRef} className={css.DrawerGroup} direction="Column" gap="200">
+              {/* The member count is the only thing in this row allowed to
+                  shrink. The two chips below are controls whose labels are
+                  short phrases — "A to Z", "Z to A" — and a flex row 266px wide
+                  squeezed them until the label wrapped mid-phrase, putting "A
+                  to" on one line and "Z" under it. `minWidth: 0` lets the count
+                  truncate (it already has the full number in its title), and
+                  `flexShrink: 0` on the chips means it is the one that gives. */}
               <Box alignItems="Center" gap="200">
-                <Box grow="Yes">
+                <Box grow="Yes" style={{ minWidth: 0 }}>
                   <Text size="L400" truncate title={`${room.getJoinedMemberCount()} Members`}>
                     {`${millify(room.getJoinedMemberCount())} Members`}
                   </Text>
@@ -400,6 +407,7 @@ export function MembersDrawer({ room, members, overlay, onClose }: MembersDrawer
                 <UseStateProvider initial={undefined}>
                   {(anchor: RectCords | undefined, setAnchor) => (
                     <PopOut
+                      style={{ flexShrink: 0 }}
                       anchor={anchor}
                       position="Bottom"
                       align="Start"
@@ -424,7 +432,9 @@ export function MembersDrawer({ room, members, overlay, onClose }: MembersDrawer
                         radii="300"
                         before={<Icon src={Icons.Filter} size="50" />}
                       >
-                        <Text size="T200">{membershipFilter.name}</Text>
+                        <Text size="T200" truncate>
+                          {membershipFilter.name}
+                        </Text>
                       </Chip>
                     </PopOut>
                   )}
@@ -432,6 +442,7 @@ export function MembersDrawer({ room, members, overlay, onClose }: MembersDrawer
                 <UseStateProvider initial={undefined}>
                   {(anchor: RectCords | undefined, setAnchor) => (
                     <PopOut
+                      style={{ flexShrink: 0 }}
                       anchor={anchor}
                       position="Bottom"
                       align="End"
@@ -456,7 +467,9 @@ export function MembersDrawer({ room, members, overlay, onClose }: MembersDrawer
                         radii="300"
                         after={<Icon src={Icons.Sort} size="50" />}
                       >
-                        <Text size="T200">{memberSort.name}</Text>
+                        <Text size="T200" truncate>
+                          {memberSort.name}
+                        </Text>
                       </Chip>
                     </PopOut>
                   )}

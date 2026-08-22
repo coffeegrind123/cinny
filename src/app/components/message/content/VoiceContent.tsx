@@ -13,6 +13,8 @@ export type VoiceContentProps = {
   waveform?: number[];
   /** Milliseconds, from the audio block or `info.duration`. */
   duration?: number;
+  /** Sender's filename, so a save from the element's own menu keeps it. */
+  filename?: string;
 };
 
 /**
@@ -39,8 +41,8 @@ export type VoiceContentProps = {
  * are still accepted in props so senders that supply them cost nothing, and so
  * the call sites do not have to change.
  */
-export function VoiceContent({ mimeType, url, encInfo }: VoiceContentProps) {
-  const { src, state, needsBlob } = useMediaSrc(url, mimeType, encInfo);
+export function VoiceContent({ mimeType, url, encInfo, filename }: VoiceContentProps) {
+  const { src, state, needsBlob, onSrcError } = useMediaSrc(url, mimeType, encInfo, filename);
 
   if (needsBlob && state.status === AsyncStatus.Error) {
     return (
@@ -57,5 +59,13 @@ export function VoiceContent({ mimeType, url, encInfo }: VoiceContentProps) {
   // Matches AudioContent, which has always used the native element — a voice
   // note and an audio attachment are the same thing with different framing,
   // and they should not have looked like two different players.
-  return <audio style={{ width: '100%' }} src={src} controls preload="metadata" />;
+  return (
+    <audio
+      style={{ width: '100%' }}
+      src={src}
+      controls
+      preload="metadata"
+      onError={onSrcError}
+    />
+  );
 }

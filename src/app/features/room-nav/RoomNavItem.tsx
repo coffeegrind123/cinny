@@ -95,7 +95,7 @@ type RoomNavItemMenuProps = {
 const RoomNavItemMenu = forwardRef<HTMLDivElement, RoomNavItemMenuProps>(
   ({ room, requestClose, notificationMode, pinnable }, ref) => {
     const mx = useMatrixClient();
-    const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
+    const [hideReadReceipts] = useSetting(settingsAtom, 'hideReadReceipts');
     const unread = useRoomUnread(room.roomId, roomToUnreadAtom);
     const markedUnread = unread?.marked ?? false;
     // The open room used to be excluded here: it auto-marks itself read
@@ -118,7 +118,7 @@ const RoomNavItemMenu = forwardRef<HTMLDivElement, RoomNavItemMenuProps>(
     const [invitePrompt, setInvitePrompt] = useState(false);
 
     const handleMarkAsRead = () => {
-      markAsRead(mx, room.roomId, hideActivity);
+      markAsRead(mx, room.roomId, hideReadReceipts);
       requestClose();
     };
 

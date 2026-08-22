@@ -45,6 +45,7 @@ import {
 import { useUserPresence } from '../../hooks/useUserPresence';
 import { PresenceBadge } from '../../components/presence';
 import { roomSearchFocusRequestAtom, roomSearchOpenAtom } from '../../state/roomSearch';
+import { roomGalleryOpenAtom } from '../../state/roomGallery';
 import { _SearchPathSearchParams } from '../../pages/paths';
 import * as css from './RoomViewHeader.css';
 import { useRoomUnread } from '../../state/hooks/unread';
@@ -90,7 +91,7 @@ type RoomMenuProps = {
 };
 const RoomMenu = forwardRef<HTMLDivElement, RoomMenuProps>(({ room, requestClose }, ref) => {
   const mx = useMatrixClient();
-  const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
+  const [hideReadReceipts] = useSetting(settingsAtom, 'hideReadReceipts');
   const unread = useRoomUnread(room.roomId, roomToUnreadAtom);
   const powerLevels = usePowerLevelsContext();
   const creators = useRoomCreators(room);
@@ -102,9 +103,15 @@ const RoomMenu = forwardRef<HTMLDivElement, RoomMenuProps>(({ room, requestClose
   const { navigateRoom } = useRoomNavigate();
 
   const [invitePrompt, setInvitePrompt] = useState(false);
+  const setGalleryOpen = useSetAtom(roomGalleryOpenAtom);
+
+  const handleOpenGallery = () => {
+    setGalleryOpen(true);
+    requestClose();
+  };
 
   const handleMarkAsRead = () => {
-    markAsRead(mx, room.roomId, hideActivity);
+    markAsRead(mx, room.roomId, hideReadReceipts);
     requestClose();
   };
 
@@ -233,6 +240,16 @@ const RoomMenu = forwardRef<HTMLDivElement, RoomMenuProps>(({ room, requestClose
             </>
           )}
         </UseStateProvider>
+        <MenuItem
+          onClick={handleOpenGallery}
+          size="300"
+          after={<Icon size="100" src={Icons.Photo} />}
+          radii="300"
+        >
+          <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+            Media Gallery
+          </Text>
+        </MenuItem>
         <UseStateProvider initial={false}>
           {(promptFiles, setPromptFiles) => (
             <>
@@ -486,7 +503,7 @@ export function RoomViewHeader({ callView }: { callView?: boolean }) {
   const name = useRoomName(room);
   const topic = useRoomTopic(room);
   const avatarUrl = avatarMxc
-    ? mxcUrlToHttp(mx, avatarMxc, useAuthentication, 96, 96, 'crop') ?? undefined
+    ? (mxcUrlToHttp(mx, avatarMxc, useAuthentication, 96, 96, 'crop') ?? undefined)
     : undefined;
 
   const [peopleDrawer, setPeopleDrawer] = useSetting(settingsAtom, 'isPeopleDrawer');
@@ -496,6 +513,11 @@ export function RoomViewHeader({ callView }: { callView?: boolean }) {
 
   const [searchOpen, setSearchOpen] = useAtom(roomSearchOpenAtom);
   const requestSearchFocus = useSetAtom(roomSearchFocusRequestAtom);
+  const [galleryOpen, setGalleryOpen] = useAtom(roomGalleryOpenAtom);
+  const handleGalleryClick = () => {
+    // A gallery of a call is not a thing; the button is not rendered there.
+    setGalleryOpen((open) => !open);
+  };
   const handleSearchClick = () => {
     if (callView) {
       // No right-side drawer in call view — fall back to the global search page.
@@ -664,6 +686,29 @@ export function RoomViewHeader({ callView }: { callView?: boolean }) {
               </IconButton>
             )}
           </TooltipProvider>
+          {!callView && (
+            <TooltipProvider
+              position="Bottom"
+              offset={4}
+              tooltip={
+                <Tooltip>
+                  <Text>{galleryOpen ? 'Back to Conversation' : 'Media Gallery'}</Text>
+                </Tooltip>
+              }
+            >
+              {(triggerRef) => (
+                <IconButton
+                  fill="None"
+                  ref={triggerRef}
+                  onClick={handleGalleryClick}
+                  aria-label={galleryOpen ? 'Back to conversation' : 'Media gallery'}
+                  aria-pressed={galleryOpen}
+                >
+                  <Icon size="400" src={Icons.Photo} filled={galleryOpen} />
+                </IconButton>
+              )}
+            </TooltipProvider>
+          )}
           <TooltipProvider
             position="Bottom"
             offset={4}

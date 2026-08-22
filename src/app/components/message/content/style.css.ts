@@ -32,6 +32,18 @@ export const AbsoluteFooter = style([
   },
 ]);
 
+export const AbsoluteHeader = style([
+  DefaultReset,
+  {
+    position: 'absolute',
+    top: config.space.S100,
+    right: config.space.S100,
+    display: 'flex',
+    alignItems: 'center',
+    gap: config.space.S100,
+  },
+]);
+
 export const Blur = style([
   DefaultReset,
   {

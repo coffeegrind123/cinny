@@ -36,11 +36,11 @@ type DirectRoomMenuProps = {
 };
 const DirectRoomMenu = forwardRef<HTMLDivElement, DirectRoomMenuProps>(
   ({ room, requestClose }, ref) => {
-    const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
+    const [hideReadReceipts] = useSetting(settingsAtom, 'hideReadReceipts');
     const mx = useMatrixClient();
 
     const handleMarkAsRead = () => {
-      markAsRead(mx, room.roomId, hideActivity);
+      markAsRead(mx, room.roomId, hideReadReceipts);
       requestClose();
     };
 

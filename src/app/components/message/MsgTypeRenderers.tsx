@@ -34,8 +34,22 @@ import {
   getImageSafeMimeType,
 } from '../../utils/mimeTypes';
 import { fitWithin, parseGeoUri, scaleYDimension } from '../../utils/common';
-import { Attachment, AttachmentBox, AttachmentContent, AttachmentHeader } from './attachment';
-import { FileHeader, FileDownloadButton } from './FileHeader';
+import { Attachment, AttachmentBox } from './attachment';
+import { AttachmentCaption, AttachmentDownloadCaption } from './AttachmentCaption';
+
+/**
+ * Every attachment that is not an image is laid out in this column.
+ *
+ * It is the width `Attachment` used to impose from its own stylesheet. The
+ * cards are gone but their sizing is not — without this a native audio player
+ * or a file's buttons would stretch to the full timeline width on a wide
+ * window.
+ */
+const ATTACHMENT_COLUMN: CSSProperties = {
+  width: toRem(400),
+  maxWidth: '100%',
+  minWidth: 0,
+};
 
 export function MBadEncrypted() {
   return (
@@ -242,6 +256,8 @@ export function MImage({ content, renderImageContent, outlined }: MImageProps) {
 
 type RenderVideoContentProps = {
   body: string;
+  /** The sender's filename, so a save from the element's own menu keeps it. */
+  filename: string;
   info: IVideoInfo & IThumbnailContent;
   mimeType: string;
   url: string;
@@ -255,9 +271,19 @@ type MVideoProps = {
   content: IVideoContent;
   renderAsFile: () => ReactNode;
   renderVideoContent: (props: RenderVideoContentProps) => ReactNode;
-  outlined?: boolean;
 };
-export function MVideo({ content, renderAsFile, renderVideoContent, outlined }: MVideoProps) {
+/**
+ * A video attachment: the platform video element under its filename.
+ *
+ * The card this used to sit in is gone, along with the banner across its top —
+ * a `SurfaceVariant` slab holding a pill with the file extension in it, the
+ * filename, and a download icon button. The element below it already draws its
+ * own surface and its own controls, so the banner was a second, worse set of
+ * chrome around them. What survives is the filename, at the timeline's own
+ * secondary-text weight, and one download that lands the file under that name
+ * (see AttachmentDownloadCaption).
+ */
+export function MVideo({ content, renderAsFile, renderVideoContent }: MVideoProps) {
   const videoInfo = content?.info;
   const mxcUrl = content.file?.url ?? content.url;
   const safeMimeType = getBlobSafeMimeType(videoInfo?.mimetype ?? '');
@@ -274,27 +300,20 @@ export function MVideo({ content, renderAsFile, renderVideoContent, outlined }: 
   const filename = content.filename ?? content.body ?? 'Video';
 
   return (
-    <Attachment outlined={outlined}>
-      <AttachmentHeader>
-        <FileHeader
-          body={filename}
-          mimeType={safeMimeType}
-          after={
-            <FileDownloadButton
-              filename={filename}
-              url={mxcUrl}
-              mimeType={safeMimeType}
-              encInfo={content.file}
-            />
-          }
-        />
-      </AttachmentHeader>
+    <Box direction="Column" style={ATTACHMENT_COLUMN}>
+      <AttachmentDownloadCaption
+        filename={filename}
+        url={mxcUrl}
+        mimeType={safeMimeType}
+        encInfo={content.file}
+      />
       <AttachmentBox
         style={{
           height: toRem(height < 48 ? 48 : height),
         }}
       >
         {renderVideoContent({
+          filename,
           body: content.body || 'Video',
           // Written by the GIF picker on send. Until now nothing read it back
           // when rendering, so a GIF arrived as an ordinary video: a Watch
@@ -308,12 +327,14 @@ export function MVideo({ content, renderAsFile, renderVideoContent, outlined }: 
           spoilerReason: content[MATRIX_SPOILER_REASON_PROPERTY_NAME],
         })}
       </AttachmentBox>
-    </Attachment>
+    </Box>
   );
 }
 
 type RenderAudioContentProps = {
   info: IAudioInfo;
+  /** The sender's filename, so a save from the element's own menu keeps it. */
+  filename: string;
   mimeType: string;
   url: string;
   encInfo?: IEncryptedFile;
@@ -322,9 +343,16 @@ type MAudioProps = {
   content: IAudioContent;
   renderAsFile: () => ReactNode;
   renderAudioContent: (props: RenderAudioContentProps) => ReactNode;
-  outlined?: boolean;
 };
-export function MAudio({ content, renderAsFile, renderAudioContent, outlined }: MAudioProps) {
+/**
+ * An audio attachment: the platform audio element under its filename.
+ *
+ * Same treatment as MVideo and, before it, MVoice — see MVideo for why the
+ * card and its banner went. A `.wav` used to arrive as a filled slab with the
+ * word "WAV" in a pill, the filename, and a download button, stacked on top of
+ * a player that already had all the controls anyone needed.
+ */
+export function MAudio({ content, renderAsFile, renderAudioContent }: MAudioProps) {
   const audioInfo = content?.info;
   const mxcUrl = content.file?.url ?? content.url;
   const safeMimeType = getBlobSafeMimeType(audioInfo?.mimetype ?? '');
@@ -338,32 +366,21 @@ export function MAudio({ content, renderAsFile, renderAudioContent, outlined }: 
 
   const filename = content.filename ?? content.body ?? 'Audio';
   return (
-    <Attachment outlined={outlined}>
-      <AttachmentHeader>
-        <FileHeader
-          body={filename}
-          mimeType={safeMimeType}
-          after={
-            <FileDownloadButton
-              filename={filename}
-              url={mxcUrl}
-              mimeType={safeMimeType}
-              encInfo={content.file}
-            />
-          }
-        />
-      </AttachmentHeader>
-      <AttachmentBox>
-        <AttachmentContent>
-          {renderAudioContent({
-            info: audioInfo,
-            mimeType: safeMimeType,
-            url: mxcUrl,
-            encInfo: content.file,
-          })}
-        </AttachmentContent>
-      </AttachmentBox>
-    </Attachment>
+    <Box direction="Column" style={ATTACHMENT_COLUMN}>
+      <AttachmentDownloadCaption
+        filename={filename}
+        url={mxcUrl}
+        mimeType={safeMimeType}
+        encInfo={content.file}
+      />
+      {renderAudioContent({
+        info: audioInfo,
+        filename,
+        mimeType: safeMimeType,
+        url: mxcUrl,
+        encInfo: content.file,
+      })}
+    </Box>
   );
 }
 
@@ -397,9 +414,10 @@ export function MVoice({ content, renderAsFile, renderVoiceContent }: MVoiceProp
     // The card is gone but its sizing is not: `Attachment` pinned every
     // attachment to 400px, and dropping the wrapper without replacing that
     // would let the player stretch to the full timeline width on a wide window.
-    <Box direction="Column" style={{ width: toRem(400), maxWidth: '100%', minWidth: 0 }}>
+    <Box direction="Column" style={ATTACHMENT_COLUMN}>
       {renderVoiceContent({
         info: audioInfo ?? {},
+        filename: content.filename ?? content.body ?? 'Voice message',
         mimeType: safeMimeType,
         url: mxcUrl,
         encInfo: content.file,
@@ -418,9 +436,18 @@ type RenderFileContentProps = {
 type MFileProps = {
   content: IFileContent;
   renderFileContent: (props: RenderFileContentProps) => ReactNode;
-  outlined?: boolean;
 };
-export function MFile({ content, renderFileContent, outlined }: MFileProps) {
+/**
+ * A file attachment: its name, then whatever can be done with it.
+ *
+ * There is no player to hand this one over to, so it keeps its buttons — but
+ * not the filled card they sat in, nor the extension pill, both of which were
+ * the same furniture the media types have now shed. The caption here is inert:
+ * `renderFileContent` already supplies an explicit "Download (2.4 MB)", and
+ * making the name a second download would restore the duplication this set out
+ * to remove.
+ */
+export function MFile({ content, renderFileContent }: MFileProps) {
   const fileInfo = content?.info;
   const mxcUrl = content.file?.url ?? content.url;
 
@@ -429,25 +456,16 @@ export function MFile({ content, renderFileContent, outlined }: MFileProps) {
   }
 
   return (
-    <Attachment outlined={outlined}>
-      <AttachmentHeader>
-        <FileHeader
-          body={content.filename ?? content.body ?? 'Unnamed File'}
-          mimeType={fileInfo?.mimetype ?? FALLBACK_MIMETYPE}
-        />
-      </AttachmentHeader>
-      <AttachmentBox>
-        <AttachmentContent>
-          {renderFileContent({
-            body: content.filename ?? content.body ?? 'File',
-            info: fileInfo ?? {},
-            mimeType: fileInfo?.mimetype ?? FALLBACK_MIMETYPE,
-            url: mxcUrl,
-            encInfo: content.file,
-          })}
-        </AttachmentContent>
-      </AttachmentBox>
-    </Attachment>
+    <Box direction="Column" style={ATTACHMENT_COLUMN}>
+      <AttachmentCaption filename={content.filename ?? content.body ?? 'Unnamed File'} />
+      {renderFileContent({
+        body: content.filename ?? content.body ?? 'File',
+        info: fileInfo ?? {},
+        mimeType: fileInfo?.mimetype ?? FALLBACK_MIMETYPE,
+        url: mxcUrl,
+        encInfo: content.file,
+      })}
+    </Box>
   );
 }
 

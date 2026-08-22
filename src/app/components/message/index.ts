@@ -8,5 +8,5 @@ export * from './Time';
 export * from './SenderTime';
 export * from './MsgTypeRenderers';
 export * from './MessageTrailing';
-export * from './FileHeader';
+export * from './AttachmentCaption';
 export * from './RenderBody';

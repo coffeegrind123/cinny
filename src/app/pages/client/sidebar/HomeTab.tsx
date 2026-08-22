@@ -31,13 +31,13 @@ type HomeMenuProps = {
   requestClose: () => void;
 };
 const HomeMenu = forwardRef<HTMLDivElement, HomeMenuProps>(({ rooms, requestClose }, ref) => {
-  const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
+  const [hideReadReceipts] = useSetting(settingsAtom, 'hideReadReceipts');
   const unread = useRoomsUnread(rooms, roomToUnreadAtom);
   const mx = useMatrixClient();
 
   const handleMarkAsRead = () => {
     if (!unread) return;
-    rooms.forEach((rId) => markAsRead(mx, rId, hideActivity));
+    rooms.forEach((rId) => markAsRead(mx, rId, hideReadReceipts));
     requestClose();
   };
 

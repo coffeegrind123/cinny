@@ -9,9 +9,11 @@ export type AudioContentProps = {
   url: string;
   info: IAudioInfo;
   encInfo?: EncryptedAttachmentInfo;
+  /** Sender's filename, so a save from the element's own menu keeps it. */
+  filename?: string;
 };
-export function AudioContent({ mimeType, url, encInfo }: AudioContentProps) {
-  const { src, state, needsBlob } = useMediaSrc(url, mimeType, encInfo);
+export function AudioContent({ mimeType, url, encInfo, filename }: AudioContentProps) {
+  const { src, state, needsBlob, onSrcError } = useMediaSrc(url, mimeType, encInfo, filename);
 
   if (needsBlob && state.status === AsyncStatus.Error) {
     return (
@@ -25,5 +27,13 @@ export function AudioContent({ mimeType, url, encInfo }: AudioContentProps) {
     return <Spinner variant="Secondary" size="400" />;
   }
 
-  return <audio style={{ width: '100%' }} controls preload="metadata" src={src} />;
+  return (
+    <audio
+      style={{ width: '100%' }}
+      controls
+      preload="metadata"
+      src={src}
+      onError={onSrcError}
+    />
+  );
 }

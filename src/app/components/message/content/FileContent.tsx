@@ -14,7 +14,6 @@ import {
   TooltipProvider,
   as,
 } from 'folds';
-import FileSaver from '../../../utils/save-file';
 import { EncryptedAttachmentInfo } from 'browser-encrypt-attachment';
 import { FocusTrap } from 'focus-trap-react';
 import { IFileInfo } from '../../../../types/matrix/common';
@@ -26,7 +25,6 @@ import {
   READABLE_TEXT_MIME_TYPES,
   getFileNameExt,
   mimeTypeToExt,
-  safeDownloadFilename,
 } from '../../../utils/mimeTypes';
 import { stopPropagation } from '../../../utils/keyboard';
 import {
@@ -36,6 +34,7 @@ import {
   mxcUrlToHttp,
 } from '../../../utils/matrix';
 import { useMediaAuthentication } from '../../../hooks/useMediaAuthentication';
+import { useMediaDownload } from '../../../hooks/useMediaDownload';
 import { ModalWide } from '../../../styles/Modal.css';
 
 const renderErrorButton = (retry: () => void, text: string) => (
@@ -251,28 +250,11 @@ export type DownloadFileProps = {
   encInfo?: EncryptedAttachmentInfo;
 };
 export function DownloadFile({ body, mimeType, url, info, encInfo }: DownloadFileProps) {
-  const mx = useMatrixClient();
-  const useAuthentication = useMediaAuthentication();
-  // `body` is the sender-supplied filename. It is fine as display text (React
-  // escapes it), but the download sink needs a flattened basename — see
-  // safeDownloadFilename().
-  const downloadName = safeDownloadFilename(body);
+  // `body` is the sender-supplied filename; useMediaDownload flattens it for
+  // the download sink and saves the file under it.
+  const { download, downloading, hasError } = useMediaDownload(body, url, mimeType, encInfo);
 
-  const [downloadState, download] = useAsyncCallback(
-    useCallback(async () => {
-      const mediaUrl = mxcUrlToHttp(mx, url, useAuthentication);
-      if (!mediaUrl) throw new Error('Invalid media URL');
-      const fileContent = encInfo
-        ? await downloadEncryptedMedia(mediaUrl, (encBuf) => decryptFile(encBuf, mimeType, encInfo))
-        : await downloadMedia(mediaUrl);
-
-      const fileURL = URL.createObjectURL(fileContent);
-      FileSaver.saveAs(fileURL, downloadName);
-      return fileURL;
-    }, [mx, url, useAuthentication, mimeType, encInfo, downloadName])
-  );
-
-  return downloadState.status === AsyncStatus.Error ? (
+  return hasError ? (
     renderErrorButton(download, `Retry Download (${bytesToSize(info.size ?? 0)})`)
   ) : (
     <Button
@@ -280,14 +262,10 @@ export function DownloadFile({ body, mimeType, url, info, encInfo }: DownloadFil
       fill="Soft"
       radii="300"
       size="400"
-      onClick={() =>
-        downloadState.status === AsyncStatus.Success
-          ? FileSaver.saveAs(downloadState.data, downloadName)
-          : download()
-      }
-      disabled={downloadState.status === AsyncStatus.Loading}
+      onClick={download}
+      disabled={downloading}
       before={
-        downloadState.status === AsyncStatus.Loading ? (
+        downloading ? (
           <Spinner fill="Soft" size="100" variant="Secondary" />
         ) : (
           <Icon size="100" src={Icons.Download} filled />

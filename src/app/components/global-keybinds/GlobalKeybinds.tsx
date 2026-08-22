@@ -54,7 +54,7 @@ export function GlobalKeybinds() {
   const setKeyboardShortcutsOpen = useSetAtom(keyboardShortcutsAtom);
   const setSearchOpen = useSetAtom(searchModalAtom);
   const setSettings = useSetSetting(settingsAtom, 'isPeopleDrawer');
-  const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
+  const [hideReadReceipts] = useSetting(settingsAtom, 'hideReadReceipts');
   const allRooms = useAtomValue(allRoomsAtom);
   const roomToUnread = useAtomValue(roomToUnreadAtom);
   const roomToParents = useAtomValue(roomToParentsAtom);
@@ -204,7 +204,7 @@ export function GlobalKeybinds() {
   useKeybind('mark-channel-read', () => {
     if (isEditableElementFocused()) return;
     if (selectedRoomId) {
-      markAsRead(mx, selectedRoomId, hideActivity);
+      markAsRead(mx, selectedRoomId, hideReadReceipts);
     }
   });
   useKeybind('mark-server-read', () => {
@@ -216,7 +216,7 @@ export function GlobalKeybinds() {
         if (!room || isSpace(room)) return;
         const parents = roomToParents.get(rid);
         if (!parents?.has(selectedSpaceId)) return;
-        markAsRead(mx, rid, hideActivity);
+        markAsRead(mx, rid, hideReadReceipts);
       });
     } else {
       // Top-level Home: clear every non-space room + DMs.
@@ -224,7 +224,7 @@ export function GlobalKeybinds() {
         const room = mx.getRoom(rid);
         if (!room || isSpace(room)) return;
         if (mDirects.has(rid) || !roomToParents.has(rid)) {
-          markAsRead(mx, rid, hideActivity);
+          markAsRead(mx, rid, hideReadReceipts);
         }
       });
     }

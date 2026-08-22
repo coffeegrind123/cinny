@@ -873,7 +873,8 @@ function Editor() {
   const [enterForNewline, setEnterForNewline] = useSetting(settingsAtom, 'enterForNewline');
   const [scrollOnSend, setScrollOnSend] = useSetting(settingsAtom, 'scrollOnSend');
   const [isMarkdown, setIsMarkdown] = useSetting(settingsAtom, 'isMarkdown');
-  const [hideActivity, setHideActivity] = useSetting(settingsAtom, 'hideActivity');
+  const [hideReadReceipts, setHideReadReceipts] = useSetting(settingsAtom, 'hideReadReceipts');
+  const [hideTypingStatus, setHideTypingStatus] = useSetting(settingsAtom, 'hideTypingStatus');
   const [readReceiptStyle, setReadReceiptStyle] = useSetting(settingsAtom, 'readReceiptStyle');
   const [useVxTwitter, setUseVxTwitter] = useSetting(settingsAtom, 'useVxTwitter');
   const [useSoundcloak, setUseSoundcloak] = useSetting(settingsAtom, 'useSoundcloak');
@@ -924,9 +925,20 @@ function Editor() {
       </SequenceCard>
       <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
         <SettingTile
-          title="Hide Typing & Read Receipts"
-          description="Turn off both typing status and read receipts to keep your activity private."
-          after={<Switch variant="Primary" value={hideActivity} onChange={setHideActivity} />}
+          title="Hide Read Receipts"
+          description="Send your read receipts privately, so nobody is told how far you have read. Other people's read receipts are hidden from you in return."
+          after={
+            <Switch variant="Primary" value={hideReadReceipts} onChange={setHideReadReceipts} />
+          }
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Hide Typing Notifications"
+          description="Stop telling rooms when you are composing a message. Other people's typing notifications are hidden from you in return."
+          after={
+            <Switch variant="Primary" value={hideTypingStatus} onChange={setHideTypingStatus} />
+          }
         />
       </SequenceCard>
       <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
@@ -1240,6 +1252,7 @@ function Messages() {
     'hideNickAvatarEvents',
   );
   const [mediaAutoLoad, setMediaAutoLoad] = useSetting(settingsAtom, 'mediaAutoLoad');
+  const [mediaFeedViewer, setMediaFeedViewer] = useSetting(settingsAtom, 'mediaFeedViewer');
   const [urlPreview, setUrlPreview] = useSetting(settingsAtom, 'urlPreview');
   const [encUrlPreview, setEncUrlPreview] = useSetting(settingsAtom, 'encUrlPreview');
   const [showHiddenEvents, setShowHiddenEvents] = useSetting(settingsAtom, 'showHiddenEvents');
@@ -1299,6 +1312,13 @@ function Messages() {
               onChange={(v) => setMediaAutoLoad(!v)}
             />
           }
+        />
+      </SequenceCard>
+      <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">
+        <SettingTile
+          title="Open Media in Feed"
+          description="Tapping a photo or video opens the room's media feed at it — swipe up for the next attachment. Off opens the single-image viewer instead."
+          after={<Switch variant="Primary" value={mediaFeedViewer} onChange={setMediaFeedViewer} />}
         />
       </SequenceCard>
       <SequenceCard className={SequenceCardStyle} variant="SurfaceVariant" direction="Column">

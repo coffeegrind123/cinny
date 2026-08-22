@@ -17,6 +17,8 @@ import { Video } from '../../media';
 
 type VideoContentProps = {
   body: string;
+  /** Sender's filename, so a save from the element's own menu keeps it. */
+  filename?: string;
   mimeType: string;
   url: string;
   info: IVideoInfo & IThumbnailContent;
@@ -32,6 +34,12 @@ type VideoContentProps = {
   markedAsSpoiler?: boolean;
   spoilerReason?: string;
   renderThumbnail?: () => ReactNode;
+  /**
+   * Chrome drawn over the top-right of the player. The media feed's entry
+   * point lives here: a video in the timeline plays in place, and this is what
+   * takes it full-screen alongside the rest of the room's media.
+   */
+  renderOverlay?: () => ReactNode;
 };
 
 /**
@@ -55,6 +63,7 @@ export const VideoContent = as<'div', VideoContentProps>(
     {
       className,
       body,
+      filename,
       mimeType,
       url,
       info,
@@ -63,11 +72,12 @@ export const VideoContent = as<'div', VideoContentProps>(
       markedAsSpoiler,
       spoilerReason,
       renderThumbnail,
+      renderOverlay,
       ...props
     },
     ref
   ) => {
-    const { src, state, needsBlob } = useMediaSrc(url, mimeType, encInfo);
+    const { src, state, needsBlob, onSrcError } = useMediaSrc(url, mimeType, encInfo, filename);
     const blurHash = validBlurHash(info.thumbnail_info?.[MATRIX_BLUR_HASH_PROPERTY_NAME]);
     // In low animation mode a GIF holds still until pointed at or focused.
     // `hoverProps` is empty when the mode is off, so this costs nothing then.
@@ -153,9 +163,11 @@ export const VideoContent = as<'div', VideoContentProps>(
               muted={!!gif}
               playsInline
               preload="metadata"
+              onError={onSrcError}
             />
           </Box>
         )}
+        {renderOverlay && !blurred && <Box className={css.AbsoluteHeader}>{renderOverlay()}</Box>}
         {blurred && (
           <Box className={css.AbsoluteContainer} alignItems="Center" justifyContent="Center">
             <TooltipProvider

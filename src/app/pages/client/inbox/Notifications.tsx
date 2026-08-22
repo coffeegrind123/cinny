@@ -215,7 +215,7 @@ type RoomNotificationsGroupProps = {
   notifications: INotification[];
   mediaAutoLoad?: boolean;
   urlPreview?: boolean;
-  hideActivity: boolean;
+  hideReadReceipts: boolean;
   onOpen: (roomId: string, eventId: string) => void;
   legacyUsernameColor?: boolean;
   hour24Clock: boolean;
@@ -226,7 +226,7 @@ function RoomNotificationsGroupComp({
   notifications,
   mediaAutoLoad,
   urlPreview,
-  hideActivity,
+  hideReadReceipts,
   onOpen,
   legacyUsernameColor,
   hour24Clock,
@@ -439,7 +439,7 @@ function RoomNotificationsGroupComp({
     onOpen(room.roomId, eventId);
   };
   const handleMarkAsRead = () => {
-    markAsRead(mx, room.roomId, hideActivity);
+    markAsRead(mx, room.roomId, hideReadReceipts);
   };
 
   return (
@@ -612,7 +612,7 @@ type NotificationsProps = {
 };
 export function Notifications({ title = 'Notification Messages', before }: NotificationsProps) {
   const mx = useMatrixClient();
-  const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
+  const [hideReadReceipts] = useSetting(settingsAtom, 'hideReadReceipts');
   const [mediaAutoLoad] = useSetting(settingsAtom, 'mediaAutoLoad');
   const [urlPreview] = useSetting(settingsAtom, 'urlPreview');
   const [legacyUsernameColor] = useSetting(settingsAtom, 'legacyUsernameColor');
@@ -778,7 +778,7 @@ export function Notifications({ title = 'Notification Messages', before }: Notif
                           notifications={group.notifications}
                           mediaAutoLoad={mediaAutoLoad}
                           urlPreview={urlPreview}
-                          hideActivity={hideActivity}
+                          hideReadReceipts={hideReadReceipts}
                           onOpen={navigateRoom}
                           legacyUsernameColor={
                             legacyUsernameColor || mDirects.has(groupRoom.roomId)

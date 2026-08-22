@@ -190,7 +190,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
     const sendKeys =
       keybinds['send-message'] ?? getKeybindDefinition('send-message')?.defaultKeys ?? 'mod+enter';
     const [isMarkdown] = useSetting(settingsAtom, 'isMarkdown');
-    const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
+    const [hideTypingStatus] = useSetting(settingsAtom, 'hideTypingStatus');
     const [legacyUsernameColor] = useSetting(settingsAtom, 'legacyUsernameColor');
     const direct = useIsDirectRoom();
     const commands = useCommands(mx, room);
@@ -781,7 +781,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
           return;
         }
 
-        if (!hideActivity) {
+        if (!hideTypingStatus) {
           sendTypingStatus(!isEmptyEditor(editor));
         }
 
@@ -791,7 +791,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
           : undefined;
         setAutocompleteQuery(query);
       },
-      [editor, sendTypingStatus, hideActivity],
+      [editor, sendTypingStatus, hideTypingStatus],
     );
 
     const handleCloseAutocomplete = useCallback(() => {

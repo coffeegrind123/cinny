@@ -1,4 +1,5 @@
 import { acquireMicrophone, describeCaptureError } from './capture';
+import { isTauri } from './desktop-notifications';
 
 /**
  * What we know about the app's permission to record.
@@ -25,6 +26,21 @@ export type MicPermissionState = 'granted' | 'prompt' | 'denied' | 'unknown';
  */
 const MIC_PERM_CACHE_KEY = 'micPermissionGranted';
 
+/**
+ * Set only when `getUserMedia` itself came back `NotAllowedError` — i.e. the
+ * platform actually asked and the answer was no.
+ *
+ * This exists because the Permissions API's answer is NOT that evidence inside
+ * the shells. An Android WebView has no per-origin permission store of its own:
+ * the decision is made by the app's `WebChromeClient.onPermissionRequest` at
+ * the moment capture is attempted (see MainActivity), so a `microphone` query
+ * made before that has nothing to report and answers `denied`. Believing it put
+ * the composer straight into the "blocked, go to system settings" dead end for
+ * users who had never been asked anything — the same trap the notification
+ * permission hit in WebView2, and the same fix.
+ */
+const MIC_PERM_DENIED_KEY = 'micPermissionDenied';
+
 export const readCachedMicrophoneGranted = (): boolean => {
   try {
     return localStorage.getItem(MIC_PERM_CACHE_KEY) === '1';
@@ -40,6 +56,41 @@ const writeCachedMicrophoneGranted = (granted: boolean) => {
   } catch {
     // Private mode or a locked-down origin — the hint is optional.
   }
+};
+
+const readVerifiedMicrophoneDenied = (): boolean => {
+  try {
+    return localStorage.getItem(MIC_PERM_DENIED_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
+const writeVerifiedMicrophoneDenied = (denied: boolean) => {
+  try {
+    if (denied) localStorage.setItem(MIC_PERM_DENIED_KEY, '1');
+    else localStorage.removeItem(MIC_PERM_DENIED_KEY);
+  } catch {
+    // Same as above — a hint, not the authority.
+  }
+};
+
+/**
+ * What to make of the platform answering `denied`.
+ *
+ * In a real browser that answer is authoritative and is passed straight
+ * through. In a Tauri shell it is only believed once `getUserMedia` has
+ * produced a `NotAllowedError` of its own; until then the WebView is reporting
+ * the absence of a decision, not a decision, and the honest state is "we have
+ * not asked yet".
+ */
+const interpretDenied = (): MicPermissionState => {
+  if (!isTauri()) return 'denied';
+  if (readVerifiedMicrophoneDenied()) return 'denied';
+  // A remembered grant beats an unverified denial: the shells forget their
+  // permission state on every launch, so this is the returning user's case, and
+  // a wrong guess self-corrects the moment recording is attempted.
+  return readCachedMicrophoneGranted() ? 'granted' : 'prompt';
 };
 
 /**
@@ -65,7 +116,16 @@ export const observeMicrophonePermission = (
 
   const handleChange = () => {
     if (!status) return;
-    const state = status.state as MicPermissionState;
+    const platformState = status.state as MicPermissionState;
+    const state = platformState === 'denied' ? interpretDenied() : platformState;
+    // Log the platform's own words, not just our reading of them: the two
+    // differ on exactly the platform that is hardest to debug from here, and
+    // "the query said X, we reported Y" is the line that makes that visible.
+    if (platformState !== state) {
+      console.info(
+        `microphone permission: platform reported "${platformState}", treating as "${state}"`
+      );
+    }
     if (state === 'granted') writeCachedMicrophoneGranted(true);
     if (state === 'denied') writeCachedMicrophoneGranted(false);
     onState(state);
@@ -114,11 +174,15 @@ export async function requestMicrophonePermission(): Promise<MicrophoneRequestRe
     const mic = await acquireMicrophone();
     mic.release();
     writeCachedMicrophoneGranted(true);
+    writeVerifiedMicrophoneDenied(false);
     return { state: 'granted' };
   } catch (e) {
     const name = e instanceof DOMException || e instanceof Error ? e.name : '';
     if (name === 'NotAllowedError' || name === 'SecurityError') {
       writeCachedMicrophoneGranted(false);
+      // The platform asked and was told no. THIS is the evidence
+      // `interpretDenied` waits for — a Permissions API answer is not.
+      writeVerifiedMicrophoneDenied(true);
       return { state: 'denied', error: describeCaptureError(e) };
     }
     // A missing or busy microphone is not a permission answer. Reporting it as
